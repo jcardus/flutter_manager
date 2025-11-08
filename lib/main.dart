@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 
 void main() {
   runApp(const MyApp());
@@ -7,15 +11,15 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Manager',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.grey),
+        useMaterial3: true,
       ),
-      home: const HomePage(title: 'Flutter Demo Home Page'),
+      home: const HomePage(title: 'Manager'),
     );
   }
 }
@@ -30,33 +34,156 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _counter = 0;
+  MapLibreMapController? mapController;
+  int _selectedIndex = 0;
+  String? _mapStyle;
 
-  void _incrementCounter() {
+  // Default location (San Francisco)
+  final LatLng _center = const LatLng(37.7749, -122.4194);
+
+  // Icons for bottom navigation
+  final List<IconData> _iconList = [
+    Icons.map_outlined,
+    Icons.search_outlined,
+    Icons.favorite_outline,
+    Icons.person_outline,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMapStyle();
+  }
+
+  Future<void> _loadMapStyle() async {
+    final style = await rootBundle.loadString('assets/google_maps_style.json');
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _mapStyle = style;
     });
+  }
+
+  void _onMapCreated(MapLibreMapController controller) {
+    mapController = controller;
+  }
+
+  void _onMenuItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    // Handle menu item selection here
+    switch (index) {
+      case 0:
+        print('Map selected');
+        break;
+      case 1:
+        print('Search selected');
+        break;
+      case 2:
+        print('Saved selected');
+        break;
+      case 3:
+        print('Profile selected');
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: _mapStyle == null
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+        children: [
+          // MapLibre Map (full screen)
+          MapLibreMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _center,
+              zoom: 11.0,
             ),
-          ],
-        ),
+            styleString: _mapStyle!,
+            myLocationEnabled: true,
+            myLocationTrackingMode: MyLocationTrackingMode.tracking,
+          ),
+
+          // Curved Navigation Bar Overlay
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: CurvedNavigationBar(
+              index: _selectedIndex,
+              height: 60,
+              items: <Widget>[
+                Icon(_iconList[0], size: 30, color: Colors.white),
+                Icon(_iconList[1], size: 30, color: Colors.white),
+                Icon(_iconList[2], size: 30, color: Colors.white),
+                Icon(_iconList[3], size: 30, color: Colors.white),
+              ],
+              color: Theme.of(context).colorScheme.primary,
+              buttonBackgroundColor: Theme.of(context).colorScheme.primary,
+              backgroundColor: Colors.transparent,
+              animationCurve: Curves.easeInOut,
+              animationDuration: const Duration(milliseconds: 300),
+              onTap: _onMenuItemTapped,
+            ),
+          ),
+
+          // SpeedDial Menu
+          Positioned(
+            bottom: 80,
+            right: 16,
+            child: SpeedDial(
+              icon: Icons.add,
+              activeIcon: Icons.close,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+              activeBackgroundColor: Theme.of(context).colorScheme.primary,
+              activeForegroundColor: Colors.white,
+              buttonSize: const Size(56, 56),
+              visible: true,
+              closeManually: false,
+              elevation: 8.0,
+              animationCurve: Curves.elasticInOut,
+              isOpenOnStart: false,
+              shape: const CircleBorder(),
+              children: [
+                SpeedDialChild(
+                  child: const Icon(Icons.add_location_alt),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  label: 'Add Location',
+                  labelStyle: const TextStyle(fontSize: 14),
+                  onTap: () => print('Add Location'),
+                ),
+                SpeedDialChild(
+                  child: const Icon(Icons.route),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  label: 'Add Route',
+                  labelStyle: const TextStyle(fontSize: 14),
+                  onTap: () => print('Add Route'),
+                ),
+                SpeedDialChild(
+                  child: const Icon(Icons.local_shipping),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  label: 'Add Vehicle',
+                  labelStyle: const TextStyle(fontSize: 14),
+                  onTap: () => print('Add Vehicle'),
+                ),
+                SpeedDialChild(
+                  child: const Icon(Icons.camera_alt),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  label: 'Take Photo',
+                  labelStyle: const TextStyle(fontSize: 14),
+                  onTap: () => print('Take Photo'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
