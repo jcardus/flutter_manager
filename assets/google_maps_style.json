@@ -1,0 +1,26 @@
+{
+  "version": 8,
+  "name": "Google Maps Raster",
+  "sources": {
+    "google-maps-raster": {
+      "type": "raster",
+      "tiles": [
+        "https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+        "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+        "https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+        "https://mt3.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+      ],
+      "tileSize": 256,
+      "attribution": "&copy; Google Maps"
+    }
+  },
+  "layers": [
+    {
+      "id": "google-maps-layer",
+      "type": "raster",
+      "source": "google-maps-raster",
+      "minzoom": 0,
+      "maxzoom": 22
+    }
+  ]
+}
