@@ -6,7 +6,6 @@ import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'devices_list_page.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
-import '../services/auth_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../widgets/map_view.dart';
@@ -22,13 +21,10 @@ class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
-  final AuthService _authService = AuthService();
   StreamSubscription? _wsSub;
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
-
-  // Icons for bottom navigation
   final List<IconData> _iconList = [
     Icons.map_outlined,
     Icons.list,
@@ -36,13 +32,8 @@ class _MainPageState extends State<MainPage> {
   ];
 
   @override
-  void initState() {
+  Future<void> initState() async {
     super.initState();
-    _init();
-  }
-
-  /// Fetch initial data from API, then connect to websocket for real-time updates
-  Future<void> _init() async {
     final devices = await _apiService.fetchDevices();
     final devicesMap = <int, Device>{};
     for (var device in devices) { devicesMap[device.id] = device; }
@@ -52,8 +43,6 @@ class _MainPageState extends State<MainPage> {
 
   Widget _buildCurrentScreen() {
     switch (_selectedIndex) {
-      case 0:
-        return _buildMapView();
       case 1:
         return DevicesListPage(
           devices: _devices,
@@ -63,48 +52,12 @@ class _MainPageState extends State<MainPage> {
         return ProfileView(
           deviceCount: _devices.length,
           activeCount: _positions.length,
-          onLogout: _handleLogout,
         );
       default:
-        return _buildMapView();
-    }
-  }
-
-  Widget _buildMapView() {
-    return Stack(
-      children: [
-        MapView(
+        return MapView(
           devices: _devices,
           positions: _positions,
-        ),
-      ],
-    );
-  }
-
-  Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      await _authService.logout();
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
+        );
     }
   }
 
@@ -169,18 +122,11 @@ class _MainPageState extends State<MainPage> {
     super.dispose();
   }
 
-  void _onMenuItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          // Current screen content
           _buildCurrentScreen(),
           // Curved Navigation Bar Overlay
           Positioned(
@@ -200,7 +146,7 @@ class _MainPageState extends State<MainPage> {
               backgroundColor: Colors.transparent,
               animationCurve: Curves.easeInOut,
               animationDuration: const Duration(milliseconds: 300),
-              onTap: _onMenuItemTapped,
+              onTap: (index) {setState(() {_selectedIndex = index;});},
             ),
           ),
         ],

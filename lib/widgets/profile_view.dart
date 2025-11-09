@@ -4,13 +4,11 @@ import '../services/auth_service.dart';
 class ProfileView extends StatelessWidget {
   final int deviceCount;
   final int activeCount;
-  final VoidCallback onLogout;
 
   const ProfileView({
     super.key,
     required this.deviceCount,
     required this.activeCount,
-    required this.onLogout,
   });
 
   @override
@@ -106,7 +104,7 @@ class ProfileView extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: ElevatedButton.icon(
-                  onPressed: onLogout,
+                  onPressed: () => _handleLogout(context, authService),
                   icon: const Icon(Icons.logout),
                   label: const Text('Logout'),
                   style: ElevatedButton.styleFrom(
@@ -121,6 +119,33 @@ class ProfileView extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _handleLogout(BuildContext context, AuthService authService) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await authService.logout();
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    }
   }
 
   Widget _buildStatItem({
