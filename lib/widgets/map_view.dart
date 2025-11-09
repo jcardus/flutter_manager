@@ -5,21 +5,21 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 
-class MapWidget extends StatefulWidget {
+class MapView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
 
-  const MapWidget({
+  const MapView({
     super.key,
     required this.devices,
     required this.positions,
   });
 
   @override
-  State<MapWidget> createState() => _MapWidgetState();
+  State<MapView> createState() => _MapViewState();
 }
 
-class _MapWidgetState extends State<MapWidget> {
+class _MapViewState extends State<MapView> {
   MapLibreMapController? mapController;
   String? _mapStyle;
   bool _hasInitiallyFit = false;
@@ -36,7 +36,7 @@ class _MapWidgetState extends State<MapWidget> {
   }
 
   @override
-  void didUpdateWidget(MapWidget oldWidget) {
+  void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     _update();
   }
