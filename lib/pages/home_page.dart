@@ -7,7 +7,6 @@ import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../screens/devices_list_screen.dart';
-import '../services/traccar_auth_service.dart';
 import '../services/traccar_socket_service.dart';
 import '../services/traccar_api_service.dart';
 import '../models/device.dart';
@@ -33,7 +32,6 @@ class _HomePageState extends State<HomePage> {
   // Traccar data state
   Map<int, Device> _devices = {};
   Map<int, Position> _positions = {};
-  final Map<int, Symbol> _mapSymbols = {};
 
   // Default location (San Francisco)
   final LatLng _center = const LatLng(37.7749, -122.4194);
