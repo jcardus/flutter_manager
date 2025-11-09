@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import 'screens/login_page.dart';
 import 'services/traccar_auth_service.dart';
+import 'services/traccar_socket_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -68,6 +71,8 @@ class _HomePageState extends State<HomePage> {
   MapLibreMapController? mapController;
   int _selectedIndex = 0;
   String? _mapStyle;
+  final TraccarSocketService _socketService = TraccarSocketService();
+  StreamSubscription? _wsSub;
 
   // Default location (San Francisco)
   final LatLng _center = const LatLng(37.7749, -122.4194);
@@ -84,6 +89,30 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadMapStyle();
+    _connectSocket();
+  }
+
+  Future<void> _connectSocket() async {
+    final ok = await _socketService.connect();
+    if (!mounted) return;
+    if (ok && _socketService.stream != null) {
+      _wsSub = _socketService.stream!.listen(
+        (event) {
+          dev.log('[WS] Message: ${event is String ? event : event.toString()}', name: 'TraccarWS');
+        },
+        onError: (e) => dev.log('[WS] Stream error: $e', name: 'TraccarWS'),
+        onDone: () => dev.log('[WS] Closed', name: 'TraccarWS'),
+      );
+    } else {
+      dev.log('[WS] Failed to connect', name: 'TraccarWS');
+    }
+  }
+
+  @override
+  void dispose() {
+    _wsSub?.cancel();
+    _socketService.close();
+    super.dispose();
   }
 
   Future<void> _loadMapStyle() async {

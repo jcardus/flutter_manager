@@ -28,6 +28,10 @@ class TraccarAuthService {
     return p.getString(_cookieKey);
   }
 
+  /// Exposes the stored session cookie (e.g., JSESSIONID=...) for services that
+  /// need to attach it to non-HTTP-client channels (like WebSockets on IO).
+  Future<String?> getCookie() => _getCookie();
+
   Future<void> _clearCookie() async {
     final p = await _prefs;
     await p.remove(_cookieKey);
