@@ -3,8 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
+import 'screens/login_page.dart';
+import 'services/traccar_auth_service.dart';
 
-void main() {
+import 'env/env.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -19,7 +24,35 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.grey),
         useMaterial3: true,
       ),
-      home: const HomePage(title: 'Manager'),
+      routes: {
+        '/login': (_) => const LoginPage(),
+      },
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = TraccarAuthService();
+    return FutureBuilder<bool>(
+      future: auth.sessionExists(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final loggedIn = snapshot.data == true;
+        if (loggedIn) {
+          return const HomePage(title: 'Manager');
+        } else {
+          return const LoginPage();
+        }
+      },
     );
   }
 }
