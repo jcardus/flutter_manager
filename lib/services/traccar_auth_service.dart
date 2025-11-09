@@ -12,31 +12,6 @@ class TraccarAuthService {
   static const String _cookieKey = 'traccar_cookie';
   static const String _userKey = 'traccar_user';
 
-  // Simple helpers to log requests/responses with sensitive data redacted.
-  Map<String, String> _redactHeaders(Map<String, String> headers) {
-    final redacted = Map<String, String>.from(headers);
-    for (final key in ['authorization', 'cookie', 'set-cookie']) {
-      final k = redacted.keys.firstWhere(
-        (h) => h.toLowerCase() == key,
-        orElse: () => '',
-      );
-      if (k.isNotEmpty) redacted[k] = '<redacted>';
-    }
-    return redacted;
-  }
-
-  Object _redactBody(Object? body) {
-    if (body is Map) {
-      final clone = Map.from(body);
-      for (final k in ['password', 'pass', 'pwd']) {
-        if (clone.containsKey(k)) clone[k] = '<redacted>';
-      }
-      return clone;
-    }
-    return body ?? {};
-  }
-
-
   /// Returns the Traccar base URL. Configure via --dart-define=TRACCAR_BASE_URL
   /// or edit Env.traccarBaseUrl default.
   static String get baseUrl => Env.traccarBaseUrl;

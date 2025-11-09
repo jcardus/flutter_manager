@@ -6,8 +6,6 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import 'screens/login_page.dart';
 import 'services/traccar_auth_service.dart';
 
-import 'env/env.dart';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
