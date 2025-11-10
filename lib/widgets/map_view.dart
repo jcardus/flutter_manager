@@ -1,5 +1,6 @@
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
 import '../models/position.dart';
@@ -43,6 +44,12 @@ class _MapViewState extends State<MapView> {
     _update();
   }
 
+  Future<void> addImageFromAsset(String name, String assetName) async {
+    final bytes = await rootBundle.load(assetName);
+    final list = bytes.buffer.asUint8List();
+    return mapController!.addImage(name, list);
+  }
+
   Future<void> _updateMapSource() async {
     if (mapController == null) {
       dev.log('[Map] MapController is null, skipping source update', name: 'Map');
@@ -83,8 +90,7 @@ class _MapViewState extends State<MapView> {
 
     // Update the source that's already defined in the style
     await mapController!.setGeoJsonSource(_sourceId, geojson);
-    dev.log('[Map] Updated source with $features feature(s)', name: 'TraccarMap');
-
+    // dev.log('[Map] Updated source with $features feature(s)', name: 'TraccarMap');
   }
 
   /// Fit map camera to show all devices
@@ -126,10 +132,15 @@ class _MapViewState extends State<MapView> {
     );
   }
 
+  Future<void> _onStyleLoaded() async {
+    await addImageFromAsset("truck", "assets/map/icons/truck_000.png");
+  }
+
   @override
   Widget build(BuildContext context) {
     return MapLibreMap(
       onMapCreated: _onMapCreated,
+      onStyleLoadedCallback: _onStyleLoaded,
       initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
       styleString: "assets/map_style.json",
       myLocationEnabled: true,

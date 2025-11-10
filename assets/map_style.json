@@ -35,7 +35,7 @@
       "type": "symbol",
       "source": "devices-source",
       "layout": {
-        "icon-name": "{category}",
+        "icon-image": "truck",
         "text-field": "{name}",
         "text-size": 30,
         "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
