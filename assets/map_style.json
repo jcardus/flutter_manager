@@ -1,6 +1,7 @@
 {
   "version": 8,
   "name": "Map Style",
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   "sources": {
     "google-maps-raster": {
       "type": "raster",
@@ -31,13 +32,20 @@
     },
     {
       "id": "devices-layer",
-      "type": "circle",
+      "type": "symbol",
       "source": "devices-source",
+      "layout": {
+        "icon-name": "{category}",
+        "text-field": "{name}",
+        "text-size": 30,
+        "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],
+        "text-offset": [0, 2],
+        "text-anchor": "top"
+      },
       "paint": {
-        "circle-radius": 8,
-        "circle-color": "#FF0000",
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#FFFFFF"
+        "text-color": "#000000",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 2
       }
     }
   ]

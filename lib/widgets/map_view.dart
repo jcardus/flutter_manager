@@ -1,7 +1,6 @@
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
-import '../constants/map_style.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 
@@ -49,50 +48,43 @@ class _MapViewState extends State<MapView> {
       dev.log('[Map] MapController is null, skipping source update', name: 'Map');
       return;
     }
+    final List<Map<String, dynamic>> features = [];
 
-    dev.log('[Map] Updating source - Devices: ${widget.devices.length}, Positions: ${widget.positions.length}',
-        name: 'Map');
+    for (var entry in widget.positions.entries) {
+      final deviceId = entry.key;
+      final position = entry.value;
+      final device = widget.devices[deviceId];
 
-    try {
-      // Build GeoJSON features for all devices with positions
-      final List<Map<String, dynamic>> features = [];
-
-      for (var entry in widget.positions.entries) {
-        final deviceId = entry.key;
-        final position = entry.value;
-        final device = widget.devices[deviceId];
-
-        if (device == null) {
-          dev.log('[Map] No device found for position deviceId=$deviceId', name: 'TraccarMap');
-          continue;
-        }
-
-        features.add({
-          'type': 'Feature',
-          'id': deviceId,
-          'geometry': {
-            'type': 'Point',
-            'coordinates': [position.longitude, position.latitude],
-          },
-          'properties': {
-            'deviceId': deviceId,
-            'name': device.name,
-            'status': device.status,
-          },
-        });
+      if (device == null) {
+        dev.log('[Map] No device found for position deviceId=$deviceId', name: 'TraccarMap');
+        continue;
       }
 
-      final geojson = {
-        'type': 'FeatureCollection',
-        'features': features,
-      };
-
-      // Update the source that's already defined in the style
-      await mapController!.setGeoJsonSource(_sourceId, geojson);
-      dev.log('[Map] Updated source with ${features.length} feature(s)', name: 'TraccarMap');
-    } catch (e, stack) {
-      dev.log('[Map] Error updating source: $e', name: 'TraccarMap', error: e, stackTrace: stack);
+      features.add({
+        'type': 'Feature',
+        'id': deviceId,
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'deviceId': deviceId,
+          'category': device.category,
+          'name': device.name,
+          'status': device.status,
+        },
+      });
     }
+
+    final geojson = {
+      'type': 'FeatureCollection',
+      'features': features,
+    };
+
+    // Update the source that's already defined in the style
+    await mapController!.setGeoJsonSource(_sourceId, geojson);
+    dev.log('[Map] Updated source with $features feature(s)', name: 'TraccarMap');
+
   }
 
   /// Fit map camera to show all devices
@@ -139,7 +131,7 @@ class _MapViewState extends State<MapView> {
     return MapLibreMap(
       onMapCreated: _onMapCreated,
       initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
-      styleString: mapStyle,
+      styleString: "assets/map_style.json",
       myLocationEnabled: true,
     );
   }
