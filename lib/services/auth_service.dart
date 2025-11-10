@@ -114,6 +114,14 @@ class AuthService {
           try {
             final data = jsonDecode(resp.body) as Map<String, dynamic>;
             await _saveUser(data);
+            final headers = await _effectiveHeaders();
+            headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+            final r = await http.post(
+                Uri.parse('$baseUrl/api/session/token'),
+                headers: headers,
+                body: 'expiration=${DateTime.now().add(Duration(days: 1)).toIso8601String()}'
+            );
+
           } catch (_) {}
         }
         return (true, null);
