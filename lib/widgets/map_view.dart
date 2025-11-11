@@ -95,7 +95,7 @@ class _MapViewState extends State<MapView> {
         dev.log('No device found for position deviceId=$deviceId', name: 'Map');
         continue;
       }
-
+      final baseRotation = (position.course / (360 / rotationFrames)).floor() * (360 / rotationFrames);
       features.add({
         'type': 'Feature',
         'id': deviceId,
@@ -108,8 +108,8 @@ class _MapViewState extends State<MapView> {
           'category': getMapIcon(device.category),
           'name': device.name,
           'color': device.status == 'online' ? 'green' : 'red',
-          'baseRotation': ((position.course / 360) * rotationFrames).floor().toString().padLeft(3, '0'),
-          'rotate': position.course % (360 / rotationFrames)
+          'baseRotation': baseRotation.toStringAsFixed(1).padLeft(5, '0'),
+          'rotate': position.course - baseRotation
         },
       });
     }
@@ -167,10 +167,10 @@ class _MapViewState extends State<MapView> {
       for (final vehicle in categoryIcons) {
         for (final color in colors) {
           for (int i = 0; i < rotationFrames; i++) {
-            final iconNumber = i.toString().padLeft(3, '0');
+            final frame = (i*(360/rotationFrames)).toStringAsFixed(1).padLeft(5, '0');
             await addImageFromAsset(
-                "${vehicle}_${color}_$iconNumber",
-                "assets/map/icons/${vehicle}_${color}_$iconNumber.png"
+                "${vehicle}_${color}_$frame",
+                "assets/map/icons/${vehicle}_${color}_$frame.png"
             );
           }
         }
@@ -196,7 +196,7 @@ class _MapViewState extends State<MapView> {
   getMapIcon(String? category) {
     switch (category) {
       case 'truck':
-        return categoryIcons[1];
+        return categoryIcons[0];
       default:
         return categoryIcons[0];
     }

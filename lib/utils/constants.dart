@@ -1,13 +1,12 @@
 const categoryIcons = [
-  'veh_pickup_03',
-  'veh_truck_02'
+  'truck'
 ];
 
 const colors = [
   'green', 'red'
 ];
 
-const rotationFrames = 30;
+const rotationFrames = 16;
 
 String get traccarBaseUrl {
   const envValue = String.fromEnvironment('TRACCAR_BASE_URL');
