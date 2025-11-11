@@ -1,5 +1,6 @@
-const vehicleTypes = [
-  'veh_pickup_03'
+const categoryIcons = [
+  'veh_pickup_03',
+  'veh_truck_02'
 ];
 
 const colors = [

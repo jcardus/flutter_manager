@@ -79,7 +79,8 @@ class _MapViewState extends State<MapView> {
           'category': getMapIcon(device.category),
           'name': device.name,
           'color': device.status == 'online' ? 'green' : 'red',
-          'baseRotation': ((position.course / 360) * rotationFrames).floor().toString().padLeft(3, '0')
+          'baseRotation': ((position.course / 360) * rotationFrames).floor().toString().padLeft(3, '0'),
+          'rotate': position.course % (360 / rotationFrames)
         },
       });
     }
@@ -134,7 +135,7 @@ class _MapViewState extends State<MapView> {
 
   Future<void> _onStyleLoaded() async {
     try {
-      for (final vehicle in vehicleTypes) {
+      for (final vehicle in categoryIcons) {
         for (final color in colors) {
           for (int i = 0; i < rotationFrames; i++) {
             final iconNumber = i.toString().padLeft(3, '0');
@@ -163,8 +164,10 @@ class _MapViewState extends State<MapView> {
 
   getMapIcon(String? category) {
     switch (category) {
+      case 'truck':
+        return categoryIcons[1];
       default:
-        return vehicleTypes[0];
+        return categoryIcons[0];
     }
   }
 }
