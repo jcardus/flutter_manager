@@ -116,11 +116,11 @@ class AuthService {
             await _saveUser(data);
             final headers = await _effectiveHeaders();
             headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
-            final r = await http.post(
+           dev.log((await http.post(
                 Uri.parse('$baseUrl/api/session/token'),
                 headers: headers,
                 body: 'expiration=${DateTime.now().add(Duration(days: 1)).toIso8601String()}'
-            );
+            )) as String);
 
           } catch (_) {}
         }
