@@ -42,8 +42,14 @@ class _MainPageState extends State<MainPage> {
     final devices = await _apiService.fetchDevices();
     final devicesMap = <int, Device>{};
     for (var device in devices) { devicesMap[device.id] = device; }
+    final positions = await _apiService.fetchPositions();
+    final positionsMap = <int, Position>{};
+    for (var position in positions) { positionsMap[position.id] = position; }
+    setState(() {
+      _devices.addAll(devicesMap);
+      _positions.addAll(positionsMap);
+    });
     if (!mounted) return;
-    setState(() {_devices.addAll(devicesMap);});
     await _connectSocket();
   }
 

@@ -1,4 +1,5 @@
 import 'dart:developer' as dev;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants/map_constants.dart';
 import 'auth_service.dart';
@@ -13,6 +14,10 @@ class SocketService {
   /// Open the WebSocket connection. Returns true if the socket was created.
   Future<bool> connect() async {
     if (_channel != null) return true; // already connected/connecting
+
+    // Web doesn't support WebSocket
+    if (kIsWeb) return false;
+
     final base = traccarBaseUrl;
     if (base.isEmpty) return false;
 

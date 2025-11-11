@@ -11,10 +11,6 @@ class ApiService {
   /// Fetch all devices from Traccar API
   Future<List<Device>> fetchDevices() async {
     final baseUrl = AuthService.baseUrl;
-    if (baseUrl.isEmpty) {
-      dev.log('[API] Base URL not configured', name: 'TraccarAPI');
-      return [];
-    }
 
     final uri = Uri.parse('$baseUrl/api/devices');
     final cookie = await _authService.getCookie();
@@ -48,11 +44,6 @@ class ApiService {
   /// Fetch all positions from Traccar API
   Future<List<Position>> fetchPositions() async {
     final baseUrl = AuthService.baseUrl;
-    if (baseUrl.isEmpty) {
-      dev.log('[API] Base URL not configured', name: 'TraccarAPI');
-      return [];
-    }
-
     final uri = Uri.parse('$baseUrl/api/positions');
     final cookie = await _authService.getCookie();
 

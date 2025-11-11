@@ -41,10 +41,12 @@ class _MapViewState extends State<MapView> {
   }
 
   void _update() {
-    _updateMapSource();
-    if (!_hasInitiallyFit && widget.positions.isNotEmpty) {
-      _fitMapToDevices();
-      _hasInitiallyFit = true;
+    if (widget.positions.isNotEmpty) {
+      _updateMapSource();
+      if (!_hasInitiallyFit) {
+        _fitMapToDevices();
+        _hasInitiallyFit = true;
+      }
     }
   }
 
@@ -184,10 +186,9 @@ class _MapViewState extends State<MapView> {
     return MapLibreMap(
       onMapCreated: _onMapCreated,
       onStyleLoadedCallback: _onStyleLoaded,
-      initialCameraPosition: CameraPosition(target: LatLng(0, 0), tilt: 45),
+      initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
       styleString: "assets/map_style.json",
       myLocationEnabled: true,
-
     );
   }
 
