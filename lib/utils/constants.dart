@@ -15,3 +15,6 @@ String get traccarBaseUrl {
   }
   return 'http://gps.frotaweb.com';
 }
+
+const String sourceId = 'devices-source';
+const double selectedZoomLevel=16;

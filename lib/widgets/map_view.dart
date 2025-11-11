@@ -24,17 +24,46 @@ class MapView extends StatefulWidget {
 
 class _MapViewState extends State<MapView> {
   MapLibreMapController? mapController;
-  bool _hasInitiallyFit = false;
+  bool _initialFitDone = false;
   bool _mapReady = false;
+  bool _menuExpanded = false;
+  int _currentIndex = 0;
 
-  static const String _sourceId = 'devices-source';
+  // Demo styles
+  static const String _remoteStyle = MapLibreStyles.demo;
+  static const String _embeddedMinimalStyle = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+  static const String _assetStyle = 'assets/map_style.json';
+
+  late final List<_StyleEntry> _styles = [
+    const _StyleEntry('Remote demo style', _remoteStyle),
+    const _StyleEntry('Empty JSON string', _embeddedMinimalStyle),
+    const _StyleEntry('Asset style', _assetStyle),
+  ];
+
+
+  Future<void> _cycleStyle() async {
+    if (!_mapReady) return;
+    _currentIndex = (_currentIndex + 1) % _styles.length;
+    await _applyStyle(_currentIndex);
+    setState(() {});
+  }
+
+  Future<void> _applyStyle(int index) async {
+    if (mapController == null) return;
+    setState(() => _mapReady = false);
+    final entry = _styles[index];
+    dev.log('Switching to style: ${entry.label}');
+    try {
+      await mapController!.setStyle(entry.styleString);
+    } catch (e, st) {
+      dev.log('Failed to set style ${entry.label}: $e', stackTrace: st);
+    }
+  }
 
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     _update();
-
-    // Center on selected device if it changed
     if (widget.selectedDevice != null &&
         widget.selectedDevice != oldWidget.selectedDevice) {
       _centerOnDevice(widget.selectedDevice!);
@@ -44,27 +73,19 @@ class _MapViewState extends State<MapView> {
   void _update() {
     if (widget.positions.isNotEmpty && _mapReady) {
       _updateMapSource();
-      if (!_hasInitiallyFit) {
+      if (!_initialFitDone) {
         _fitMapToDevices();
-        _hasInitiallyFit = true;
+        _initialFitDone = true;
       }
     }
   }
 
-  /// Center map camera on a specific device
   void _centerOnDevice(int deviceId) {
-    if (mapController == null) return;
-
     final position = widget.positions[deviceId];
-    if (position == null) {
-      dev.log('Cannot center on device $deviceId: no position found', name: 'Map');
-      return;
-    }
+    if (mapController == null || position == null) { return; }
     mapController!.animateCamera(
       CameraUpdate.newLatLngZoom(
-        LatLng(position.latitude, position.longitude),
-        18, // Zoom level for focused view
-      )
+        LatLng(position.latitude, position.longitude), selectedZoomLevel),
     );
   }
 
@@ -80,22 +101,19 @@ class _MapViewState extends State<MapView> {
   }
 
   Future<void> _updateMapSource() async {
-    if (mapController == null) {
-      dev.log('mapController is null, skipping source update', name: 'Map');
-      return;
-    }
+    if (mapController == null) { return; }
     final List<Map<String, dynamic>> features = [];
-
     for (var entry in widget.positions.entries) {
       final deviceId = entry.key;
       final position = entry.value;
       final device = widget.devices[deviceId];
-
       if (device == null) {
         dev.log('No device found for position deviceId=$deviceId', name: 'Map');
         continue;
       }
-      final baseRotation = (position.course / (360 / rotationFrames)).floor() * (360 / rotationFrames);
+      final baseRotation =
+          (position.course / (360 / rotationFrames)).floor() *
+          (360 / rotationFrames);
       features.add({
         'type': 'Feature',
         'id': deviceId,
@@ -109,27 +127,17 @@ class _MapViewState extends State<MapView> {
           'name': device.name,
           'color': device.status == 'online' ? 'green' : 'red',
           'baseRotation': baseRotation.toStringAsFixed(1).padLeft(5, '0'),
-          'rotate': position.course - baseRotation
+          'rotate': position.course - baseRotation,
         },
       });
     }
-
-    final geojson = {
-      'type': 'FeatureCollection',
-      'features': features,
-    };
-
-    // Update the source that's already defined in the style
-    await mapController!.setGeoJsonSource(_sourceId, geojson);
+    await mapController!.setGeoJsonSource(sourceId, {'type': 'FeatureCollection', 'features': features});
   }
 
-  /// Fit map camera to show all devices
   void _fitMapToDevices() {
     if (mapController == null || widget.positions.isEmpty) return;
-
     final positions = widget.positions.values.toList();
 
-    // Find bounds
     double minLat = positions.first.latitude;
     double maxLat = positions.first.latitude;
     double minLng = positions.first.longitude;
@@ -146,7 +154,10 @@ class _MapViewState extends State<MapView> {
     final latPadding = (maxLat - minLat) * 0.1;
     final lngPadding = (maxLng - minLng) * 0.1;
 
-    dev.log('[Map] Fitting bounds: SW($minLat,$minLng) NE($maxLat,$maxLng)', name: 'TraccarMap');
+    dev.log(
+      'Fitting bounds: SW($minLat,$minLng) NE($maxLat,$maxLng)',
+      name: 'Map',
+    );
 
     mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(
@@ -167,15 +178,17 @@ class _MapViewState extends State<MapView> {
       for (final vehicle in categoryIcons) {
         for (final color in colors) {
           for (int i = 0; i < rotationFrames; i++) {
-            final frame = (i*(360/rotationFrames)).toStringAsFixed(1).padLeft(5, '0');
+            final frame = (i * (360 / rotationFrames))
+                .toStringAsFixed(1)
+                .padLeft(5, '0');
             await addImageFromAsset(
-                "${vehicle}_${color}_$frame",
-                "assets/map/icons/${vehicle}_${color}_$frame.png"
+              "${vehicle}_${color}_$frame",
+              "assets/map/icons/${vehicle}_${color}_$frame.png",
             );
           }
         }
       }
-      _mapReady = true;
+      setState(() { _mapReady = true; });
       _update();
     } catch (e) {
       dev.log('_onStyleLoaded', error: e);
@@ -184,12 +197,96 @@ class _MapViewState extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
-    return MapLibreMap(
-      onMapCreated: _onMapCreated,
-      onStyleLoadedCallback: _onStyleLoaded,
-      initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
-      styleString: "assets/map_style.json",
-      myLocationEnabled: true,
+    return Scaffold(
+      body: Stack(
+        children: [
+          MapLibreMap(
+            onMapCreated: _onMapCreated,
+            onStyleLoadedCallback: _onStyleLoaded,
+            initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
+            styleString: "assets/map_style.json",
+            myLocationEnabled: true,
+          ),
+          Positioned(
+            top: 16,
+            right: 0,
+            child: SafeArea(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                width: _menuExpanded ? 200 : 30,
+                child: Material(
+                  elevation: 3,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          setState(() {
+                            _menuExpanded = !_menuExpanded;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            _menuExpanded ? Icons.chevron_right : Icons.chevron_left,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      if (_menuExpanded) ...[
+                        const Divider(height: 1),
+                        InkWell(
+                          onTap: _cycleStyle,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.layers_outlined,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                if (!_mapReady)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child:
+                                          CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Switching...'),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  TextButton.icon(
+                                    onPressed: _cycleStyle,
+                                    icon: const Icon(Icons.swap_horiz),
+                                    label: const Text('Change'),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -201,4 +298,10 @@ class _MapViewState extends State<MapView> {
         return categoryIcons[0];
     }
   }
+}
+
+class _StyleEntry {
+  final String label;
+  final String styleString;
+  const _StyleEntry(this.label, this.styleString);
 }
