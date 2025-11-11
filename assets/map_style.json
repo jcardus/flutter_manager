@@ -35,7 +35,8 @@
       "type": "symbol",
       "source": "devices-source",
       "layout": {
-        "icon-image": "{category}_{baseRotation}",
+        "icon-image": "{category}_{color}_{baseRotation}",
+        "icon-size": 2,
         "text-field": "{name}",
         "text-size": 20,
         "text-font": ["Open Sans Regular", "Arial Unicode MS Regular"],

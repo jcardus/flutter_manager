@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../constants/map_constants.dart';
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -52,7 +53,7 @@ class _MapViewState extends State<MapView> {
 
   Future<void> _updateMapSource() async {
     if (mapController == null) {
-      dev.log('[Map] MapController is null, skipping source update', name: 'Map');
+      dev.log('mapController is null, skipping source update', name: 'Map');
       return;
     }
     final List<Map<String, dynamic>> features = [];
@@ -63,7 +64,7 @@ class _MapViewState extends State<MapView> {
       final device = widget.devices[deviceId];
 
       if (device == null) {
-        dev.log('[Map] No device found for position deviceId=$deviceId', name: 'TraccarMap');
+        dev.log('No device found for position deviceId=$deviceId', name: 'Map');
         continue;
       }
 
@@ -134,9 +135,20 @@ class _MapViewState extends State<MapView> {
   }
 
   Future<void> _onStyleLoaded() async {
-    for (int i = 0; i < 60; i++) {
-      final iconNumber = i.toString().padLeft(3, '0');
-      await addImageFromAsset("truck_$iconNumber", "assets/map/icons/truck_$iconNumber.png");
+    try {
+      for (final vehicle in vehicleTypes) {
+        for (final color in colors) {
+          for (int i = 0; i < rotationFrames; i++) {
+            final iconNumber = i.toString().padLeft(3, '0');
+            await addImageFromAsset(
+                "${vehicle}_${color}_$iconNumber",
+                "assets/map/icons/${vehicle}_${color}_$iconNumber.png"
+            );
+          }
+        }
+      }
+    } catch (e) {
+      dev.log('_onStyleLoaded', error: e);
     }
   }
 
@@ -149,5 +161,13 @@ class _MapViewState extends State<MapView> {
       styleString: "assets/map_style.json",
       myLocationEnabled: true,
     );
+  }
+
+  getMapIcon(String? category) {
+    dev.log(category!);
+    switch (category) {
+      default:
+        return vehicleTypes[0];
+    }
   }
 }
