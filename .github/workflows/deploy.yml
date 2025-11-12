@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jcardus/flutter-manager-assets
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           path: temp-assets
 
       - name: Copy assets
