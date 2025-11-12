@@ -32,7 +32,7 @@ jobs:
 
       - name: Download assets
         run: |
-          git clone https://github.com/jcardus/flutter-manager-assets.git temp-assets
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/jcardus/flutter-manager-assets.git temp-assets
           cp -r temp-assets/* ./assets/map/icons
           rm -rf temp-assets
 
