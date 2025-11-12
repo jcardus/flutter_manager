@@ -30,23 +30,16 @@ class _MapViewState extends State<MapView> {
   int _currentIndex = 0;
 
   // Demo styles
-  static const String _remoteStyle = MapLibreStyles.demo;
-  static const String _embeddedMinimalStyle = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
-  static const String _assetStyle = 'assets/map_style.json';
+  static const String _dark = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+  static const String _light = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+  static const String _google = 'assets/map_style.json';
 
   late final List<_StyleEntry> _styles = [
-    const _StyleEntry('Remote demo style', _remoteStyle),
-    const _StyleEntry('Empty JSON string', _embeddedMinimalStyle),
-    const _StyleEntry('Asset style', _assetStyle),
+    const _StyleEntry('Dark', _dark),
+    const _StyleEntry('Light', _light),
+    const _StyleEntry('Google', _google),
   ];
 
-
-  Future<void> _cycleStyle() async {
-    if (!_mapReady) return;
-    _currentIndex = (_currentIndex + 1) % _styles.length;
-    await _applyStyle(_currentIndex);
-    setState(() {});
-  }
 
   Future<void> _applyStyle(int index) async {
     if (mapController == null) return;
@@ -58,6 +51,7 @@ class _MapViewState extends State<MapView> {
     } catch (e, st) {
       dev.log('Failed to set style ${entry.label}: $e', stackTrace: st);
     }
+    setState(() { _currentIndex = index; });
   }
 
   @override
@@ -211,16 +205,21 @@ class _MapViewState extends State<MapView> {
             top: 16,
             right: 0,
             child: SafeArea(
-              child: AnimatedContainer(
+              child: AnimatedSize(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
-                width: _menuExpanded ? 200 : 30,
-                child: Material(
-                  elevation: 3,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                child: IntrinsicWidth(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minWidth: 30,
+                      maxWidth: _menuExpanded ? 250 : 30,
+                    ),
+                    child: Material(
+                      elevation: 3,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                       InkWell(
                         onTap: () {
                           setState(() {
@@ -237,49 +236,56 @@ class _MapViewState extends State<MapView> {
                       ),
                       if (_menuExpanded) ...[
                         const Divider(height: 1),
-                        InkWell(
-                          onTap: _cycleStyle,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.layers_outlined,
-                                  size: 20,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                if (!_mapReady)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child:
-                                          CircularProgressIndicator(strokeWidth: 2),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text('Switching...'),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  TextButton.icon(
-                                    onPressed: _cycleStyle,
-                                    icon: const Icon(Icons.swap_horiz),
-                                    label: const Text('Change'),
-                                  ),
-                              ],
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Map Style',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
+                        ...List.generate(_styles.length, (index) {
+                          final style = _styles[index];
+                          final isSelected = _currentIndex == index;
+                          return InkWell(
+                            onTap: () => _applyStyle(index),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                    size: 20,
+                                    color: isSelected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _mapReady || !isSelected ? style.label : 'Loading...',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: isSelected
+                                          ? Theme.of(context).colorScheme.primary
+                                          : null,
+                                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }),
                       ],
                     ],
+                      ),
+                    ),
                   ),
                 ),
               ),
