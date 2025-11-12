@@ -23,18 +23,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout assets repository
+        uses: actions/checkout@v4
+        with:
+          repository: jcardus/flutter-manager-assets
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: temp-assets
+
+      - name: Copy assets
+        run: |
+          cp -r temp-assets/* ./assets/map/icons
+          rm -rf temp-assets
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.7'
           channel: 'stable'
           cache: true
-
-      - name: Download assets
-        run: |
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/jcardus/flutter-manager-assets.git temp-assets
-          cp -r temp-assets/* ./assets/map/icons
-          rm -rf temp-assets
 
       - name: Install dependencies
         run: flutter pub get
