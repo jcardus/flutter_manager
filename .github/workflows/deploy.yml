@@ -32,7 +32,7 @@ jobs:
 
       - name: Copy assets
         run: |
-          mkdir -p /assets/map/icons
+          mkdir -p ./assets/map/icons
           cp -r temp-assets/* ./assets/map/icons
           rm -rf temp-assets
 
