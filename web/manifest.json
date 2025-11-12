@@ -1,6 +1,6 @@
 {
-    "name": "flutter_manager",
-    "short_name": "flutter_manager",
+    "name": "fleetmanager",
+    "short_name": "fleetmanager",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
