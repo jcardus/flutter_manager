@@ -119,17 +119,10 @@ class _MapViewState extends State<MapView> {
     if (mapController == null || widget.positions.isEmpty) return;
     final positions = widget.positions.values.toList();
 
-    double minLat = positions.first.latitude;
-    double maxLat = positions.first.latitude;
-    double minLng = positions.first.longitude;
-    double maxLng = positions.first.longitude;
-
-    for (var pos in positions) {
-      if (pos.latitude < minLat) minLat = pos.latitude;
-      if (pos.latitude > maxLat) maxLat = pos.latitude;
-      if (pos.longitude < minLng) minLng = pos.longitude;
-      if (pos.longitude > maxLng) maxLng = pos.longitude;
-    }
+    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
 
     // Add some padding
     final latPadding = (maxLat - minLat) * 0.1;

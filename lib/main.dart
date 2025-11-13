@@ -17,7 +17,7 @@ class App extends StatelessWidget {
     return MaterialApp(
       title: 'Manager',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.grey),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF00796B)),
         useMaterial3: true,
       ),
       home: const AuthGate(),
