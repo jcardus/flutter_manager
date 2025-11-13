@@ -87,11 +87,12 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: temp-assets
 
-      - name: Copy assets
+      - name: Init
         run: |
           mkdir -p ./assets/map/icons
           cp -r temp-assets/* ./assets/map/icons
           rm -rf temp-assets
+          echo '${{ secrets.GOOGLE_CLOUD_AUTH }}' > ios/gc_keys.json
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
