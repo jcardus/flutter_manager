@@ -17,42 +17,33 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: macos-26-xlarge
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Checkout assets repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           repository: jcardus/flutter-manager-assets
           token: ${{ secrets.PAT_TOKEN }}
           path: temp-assets
-
       - name: Copy assets
         run: |
           mkdir -p ./assets/map/icons
           cp -r temp-assets/* ./assets/map/icons
           rm -rf temp-assets
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.7'
           channel: 'stable'
           cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build web
-        run: flutter build web --release --base-href "/${{ github.event.repository.name }}/"
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - run: flutter pub get
+      - run: flutter build web --base-href "/${{ github.event.repository.name }}/"
+      - run: flutter build ios --build-number ${{ github.run_number }} --config-only --no-codesign"
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: 'build/web'
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'ios'
 
   deploy-web:
     environment:
