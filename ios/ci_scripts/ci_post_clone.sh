@@ -16,6 +16,6 @@ flutter precache --ios
 # Install Flutter dependencies.
 flutter pub get
 
-flutter build ios --config-only
+flutter build ios --config-only --no-codesign
 
 exit 0
