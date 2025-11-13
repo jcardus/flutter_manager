@@ -1,0 +1,198 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Manager",
+  "@appTitle": {
+    "description": "Application title"
+  },
+
+  "signIn": "Sign in",
+  "@signIn": {
+    "description": "Login page title"
+  },
+
+  "emailOrUsername": "Email or Username",
+  "@emailOrUsername": {
+    "description": "Login email/username field label"
+  },
+
+  "password": "Password",
+  "@password": {
+    "description": "Login password field label"
+  },
+
+  "required": "Required",
+  "@required": {
+    "description": "Field validation error for required fields"
+  },
+
+  "login": "Login",
+  "@login": {
+    "description": "Login button text"
+  },
+
+  "loginFailed": "Login failed",
+  "@loginFailed": {
+    "description": "Login error message"
+  },
+
+  "noDevicesFound": "No devices found",
+  "@noDevicesFound": {
+    "description": "Empty state title when no devices"
+  },
+
+  "waitingForData": "Waiting for data...",
+  "@waitingForData": {
+    "description": "Empty state description when waiting for data"
+  },
+
+  "total": "Total",
+  "@total": {
+    "description": "Total devices stat label"
+  },
+
+  "online": "Online",
+  "@online": {
+    "description": "Online devices stat label"
+  },
+
+  "offline": "Offline",
+  "@offline": {
+    "description": "Offline devices stat label"
+  },
+
+  "searchDevices": "Search devices...",
+  "@searchDevices": {
+    "description": "Search field hint text"
+  },
+
+  "tryDifferentSearch": "Try a different search term",
+  "@tryDifferentSearch": {
+    "description": "Empty search results message"
+  },
+
+  "statusUnknown": "UNKNOWN",
+  "@statusUnknown": {
+    "description": "Unknown device status"
+  },
+
+  "justNow": "Just now",
+  "@justNow": {
+    "description": "Time indicator for very recent update"
+  },
+
+  "minutesAgo": "{minutes}m ago",
+  "@minutesAgo": {
+    "description": "Time indicator for minutes ago",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+
+  "hoursAgo": "{hours}h ago",
+  "@hoursAgo": {
+    "description": "Time indicator for hours ago",
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+
+  "daysAgo": "{days}d ago",
+  "@daysAgo": {
+    "description": "Time indicator for days ago",
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+
+  "never": "Never",
+  "@never": {
+    "description": "Time indicator for never updated"
+  },
+
+  "speedNotAvailable": "N/A",
+  "@speedNotAvailable": {
+    "description": "Speed value when not available"
+  },
+
+  "speedKmh": "{speed} km/h",
+  "@speedKmh": {
+    "description": "Speed value in kilometers per hour",
+    "placeholders": {
+      "speed": {
+        "type": "int"
+      }
+    }
+  },
+
+  "user": "User",
+  "@user": {
+    "description": "Default user name fallback"
+  },
+
+  "statistics": "Statistics",
+  "@statistics": {
+    "description": "Statistics section title in profile"
+  },
+
+  "devices": "Devices",
+  "@devices": {
+    "description": "Devices stat label in profile"
+  },
+
+  "active": "Active",
+  "@active": {
+    "description": "Active devices stat label in profile"
+  },
+
+  "logout": "Logout",
+  "@logout": {
+    "description": "Logout button text and dialog title"
+  },
+
+  "logoutConfirmation": "Are you sure you want to logout?",
+  "@logoutConfirmation": {
+    "description": "Logout confirmation dialog message"
+  },
+
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button text"
+  },
+
+  "mapStyleMapbox": "Mapbox",
+  "@mapStyleMapbox": {
+    "description": "Mapbox map style name"
+  },
+
+  "mapStyleGoogle": "Google",
+  "@mapStyleGoogle": {
+    "description": "Google map style name"
+  },
+
+  "mapStyleSatellite": "Satellite",
+  "@mapStyleSatellite": {
+    "description": "Satellite map style name"
+  },
+
+  "mapStyleDark": "Dark",
+  "@mapStyleDark": {
+    "description": "Dark map style name"
+  },
+
+  "mapStyleLight": "Light",
+  "@mapStyleLight": {
+    "description": "Light map style name"
+  },
+
+  "loading": "Loading...",
+  "@loading": {
+    "description": "Loading indicator text"
+  }
+}

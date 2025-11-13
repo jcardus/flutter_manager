@@ -1,0 +1,73 @@
+{
+  "@@locale": "pt",
+
+  "appTitle": "Gestor",
+
+  "signIn": "Iniciar sessão",
+
+  "emailOrUsername": "Email ou Nome de Utilizador",
+
+  "password": "Palavra-passe",
+
+  "required": "Obrigatório",
+
+  "login": "Entrar",
+
+  "loginFailed": "Falha no login",
+
+  "noDevicesFound": "Nenhum dispositivo encontrado",
+
+  "waitingForData": "Aguardando dados...",
+
+  "total": "Total",
+
+  "online": "Ligados",
+
+  "offline": "Desligados",
+
+  "searchDevices": "Pesquisar dispositivos...",
+
+  "tryDifferentSearch": "Tente um termo de pesquisa diferente",
+
+  "statusUnknown": "DESCONHECIDO",
+
+  "justNow": "Agora mesmo",
+
+  "minutesAgo": "Há {minutes}m",
+
+  "hoursAgo": "Há {hours}h",
+
+  "daysAgo": "Há {days}d",
+
+  "never": "Nunca",
+
+  "speedNotAvailable": "N/D",
+
+  "speedKmh": "{speed} km/h",
+
+  "user": "Utilizador",
+
+  "statistics": "Estatísticas",
+
+  "devices": "Dispositivos",
+
+  "active": "Ativos",
+
+  "logout": "Sair",
+
+  "logoutConfirmation": "Tem a certeza que deseja sair?",
+
+  "cancel": "Cancelar",
+
+  "mapStyleMapbox": "Mapbox",
+
+  "mapStyleGoogle": "Google",
+
+  "mapStyleSatellite": "Satélite",
+
+  "mapStyleDark": "Escuro",
+
+  "mapStyleLight": "Claro",
+
+  "loading": "A carregar..."
+}
