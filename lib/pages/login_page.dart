@@ -13,6 +13,8 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _loading = false;
   String? _error;
 
@@ -43,14 +45,18 @@ class _LoginPageState extends State<LoginPage> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                 Text(l10n.signIn, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 if (_error != null)
@@ -64,14 +70,26 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       TextFormField(
                         controller: _emailController,
+                        focusNode: _emailFocusNode,
                         enabled: !_loading,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [],
+                        enableIMEPersonalizedLearning: false,
+                        onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
                         decoration: InputDecoration(labelText: l10n.emailOrUsername),
                         validator: (v) => (v == null || v.isEmpty) ? l10n.required : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _passwordController,
+                        focusNode: _passwordFocusNode,
                         enabled: !_loading,
+                        keyboardType: TextInputType.visiblePassword,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [],
+                        enableIMEPersonalizedLearning: false,
+                        onFieldSubmitted: (_) => _submit(),
                         decoration: InputDecoration(labelText: l10n.password),
                         obscureText: true,
                         validator: (v) => (v == null || v.isEmpty) ? l10n.required : null,
@@ -93,6 +111,8 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    ),
       ),
     );
   }
