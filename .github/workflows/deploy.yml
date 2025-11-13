@@ -49,17 +49,12 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
           working-directory: ios
-      - run: |
-          bundle exec fastlane setup_ci
-          bundle exec fastlane match
-          bundle exec fastlane beta
+      - run: bundle exec fastlane beta
         working-directory: ios
         env:
           APP_STORE_CONNECT_API_KEY_KEY: "${{vars.APP_STORE_CONNECT_API_KEY_KEY}}"
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: "${{vars.APP_STORE_CONNECT_API_KEY_ISSUER_ID}}"
           APP_STORE_CONNECT_API_KEY_KEY_ID: "${{vars.APP_STORE_CONNECT_API_KEY_KEY_ID}}"
-
-
 
   deploy-web:
     environment:
@@ -67,7 +62,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
