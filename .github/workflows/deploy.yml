@@ -49,9 +49,10 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
           working-directory: ios
-      - run: bundle exec fastlane match
-        working-directory: ios
-      - run: bundle exec fastlane beta
+      - run: |
+          bundle exec fastlane setup_ci
+          bundle exec fastlane match
+          bundle exec fastlane beta
         working-directory: ios
         env:
           APP_STORE_CONNECT_API_KEY_KEY: "${{vars.APP_STORE_CONNECT_API_KEY_KEY}}"
