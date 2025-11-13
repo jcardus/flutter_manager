@@ -3,6 +3,8 @@ default_platform(:ios)
 platform :ios do
   desc "Push a new beta build to TestFlight"
   lane :beta do
+    setup_ci
+    match
     update_code_signing_settings(
         code_sign_identity: "iPhone Distribution",
         profile_name: "match AppStore com.fleetmap.fleetmanager"
