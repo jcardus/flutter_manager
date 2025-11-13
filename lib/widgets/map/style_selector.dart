@@ -57,16 +57,7 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                     ),
                     if (_menuExpanded) ...[
                       const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          'Map Style',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+
                       ...List.generate(MapStyles.configs.length, (index) {
                         final config = MapStyles.configs[index];
                         final isSelected = widget.selectedStyleIndex == index;
