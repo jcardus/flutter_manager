@@ -30,6 +30,7 @@ jobs:
           mkdir -p ./assets/map/icons
           cp -r temp-assets/* ./assets/map/icons
           rm -rf temp-assets
+          echo '${{ secrets.GOOGLE_CLOUD_AUTH }}' > ios/gc_keys.json
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.7'
@@ -70,90 +71,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  deploy-ios:
-    runs-on: macos-latest
-    needs: build
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Checkout assets repository
-        uses: actions/checkout@v4
-        with:
-          repository: jcardus/flutter-manager-assets
-          token: ${{ secrets.PAT_TOKEN }}
-          path: temp-assets
-
-      - name: Init
-        run: |
-          mkdir -p ./assets/map/icons
-          cp -r temp-assets/* ./assets/map/icons
-          rm -rf temp-assets
-          echo '${{ secrets.GOOGLE_CLOUD_AUTH }}' > ios/gc_keys.json
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.7'
-          channel: 'stable'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: ios
-
-      - name: Install Fastlane
-        run: |
-          cd ios
-          bundle install
-
-      - name: Setup App Store Connect API Key
-        env:
-          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$APP_STORE_CONNECT_API_KEY_CONTENT" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}.p8
-
-      - name: Import Code Signing Certificates
-        env:
-          CERTIFICATES_P12: ${{ secrets.CERTIFICATES_P12 }}
-          CERTIFICATES_PASSWORD: ${{ secrets.CERTIFICATES_PASSWORD }}
-        run: |
-          echo "$CERTIFICATES_P12" | base64 --decode > certificates.p12
-          security create-keychain -p "" build.keychain
-          security import certificates.p12 -k ~/Library/Keychains/build.keychain -P "$CERTIFICATES_PASSWORD" -T /usr/bin/codesign
-          security list-keychains -s ~/Library/Keychains/build.keychain
-          security default-keychain -s ~/Library/Keychains/build.keychain
-          security unlock-keychain -p "" ~/Library/Keychains/build.keychain
-          security set-key-partition-list -S apple-tool:,apple: -s -k "" ~/Library/Keychains/build.keychain
-          rm certificates.p12
-
-      - name: Download Provisioning Profiles
-        env:
-          PROVISIONING_PROFILE: ${{ secrets.PROVISIONING_PROFILE }}
-        run: |
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          echo "$PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
-
-      - name: Build and Deploy to TestFlight
-        env:
-          APP_BUNDLE_ID: ${{ secrets.APP_BUNDLE_ID }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          TEAM_ID: ${{ secrets.TEAM_ID }}
-          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
-          PROVISIONING_PROFILE_SPECIFIER: ${{ secrets.PROVISIONING_PROFILE_SPECIFIER }}
-          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
-          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: |
-          cd ios
-          bundle exec fastlane beta
