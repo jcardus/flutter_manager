@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:manager/l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
@@ -32,12 +33,15 @@ class _LoginPageState extends State<LoginPage> {
     if (ok) {
       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     } else {
-      setState(() => _error = msg ?? 'Login failed');
+      final l10n = AppLocalizations.of(context)!;
+      setState(() => _error = msg ?? l10n.loginFailed);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
@@ -47,7 +51,7 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('Sign in', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(l10n.signIn, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 if (_error != null)
                   Padding(
@@ -61,16 +65,16 @@ class _LoginPageState extends State<LoginPage> {
                       TextFormField(
                         controller: _emailController,
                         enabled: !_loading,
-                        decoration: const InputDecoration(labelText: 'Email or Username'),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                        decoration: InputDecoration(labelText: l10n.emailOrUsername),
+                        validator: (v) => (v == null || v.isEmpty) ? l10n.required : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _passwordController,
                         enabled: !_loading,
-                        decoration: const InputDecoration(labelText: 'Password'),
+                        decoration: InputDecoration(labelText: l10n.password),
                         obscureText: true,
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                        validator: (v) => (v == null || v.isEmpty) ? l10n.required : null,
                       ),
                       const SizedBox(height: 20),
                       SizedBox(
@@ -79,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
                           onPressed: _loading ? null : _submit,
                           child: _loading
                               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('Login'),
+                              : Text(l10n.login),
                         ),
                       ),
                     ],

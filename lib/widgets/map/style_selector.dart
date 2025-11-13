@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:manager/l10n/app_localizations.dart';
 import '../../map/styles.dart';
 
 class MapStyleSelector extends StatefulWidget {
@@ -61,6 +62,7 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                       ...List.generate(MapStyles.configs.length, (index) {
                         final config = MapStyles.configs[index];
                         final isSelected = widget.selectedStyleIndex == index;
+                        final l10n = AppLocalizations.of(context)!;
                         return InkWell(
                           onTap: () => widget.onStyleSelected(index),
                           child: Padding(
@@ -80,7 +82,7 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    widget.mapReady || !isSelected ? config.name : 'Loading...',
+                                    widget.mapReady || !isSelected ? config.getLocalizedName(context) : l10n.loading,
                                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                       color: isSelected
                                         ? Theme.of(context).colorScheme.primary

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:manager/l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 
@@ -46,6 +47,7 @@ class _DevicesListViewState extends State<DevicesListView> {
         .length;
 
     if (devicesList.isEmpty) {
+      final l10n = AppLocalizations.of(context)!;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -57,14 +59,14 @@ class _DevicesListViewState extends State<DevicesListView> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No devices found',
+              l10n.noDevicesFound,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Waiting for data...',
+              l10n.waitingForData,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -73,6 +75,8 @@ class _DevicesListViewState extends State<DevicesListView> {
         ),
       );
     }
+
+    final l10n = AppLocalizations.of(context)!;
 
     return Column(
       children: [
@@ -98,19 +102,19 @@ class _DevicesListViewState extends State<DevicesListView> {
                 children: [
                   _StatCard(
                     icon: Icons.devices,
-                    label: 'Total',
+                    label: l10n.total,
                     value: totalDevices.toString(),
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   _StatCard(
                     icon: Icons.check_circle,
-                    label: 'Online',
+                    label: l10n.online,
                     value: onlineDevices.toString(),
                     color: Theme.of(context).colorScheme.tertiary,
                   ),
                   _StatCard(
                     icon: Icons.cancel,
-                    label: 'Offline',
+                    label: l10n.offline,
                     value: offlineDevices.toString(),
                     color: Theme.of(context).colorScheme.error,
                   ),
@@ -125,7 +129,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                   });
                 },
                 decoration: InputDecoration(
-                  hintText: 'Search devices...',
+                  hintText: l10n.searchDevices,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
@@ -166,14 +170,14 @@ class _DevicesListViewState extends State<DevicesListView> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'No devices found',
+                        l10n.noDevicesFound,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Try a different search term',
+                        l10n.tryDifferentSearch,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -288,32 +292,35 @@ class _DeviceListItem extends StatelessWidget {
     }
   }
 
-  String _formatSpeed(double? speed) {
-    if (speed == null) return 'N/A';
+  String _formatSpeed(BuildContext context, double? speed) {
+    final l10n = AppLocalizations.of(context)!;
+    if (speed == null) return l10n.speedNotAvailable;
     // Convert from knots to km/h (Traccar uses knots)
     final kmh = speed * 1.852;
-    return '${kmh.toStringAsFixed(1)} km/h';
+    return l10n.speedKmh(kmh.round());
   }
 
-  String _formatLastUpdate(DateTime? lastUpdate) {
-    if (lastUpdate == null) return 'Never';
+  String _formatLastUpdate(BuildContext context, DateTime? lastUpdate) {
+    final l10n = AppLocalizations.of(context)!;
+    if (lastUpdate == null) return l10n.never;
 
     final now = DateTime.now();
     final difference = now.difference(lastUpdate);
 
     if (difference.inMinutes < 1) {
-      return 'Just now';
+      return l10n.justNow;
     } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
+      return l10n.minutesAgo(difference.inMinutes);
     } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
+      return l10n.hoursAgo(difference.inHours);
     } else {
-      return '${difference.inDays}d ago';
+      return l10n.daysAgo(difference.inDays);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final statusColor = _getStatusColor(context);
     final subtitleColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
@@ -346,7 +353,7 @@ class _DeviceListItem extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  device.status?.toUpperCase() ?? 'UNKNOWN',
+                  device.status?.toUpperCase() ?? l10n.statusUnknown,
                   style: TextStyle(
                     fontSize: 12,
                     color: statusColor,
@@ -357,7 +364,7 @@ class _DeviceListItem extends StatelessWidget {
                 Icon(Icons.access_time, size: 12, color: subtitleColor),
                 const SizedBox(width: 4),
                 Text(
-                  _formatLastUpdate(device.lastUpdate),
+                  _formatLastUpdate(context, device.lastUpdate),
                   style: TextStyle(
                     fontSize: 12,
                     color: subtitleColor,
@@ -372,7 +379,7 @@ class _DeviceListItem extends StatelessWidget {
                   Icon(Icons.speed, size: 12, color: subtitleColor),
                   const SizedBox(width: 4),
                   Text(
-                    _formatSpeed(position?.speed),
+                    _formatSpeed(context, position?.speed),
                     style: TextStyle(
                       fontSize: 12,
                       color: subtitleColor,

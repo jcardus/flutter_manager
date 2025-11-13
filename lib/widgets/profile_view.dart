@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:manager/l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 
 class ProfileView extends StatelessWidget {
@@ -13,6 +14,7 @@ class ProfileView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final authService = AuthService();
 
     return FutureBuilder<Map<String, dynamic>?>(
@@ -43,7 +45,7 @@ class ProfileView extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        user?['name'] ?? 'User',
+                        user?['name'] ?? l10n.user,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -69,9 +71,9 @@ class ProfileView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Statistics',
-                        style: TextStyle(
+                      Text(
+                        l10n.statistics,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -83,13 +85,13 @@ class ProfileView extends StatelessWidget {
                           _buildStatItem(
                             context: context,
                             icon: Icons.devices,
-                            label: 'Devices',
+                            label: l10n.devices,
                             value: '$deviceCount',
                           ),
                           _buildStatItem(
                             context: context,
                             icon: Icons.location_on,
-                            label: 'Active',
+                            label: l10n.active,
                             value: '$activeCount',
                           ),
                         ],
@@ -105,7 +107,7 @@ class ProfileView extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () => _handleLogout(context, authService),
                   icon: const Icon(Icons.logout),
-                  label: const Text('Logout'),
+                  label: Text(l10n.logout),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.error,
                     foregroundColor: Theme.of(context).colorScheme.onError,
@@ -121,19 +123,20 @@ class ProfileView extends StatelessWidget {
   }
 
   Future<void> _handleLogout(BuildContext context, AuthService authService) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        title: Text(l10n.logout),
+        content: Text(l10n.logoutConfirmation),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout'),
+            child: Text(l10n.logout),
           ),
         ],
       ),

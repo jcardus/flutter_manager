@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:manager/l10n/app_localizations.dart';
 import 'pages/login_page.dart';
 import 'pages/main_page.dart';
 import 'services/auth_service.dart';
@@ -16,10 +18,20 @@ class App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Manager',
+      onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('en'),
+        Locale('pt'),
+      ],
       home: const AuthGate(),
     );
   }

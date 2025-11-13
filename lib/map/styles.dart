@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'package:flutter/material.dart';
+import 'package:manager/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 
 class MapStyles {
@@ -10,13 +12,13 @@ class MapStyles {
   // Style configurations
   static const List<MapStyleConfig> configs = [
     MapStyleConfig(
-      name: 'Mapbox',
+      nameKey: 'mapbox',
       type: 'mapbox-style',
       tilesOrStyleUrl: 'mapbox://styles/mapbox/streets-v12',
       attribution: '&copy; Mapbox &copy; OpenStreetMap',
     ),
     MapStyleConfig(
-      name: 'Google',
+      nameKey: 'google',
       type: 'raster',
       tilesOrStyleUrl: [
         'https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
@@ -27,7 +29,7 @@ class MapStyles {
       attribution: '&copy; Google Maps',
     ),
     MapStyleConfig(
-      name: 'Satellite',
+      nameKey: 'satellite',
       type: 'raster',
       tilesOrStyleUrl: [
         'https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
@@ -40,7 +42,7 @@ class MapStyles {
       textHaloColor: '#000000',
     ),
     MapStyleConfig(
-      name: 'Dark',
+      nameKey: 'dark',
       type: 'mapbox-style',
       tilesOrStyleUrl: 'mapbox://styles/mapbox/dark-v11',
       attribution: '&copy; Mapbox &copy; OpenStreetMap',
@@ -48,7 +50,7 @@ class MapStyles {
       textHaloColor: '#000000',
     ),
     MapStyleConfig(
-      name: 'Light',
+      nameKey: 'light',
       type: 'mapbox-style',
       tilesOrStyleUrl: 'mapbox://styles/mapbox/light-v11',
       attribution: '&copy; Mapbox &copy; OpenStreetMap',
@@ -98,7 +100,7 @@ class MapStyles {
 
     final style = {
       'version': 8,
-      'name': config.name,
+      'name': config.nameKey,
       'glyphs': 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       'sources': {
         'base-map': baseSource,
@@ -121,7 +123,7 @@ class MapStyles {
 
   /// Parse a mapbox:// URL into components
   static Map<String, String> _parseUrl(String url) {
-    final regex = RegExp(r'^(\w+):\/\/([^/?]*)(\/[^?]+)?\??(.+)?');
+    final regex = RegExp(r'^(\w+)://([^/?]*)(/[^?]+)?\??(.+)?');
     final match = regex.firstMatch(url);
     if (match == null) return {};
 
@@ -304,8 +306,9 @@ class MapStyles {
     return generateStyleJson(config);
   }
 }
+
 class MapStyleConfig {
-  final String name;
+  final String nameKey; // Key for localization
   final String type; // 'raster', 'style-url', or 'mapbox-style'
   final dynamic tilesOrStyleUrl; // List<String> for tiles or String for style URL
   final String attribution;
@@ -313,13 +316,32 @@ class MapStyleConfig {
   final String textHaloColor;
 
   const MapStyleConfig({
-    required this.name,
+    required this.nameKey,
     required this.type,
     required this.tilesOrStyleUrl,
     required this.attribution,
     this.textColor = '#000000',
     this.textHaloColor = '#FFFFFF',
   });
+
+  /// Get the localized name for this style
+  String getLocalizedName(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    switch (nameKey) {
+      case 'mapbox':
+        return l10n.mapStyleMapbox;
+      case 'google':
+        return l10n.mapStyleGoogle;
+      case 'satellite':
+        return l10n.mapStyleSatellite;
+      case 'dark':
+        return l10n.mapStyleDark;
+      case 'light':
+        return l10n.mapStyleLight;
+      default:
+        return nameKey;
+    }
+  }
 
   bool get isStyleUrl => type == 'style-url';
   List<String> get tiles => tilesOrStyleUrl as List<String>;
