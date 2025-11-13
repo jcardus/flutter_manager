@@ -287,7 +287,6 @@ class MapStyles {
       // Add our devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
       layers.add(_devicesLayer(config));
-      dev.log(style.toString());
       return jsonEncode(style);
   }
 
