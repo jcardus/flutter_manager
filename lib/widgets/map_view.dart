@@ -103,8 +103,9 @@ class _MapViewState extends State<MapView> {
     mapController = controller;
   }
 
-  Future<void> _onMapClick(Point<double> point, LatLng coordinates) async {
+  Future<void> _onTap(Offset position) async {
     if (mapController == null) return;
+    final point = Point<double>(position.dx, position.dy);
     final features = await mapController!.queryRenderedFeatures(point, [MapStyles.layerId], [
       "has",
       "deviceId"
@@ -115,6 +116,7 @@ class _MapViewState extends State<MapView> {
         final properties = feature['properties'];
         if (properties != null && properties['deviceId'] != null) {
           _showDeviceBottomSheet(properties['deviceId']);
+          return;
         }
       }
     }
@@ -220,10 +222,15 @@ class _MapViewState extends State<MapView> {
               MapLibreMap(
                 onMapCreated: _onMapCreated,
                 onStyleLoadedCallback: _onStyleLoaded,
-                onMapClick: _onMapClick,
                 initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
                 styleString: snapshot.data!,
                 myLocationEnabled: true,
+              ),
+              Positioned.fill(
+                child: GestureDetector(
+                  onTapUp: (details) => _onTap(details.localPosition),
+                  behavior: HitTestBehavior.translucent
+                ),
               ),
               MapStyleSelector(
                 selectedStyleIndex: _styleIndex,
