@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../utils/constants.dart';
+import '../utils/google_url_signer.dart';
 
 class DeviceBottomSheet extends StatelessWidget {
   final Device device;
@@ -69,15 +71,34 @@ class DeviceBottomSheet extends StatelessWidget {
     }
   }
 
+  String _getStreetViewUrl(double latitude, double longitude, double heading) {
+    final size = '600x400';
+    final fov = '90'; // Field of view
+    final pitch = '0'; // Camera pitch (0 = horizontal)
+
+    final baseUrl = 'https://maps.googleapis.com/maps/api/streetview?'
+        'size=$size'
+        '&location=$latitude,$longitude'
+        '&heading=${heading.toStringAsFixed(0)}'
+        '&fov=$fov'
+        '&pitch=$pitch';
+
+    return GoogleUrlSigner.signUrl(
+      baseUrl,
+      googleMapsSigningSecret,
+      clientId: googleMapsClientId,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final statusColor = _getStatusColor(context);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.4,
-      minChildSize: 0.2,
-      maxChildSize: 0.8,
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
@@ -152,7 +173,59 @@ class DeviceBottomSheet extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Divider(),
+                    // Street View Image
+                    if (position != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: Image.network(
+                              _getStreetViewUrl(position!.latitude, position!.longitude, position!.course),
+                              fit: BoxFit.fitWidth,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.streetview,
+                                          size: 48,
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Street View unavailable',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     // Device Info
                     if (position != null) ...[
                       Padding(
