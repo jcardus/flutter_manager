@@ -72,7 +72,7 @@ class DeviceBottomSheet extends StatelessWidget {
   }
 
   String _getStreetViewUrl(double latitude, double longitude, double heading) {
-    final size = '600x400';
+    final size = '300x200';
     final fov = '90'; // Field of view
     final pitch = '0'; // Camera pitch (0 = horizontal)
 
@@ -184,6 +184,19 @@ class DeviceBottomSheet extends StatelessWidget {
                             child: Image.network(
                               _getStreetViewUrl(position!.latitude, position!.longitude, position!.course),
                               fit: BoxFit.fitWidth,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      value: loadingProgress.expectedTotalBytes != null
+                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                          : null,
+                                    ),
+                                  ),
+                                );
+                              },
                               errorBuilder: (context, error, stackTrace) {
                                 return Container(
                                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -204,19 +217,6 @@ class DeviceBottomSheet extends StatelessWidget {
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  ),
-                                );
-                              },
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Container(
-                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      value: loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                          : null,
                                     ),
                                   ),
                                 );

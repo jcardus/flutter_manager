@@ -1,4 +1,5 @@
 import 'dart:developer' as dev;
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -102,6 +103,23 @@ class _MapViewState extends State<MapView> {
     mapController = controller;
   }
 
+  Future<void> _onMapClick(Point<double> point, LatLng coordinates) async {
+    if (mapController == null) return;
+    final features = await mapController!.queryRenderedFeatures(point, [MapStyles.layerId], [
+      "has",
+      "deviceId"
+    ]);
+
+    if (features.isNotEmpty) {
+      for (var feature in features) {
+        final properties = feature['properties'];
+        if (properties != null && properties['deviceId'] != null) {
+          _showDeviceBottomSheet(properties['deviceId']);
+        }
+      }
+    }
+  }
+
   Future<void> addImageFromAsset(String name, String assetName) async {
     dev.log('adding $name, $assetName');
     final bytes = await rootBundle.load(assetName);
@@ -202,6 +220,7 @@ class _MapViewState extends State<MapView> {
               MapLibreMap(
                 onMapCreated: _onMapCreated,
                 onStyleLoadedCallback: _onStyleLoaded,
+                onMapClick: _onMapClick,
                 initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
                 styleString: snapshot.data!,
                 myLocationEnabled: true,
