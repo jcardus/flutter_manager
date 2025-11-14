@@ -8,18 +8,19 @@ import '../models/position.dart';
 import '../utils/constants.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
-import 'device_bottom_sheet.dart';
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
   final int? selectedDevice;
+  final Function(int deviceId)? onDeviceSelected;
 
   const MapView({
     super.key,
     required this.devices,
     required this.positions,
     this.selectedDevice,
+    this.onDeviceSelected,
   });
 
   @override
@@ -95,20 +96,7 @@ class _MapViewState extends State<MapView> {
   }
 
   void _showDeviceBottomSheet(int deviceId) {
-    final device = widget.devices[deviceId];
-    final position = widget.positions[deviceId];
-    if (device == null) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.transparent,
-      builder: (context) => DeviceBottomSheet(
-        device: device,
-        position: position,
-      ),
-    );
+    widget.onDeviceSelected?.call(deviceId);
   }
 
   void _onMapCreated(MapLibreMapController controller) {

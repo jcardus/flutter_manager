@@ -10,6 +10,7 @@ import '../models/position.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
+import '../widgets/device_bottom_sheet.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -26,6 +27,7 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   int? _selectedDeviceId;
+  int? _bottomSheetDeviceId;
   final List<IconData> _iconList = [
     Icons.map_outlined,
     Icons.list,
@@ -60,6 +62,18 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  void _onDeviceSelected(int deviceId) {
+    setState(() {
+      _bottomSheetDeviceId = deviceId;
+    });
+  }
+
+  void _closeBottomSheet() {
+    setState(() {
+      _bottomSheetDeviceId = null;
+    });
+  }
+
   Widget _buildCurrentScreen() {
     return IndexedStack(
       index: _selectedIndex,
@@ -68,6 +82,7 @@ class _MainPageState extends State<MainPage> {
           devices: _devices,
           positions: _positions,
           selectedDevice: _selectedDeviceId,
+          onDeviceSelected: _onDeviceSelected,
         ),
         DevicesListView(
           devices: _devices,
@@ -168,6 +183,18 @@ class _MainPageState extends State<MainPage> {
               onTap: (index) {setState(() {_selectedIndex = index;});},
             ),
           ),
+          // Device Bottom Sheet (positioned after nav bar so it overlaps)
+          if (_bottomSheetDeviceId != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: DeviceBottomSheet(
+                device: _devices[_bottomSheetDeviceId]!,
+                position: _positions[_bottomSheetDeviceId],
+                onClose: _closeBottomSheet,
+              ),
+            ),
         ],
       ),
     );
