@@ -26,4 +26,4 @@ String get googleMapsClientId {
   return '';
 }
 
-const double selectedZoomLevel=16;
+const double selectedZoomLevel=15;

@@ -74,9 +74,16 @@ class _MapViewState extends State<MapView> {
     final position = widget.positions[deviceId];
     if (mapController == null || position == null) { return; }
 
+
     await mapController!.animateCamera(
       CameraUpdate.newLatLngZoom(
-        LatLng(position.latitude - 0.0015, position.longitude), selectedZoomLevel),
+        LatLng(position.latitude, position.longitude), selectedZoomLevel),
+      duration: Duration(milliseconds: 1000)
+    );
+
+    final scrollOffset = MediaQuery.of(context).size.height / 4;
+    await mapController!.animateCamera(
+      CameraUpdate.scrollBy(0, scrollOffset)
     );
 
     _showDeviceBottomSheet(deviceId);
