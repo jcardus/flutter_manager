@@ -36,8 +36,10 @@ jobs:
           channel: 'stable'
           cache: true
       - run: flutter pub get
-      - run: flutter build ios --build-number ${{ github.run_number }} \
-          --config-only --no-codesign --no-codesign --dart-define GOOGLE_MAPS_CLIENT_ID="${{secrets.GOOGLE_MAPS_CLIENT_ID}}" \
+      - run: |
+          flutter build ios --build-number ${{ github.run_number }} --config-only \
+          --no-codesign --no-codesign \
+          --dart-define GOOGLE_MAPS_CLIENT_ID="${{secrets.GOOGLE_MAPS_CLIENT_ID}}" \
           --dart-define GOOGLE_MAPS_SIGNING_SECRET="${{secrets.GOOGLE_MAPS_SIGNING_SECRET}}"
 
       - name: Set up Ruby
