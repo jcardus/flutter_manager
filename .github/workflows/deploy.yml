@@ -41,7 +41,14 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: 'build/web'
-      - run: flutter build ios --build-number ${{ github.run_number }} --config-only --no-codesign
+      - run: flutter build ios --build-number ${{ github.run_number }} \
+          --config-only --no-codesign --no-codesign --dart-define GOOGLE_MAPS_CLIENT_ID="$GOOGLE_MAPS_CLIENT_ID" \
+          --dart-define GOOGLE_MAPS_SIGNING_SECRET="$GOOGLE_MAPS_SIGNING_SECRET"
+        env:
+          GOOGLE_MAPS_CLIENT_ID: "${{vars.GOOGLE_MAPS_CLIENT_ID}}"
+          GOOGLE_MAPS_SIGNING_SECRET: "${{vars.$GOOGLE_MAPS_SIGNING_SECRET}}"
+
+
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1

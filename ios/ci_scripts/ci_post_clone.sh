@@ -16,6 +16,7 @@ flutter precache --ios
 # Install Flutter dependencies.
 flutter pub get
 
-flutter build ios --config-only --no-codesign
+flutter build ios --config-only --no-codesign --dart-define GOOGLE_MAPS_CLIENT_ID="$GOOGLE_MAPS_CLIENT_ID" \
+  --dart-define GOOGLE_MAPS_SIGNING_SECRET="$GOOGLE_MAPS_SIGNING_SECRET"
 
 exit 0
