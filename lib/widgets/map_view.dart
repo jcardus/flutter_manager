@@ -7,6 +7,7 @@ import '../models/position.dart';
 import '../utils/constants.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
+import 'device_bottom_sheet.dart';
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -51,7 +52,10 @@ class _MapViewState extends State<MapView> {
     _update();
     if (widget.selectedDevice != null &&
         widget.selectedDevice != oldWidget.selectedDevice) {
-      _centerOnDevice(widget.selectedDevice!);
+      // Defer showing bottom sheet until after build completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _centerOnDevice(widget.selectedDevice!);
+      });
     }
   }
 
@@ -65,12 +69,32 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  void _centerOnDevice(int deviceId) {
+  void _centerOnDevice(int deviceId) async {
     final position = widget.positions[deviceId];
     if (mapController == null || position == null) { return; }
-    mapController!.animateCamera(
+
+    await mapController!.animateCamera(
       CameraUpdate.newLatLngZoom(
-        LatLng(position.latitude, position.longitude), selectedZoomLevel),
+        LatLng(position.latitude - 0.0015, position.longitude), selectedZoomLevel),
+    );
+
+    _showDeviceBottomSheet(deviceId);
+  }
+
+  void _showDeviceBottomSheet(int deviceId) {
+    final device = widget.devices[deviceId];
+    final position = widget.positions[deviceId];
+    if (device == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.transparent,
+      builder: (context) => DeviceBottomSheet(
+        device: device,
+        position: position,
+      ),
     );
   }
 
