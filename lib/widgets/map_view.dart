@@ -31,18 +31,23 @@ class _MapViewState extends State<MapView> {
   bool _initialFitDone = false;
   bool _mapReady = false;
   int _styleIndex = 0;
-  late Future<String> _initialStyleFuture;
+  Future<String>? _initialStyleFuture;
 
   @override
-  void initState() {
-    super.initState();
-    _initialStyleFuture = MapStyles.getStyleString(MapStyles.configs[_styleIndex]);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialStyleFuture == null) {
+      final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+      _initialStyleFuture = MapStyles.getStyleString(MapStyles.configs[_styleIndex], pixelRatio);
+    }
+    super.didChangeDependencies();
   }
 
   Future<void> _applyStyle(int index) async {
     if (mapController == null) return;
     setState(() => _mapReady = false);
-    final styleString = await MapStyles.getStyleString(MapStyles.configs[index]);
+    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final styleString = await MapStyles.getStyleString(MapStyles.configs[index], pixelRatio);
     await mapController!.setStyle(styleString);
     setState(() { _styleIndex = index; });
   }

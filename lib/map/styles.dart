@@ -69,13 +69,13 @@ class MapStyles {
   };
 
   /// Generate the devices layer configuration
-  static Map<String, dynamic> _devicesLayer(MapStyleConfig config) => {
+  static Map<String, dynamic> _devicesLayer(MapStyleConfig config, double devicePixelRatio) => {
     'id': layerId,
     'type': 'symbol',
     'source': sourceId,
     'layout': {
       'icon-image': '{category}_{color}_{baseRotation}',
-      'icon-size': 3,
+      'icon-size': devicePixelRatio,
       'text-field': '{name}',
       'text-size': 20,
       'text-font': ['Noto Sans Regular', 'Arial Unicode MS Regular'],
@@ -90,7 +90,7 @@ class MapStyles {
   };
 
   /// Generate a complete MapLibre style JSON string from a config (for raster tiles only)
-  static String generateStyleJson(MapStyleConfig config) {
+  static String generateStyleJson(MapStyleConfig config, double devicePixelRatio) {
     final Map<String, dynamic> baseSource = {
       'type': config.type,
       'tiles': config.tiles,
@@ -114,7 +114,7 @@ class MapStyles {
           'minzoom': 0,
           'maxzoom': 22,
         },
-        _devicesLayer(config),
+        _devicesLayer(config, devicePixelRatio),
       ],
     };
 
@@ -271,7 +271,7 @@ class MapStyles {
   }
 
   /// Fetch a style from URL and add our devices layer
-  static Future<String> _fetchAndModifyStyle(String styleUrl, MapStyleConfig config, {bool isMapbox = false}) async {
+  static Future<String> _fetchAndModifyStyle(String styleUrl, MapStyleConfig config, double devicePixelRatio, {bool isMapbox = false}) async {
       final response = await http.get(Uri.parse(styleUrl));
       final style = jsonDecode(response.body) as Map<String, dynamic>;
 
@@ -286,23 +286,23 @@ class MapStyles {
 
       // Add our devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
-      layers.add(_devicesLayer(config));
+      layers.add(_devicesLayer(config, devicePixelRatio));
       return jsonEncode(style);
   }
 
   /// Generate the style string for a config
-  static Future<String> getStyleString(MapStyleConfig config) async {
+  static Future<String> getStyleString(MapStyleConfig config, double devicePixelRatio) async {
     // For Mapbox styles, transform the URL and fetch
     if (config.type == 'mapbox-style') {
       final transformedUrl = _transformMapboxUrl(config.styleUrl);
-      return await _fetchAndModifyStyle(transformedUrl, config, isMapbox: true);
+      return await _fetchAndModifyStyle(transformedUrl, config, devicePixelRatio, isMapbox: true);
     }
     // For other style URLs (MapTiler), fetch and modify
     if (config.isStyleUrl) {
-      return await _fetchAndModifyStyle(config.styleUrl, config);
+      return await _fetchAndModifyStyle(config.styleUrl, config, devicePixelRatio);
     }
     // For raster tiles, generate the style JSON
-    return generateStyleJson(config);
+    return generateStyleJson(config, devicePixelRatio);
   }
 }
 
