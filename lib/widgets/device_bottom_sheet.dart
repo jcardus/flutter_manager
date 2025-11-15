@@ -23,8 +23,8 @@ class DeviceBottomSheet extends StatefulWidget {
 
 class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   double _sheetHeight = 0.5; // Start at 50% of screen height
-  final double _minHeight = 0.25;
-  final double _maxHeight = 0.75;
+  final double _minHeight = 0.1;
+  double _maxHeight = 0.75;
 
   String _formatSpeed(BuildContext context, double? speed) {
     final l10n = AppLocalizations.of(context)!;
@@ -131,8 +131,31 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
             ),
           ],
         ),
-        child: Column(
-          children: [
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              children: [
+                // Measure widget to get actual content size
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, innerConstraints) {
+                      return OverflowBox(
+                        minHeight: 0,
+                        maxHeight: double.infinity,
+                        alignment: Alignment.topCenter,
+                        child: _MeasureSize(
+                          onChange: (size) {
+                            final screenHeight = MediaQuery.of(context).size.height;
+                            final calculatedMaxHeight = size.height / screenHeight;
+                            if (_maxHeight != calculatedMaxHeight) {
+                              setState(() {
+                                _maxHeight = calculatedMaxHeight;
+                              });
+                            }
+                          },
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
             // Drag handle
             Container(
               margin: const EdgeInsets.symmetric(vertical: 12),
@@ -273,6 +296,15 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
             ],
           ],
         ),
+                          ),
+                        );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -320,6 +352,50 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MeasureSize extends StatefulWidget {
+  final Widget child;
+  final ValueChanged<Size> onChange;
+
+  const _MeasureSize({
+    required this.child,
+    required this.onChange,
+  });
+
+  @override
+  State<_MeasureSize> createState() => _MeasureSizeState();
+}
+
+class _MeasureSizeState extends State<_MeasureSize> {
+  final GlobalKey _key = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifySize());
+  }
+
+  @override
+  void didUpdateWidget(_MeasureSize oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _notifySize());
+  }
+
+  void _notifySize() {
+    final RenderBox? renderBox = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      widget.onChange(renderBox.size);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: _key,
+      child: widget.child,
     );
   }
 }
