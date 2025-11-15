@@ -32,7 +32,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
