@@ -1,3 +1,4 @@
+./generate_icons.sh "$ICON_URL" || exit 1
 flutter pub get
 flutter build ios --build-number "$BUILD_NUMBER" --config-only --no-codesign \
           --dart-define GOOGLE_MAPS_CLIENT_ID="$GOOGLE_MAPS_CLIENT_ID" \
