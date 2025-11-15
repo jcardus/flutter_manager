@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:manager/widgets/street_view.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
-import '../utils/constants.dart';
-import '../utils/google_url_signer.dart';
 
 class DeviceDetail extends StatelessWidget {
   final Device device;
@@ -73,25 +72,6 @@ class DeviceDetail extends StatelessWidget {
     }
   }
 
-  String _getStreetViewUrl(double latitude, double longitude, double heading) {
-    const size = '300x200';
-    const fov = '90';
-    const pitch = '0';
-
-    final baseUrl =
-        'https://maps.googleapis.com/maps/api/streetview'
-        '?size=$size'
-        '&location=$latitude,$longitude'
-        '&heading=${heading.toStringAsFixed(0)}'
-        '&fov=$fov'
-        '&pitch=$pitch';
-
-    return GoogleUrlSigner.signUrl(
-      baseUrl,
-      googleMapsSigningSecret,
-      clientId: googleMapsClientId,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,52 +146,7 @@ class DeviceDetail extends StatelessWidget {
             ),
             if (pos != null) ...[
               // Street View
-              Image.network(
-                _getStreetViewUrl(
-                  pos.latitude,
-                  pos.longitude,
-                  pos.course,
-                ),
-                fit: BoxFit.fill,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    color: colors.surfaceContainerHighest,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                            : null,
-                      ),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: colors.surfaceContainerHighest,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.streetview,
-                            size: 48,
-                            color: colors.onSurfaceVariant,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Street View unavailable',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+              StreetView(position:position),
               // Info rows
               _InfoRow(
                 icon: Icons.speed,
