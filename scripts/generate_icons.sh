@@ -7,7 +7,7 @@ START_ANGLE="${4:-0}"
 END_ANGLE="${5:-360}"
 STEP="${6:-22.5}"
 
-OUTPUT_DIR="../assets/map/icons/"
+OUTPUT_DIR="assets/map/icons/"
 
 mkdir -p "$OUTPUT_DIR"
 if [ "$BASE_URL" == "" ]; then
