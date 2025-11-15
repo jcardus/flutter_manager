@@ -13,10 +13,5 @@ export PATH="$PATH:$HOME/flutter/bin"
 # Install Flutter artifacts for iOS (--ios), or macOS (--macos) platforms.
 flutter precache --ios
 
-# Install Flutter dependencies.
-flutter pub get
-
-flutter build ios --config-only --no-codesign --dart-define GOOGLE_MAPS_CLIENT_ID="$GOOGLE_MAPS_CLIENT_ID" \
-  --dart-define GOOGLE_MAPS_SIGNING_SECRET="$GOOGLE_MAPS_SIGNING_SECRET"
-
+./build.sh
 exit 0
