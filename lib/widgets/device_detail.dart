@@ -10,7 +10,11 @@ class DeviceDetail extends StatelessWidget {
   final Device device;
   final Position? position;
 
-  const DeviceDetail({super.key, required this.device, required this.position});
+  const DeviceDetail({
+    super.key,
+    required this.device,
+    required this.position,
+  });
 
   String _formatSpeed(BuildContext context, double? speed) {
     final l10n = AppLocalizations.of(context)!;
@@ -23,8 +27,7 @@ class DeviceDetail extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     if (lastUpdate == null) return l10n.never;
 
-    final now = DateTime.now();
-    final difference = now.difference(lastUpdate);
+    final difference = DateTime.now().difference(lastUpdate);
 
     if (difference.inMinutes < 1) {
       return l10n.justNow;
@@ -69,13 +72,13 @@ class DeviceDetail extends StatelessWidget {
   }
 
   String _getStreetViewUrl(double latitude, double longitude, double heading) {
-    final size = '300x200';
-    final fov = '90'; // Field of view
-    final pitch = '0'; // Camera pitch (0 = horizontal)
+    const size = '300x200';
+    const fov = '90';
+    const pitch = '0';
 
     final baseUrl =
-        'https://maps.googleapis.com/maps/api/streetview?'
-        'size=$size'
+        'https://maps.googleapis.com/maps/api/streetview'
+        '?size=$size'
         '&location=$latitude,$longitude'
         '&heading=${heading.toStringAsFixed(0)}'
         '&fov=$fov'
@@ -90,12 +93,16 @@ class DeviceDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final textTheme = theme.textTheme;
     final l10n = AppLocalizations.of(context)!;
     final statusColor = _getStatusColor(context);
+    final pos = position;
 
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: colors.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
           BoxShadow(
@@ -110,174 +117,168 @@ class DeviceDetail extends StatelessWidget {
         left: false,
         right: false,
         bottom: true,
-        child: Container(
-          padding: const EdgeInsets.all(16.0),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // Device Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: statusColor.withValues(alpha: 0.2),
-                    child: Icon(_getDeviceIcon(), color: statusColor, size: 32),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          device.name,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.circle, size: 10, color: statusColor),
-                            const SizedBox(width: 6),
-                            Text(
-                              device.status?.toUpperCase() ??
-                                  l10n.statusUnknown,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      Navigator.of(context).maybePop();
-                    },
-                  ),
-                ],
-              ),
-            ),
-            // Content (no scrolling)
-            if (position != null) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+              ),
 
-                  child: Image.network(
-                    _getStreetViewUrl(
-                      position!.latitude,
-                      position!.longitude,
-                      position!.course,
+              // Header
+              Padding(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: statusColor.withValues(alpha: 0.2),
+                      child: Icon(
+                        _getDeviceIcon(),
+                        color: statusColor,
+                        size: 32,
+                      ),
                     ),
-                    fit: BoxFit.fitWidth,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                : null,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            device.name,
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 4),
+                          Row(
                             children: [
-                              Icon(
-                                Icons.streetview,
-                                size: 48,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(height: 8),
+                              Icon(Icons.circle, size: 10, color: statusColor),
+                              const SizedBox(width: 6),
                               Text(
-                                'Street View unavailable',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
+                                device.status?.toUpperCase() ??
+                                    l10n.statusUnknown,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              // Device Info
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    _InfoRow(
-                      icon: Icons.speed,
-                      label: 'Speed',
-                      value: _formatSpeed(context, position?.speed),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    _InfoRow(
-                      icon: Icons.navigation,
-                      label: 'Course',
-                      value: '${position?.course.toStringAsFixed(0)}°',
-                    ),
-                    const SizedBox(height: 12),
-                    _InfoRow(
-                      icon: Icons.access_time,
-                      label: 'Last Update',
-                      value: _formatLastUpdate(context, device.lastUpdate),
-                    ),
-                    const SizedBox(height: 12),
-                    _InfoRow(
-                      icon: Icons.location_on,
-                      label: 'Coordinates',
-                      value:
-                          '${position?.latitude.toStringAsFixed(6)}, ${position?.longitude.toStringAsFixed(6)}',
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
                   ],
                 ),
               ),
+
+              if (pos != null) ...[
+                // Street View
+                Padding(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      _getStreetViewUrl(
+                        pos.latitude,
+                        pos.longitude,
+                        pos.course,
+                      ),
+                      fit: BoxFit.fitWidth,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: colors.surfaceContainerHighest,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: colors.surfaceContainerHighest,
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.streetview,
+                                  size: 48,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Street View unavailable',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // Info rows
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _InfoRow(
+                        icon: Icons.speed,
+                        label: 'Speed',
+                        value: _formatSpeed(context, pos.speed),
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        icon: Icons.navigation,
+                        label: 'Course',
+                        value: '${pos.course.toStringAsFixed(0)}°',
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        icon: Icons.access_time,
+                        label: 'Last Update',
+                        value: _formatLastUpdate(context, device.lastUpdate),
+                      ),
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                        icon: Icons.location_on,
+                        label: 'Coordinates',
+                        value:
+                        '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ));
+    );
   }
 }
 
@@ -294,9 +295,15 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Row(
       children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        Icon(
+          icon,
+          size: 20,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -304,16 +311,16 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
