@@ -33,7 +33,7 @@ class _MapViewState extends State<MapView> {
   bool _mapReady = false;
   int _styleIndex = 0;
   Future<String>? _initialStyleFuture;
-  int scrollOffset = 0;
+  double scrollOffset = 0;
 
 
   @override

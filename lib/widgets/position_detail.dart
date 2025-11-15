@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
-
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
@@ -37,7 +35,7 @@ class PositionDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(child:Column(
+    return Column(
       children: [
         _InfoRow(
           icon: Icons.speed,
@@ -64,7 +62,7 @@ class PositionDetail extends StatelessWidget {
           '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}',
         ),
       ],
-    ));
+    );
   }
 }
 
