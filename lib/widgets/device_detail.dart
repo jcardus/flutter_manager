@@ -9,11 +9,13 @@ import '../utils/google_url_signer.dart';
 class DeviceDetail extends StatelessWidget {
   final Device device;
   final Position? position;
+  final VoidCallback? onClose;
 
   const DeviceDetail({
     super.key,
     required this.device,
     required this.position,
+    required this.onClose
   });
 
   String _formatSpeed(BuildContext context, double? speed) {
@@ -100,27 +102,8 @@ class DeviceDetail extends StatelessWidget {
     final statusColor = _getStatusColor(context);
     final pos = position;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        left: false,
-        right: false,
-        bottom: true,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return
+      Column(
             children: [
               // Handle bar
               Container(
@@ -179,7 +162,7 @@ class DeviceDetail extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.of(context).maybePop(),
+                      onPressed: onClose
                     ),
                   ],
                 ),
@@ -275,10 +258,9 @@ class DeviceDetail extends StatelessWidget {
                 ),
               ],
             ],
-          ),
-        ),
-      ),
-    );
+
+
+      );
   }
 }
 
