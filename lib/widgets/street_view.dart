@@ -6,10 +6,11 @@ import '../utils/google_url_signer.dart';
 
 class StreetView extends StatelessWidget {
   final Position? position;
+  final double width;
 
-  const StreetView({super.key, required this.position});
+  const StreetView({super.key, required this.position, required this.width});
   String _getStreetViewUrl(double latitude, double longitude, double heading) {
-    const size = '300x200';
+    final size = '${width.toInt()}x200';
     const fov = '90';
     const pitch = '0';
 
@@ -36,7 +37,6 @@ class StreetView extends StatelessWidget {
         position!.longitude,
         position!.course,
       ),
-      fit: BoxFit.fill,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return Container(

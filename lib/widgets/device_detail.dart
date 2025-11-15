@@ -144,9 +144,23 @@ class DeviceDetail extends StatelessWidget {
                 ),
               ],
             ),
-            if (pos != null) ...[
+            if (pos != null) Container(
+              margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+              child: Column(children: [
               // Street View
-              StreetView(position:position),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child:
+                      StreetView(
+                        position: pos,
+                        width: constraints.maxWidth,
+                      ),
+
+                  );
+                },
+              ),
               // Info rows
               _InfoRow(
                 icon: Icons.speed,
@@ -172,12 +186,8 @@ class DeviceDetail extends StatelessWidget {
                 value:
                 '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}',
               ),
-            ]],
-        ),
-
-
-
-      );
+            ]))
+      ]));
   }
 }
 
