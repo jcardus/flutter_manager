@@ -184,17 +184,11 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
           // Device Bottom Sheet (positioned after nav bar so it overlaps)
-          if (_bottomSheetDeviceId != null)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: DeviceBottomSheet(
+        if (_bottomSheetDeviceId != null) DeviceBottomSheet(
                 device: _devices[_bottomSheetDeviceId]!,
                 position: _positions[_bottomSheetDeviceId],
                 onClose: _closeBottomSheet,
               ),
-            ),
         ],
       ),
     );
