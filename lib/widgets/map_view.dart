@@ -33,6 +33,8 @@ class _MapViewState extends State<MapView> {
   bool _mapReady = false;
   int _styleIndex = 0;
   Future<String>? _initialStyleFuture;
+  int scrollOffset = 0;
+
 
   @override
   void didChangeDependencies() {
@@ -87,7 +89,6 @@ class _MapViewState extends State<MapView> {
       duration: Duration(milliseconds: 1000)
     );
 
-    final scrollOffset = MediaQuery.of(context).size.height / 4;
     await mapController!.animateCamera(
       CameraUpdate.scrollBy(0, scrollOffset)
     );
@@ -210,6 +211,7 @@ class _MapViewState extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
+    scrollOffset = MediaQuery.of(context).size.height / 4;
     return Scaffold(
       body: FutureBuilder<String>(
         future: _initialStyleFuture,
