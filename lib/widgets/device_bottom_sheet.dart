@@ -20,19 +20,17 @@ class DeviceBottomSheet extends StatefulWidget {
 }
 
 class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
-  // DraggableScrollableSheet configuration
-  final double _sheetPosition = 0.5;
 
   @override
   Widget build(BuildContext context) {
     final position = widget.position;
     return DraggableScrollableSheet(
       maxChildSize: 0.75,
-      initialChildSize: _sheetPosition,
+      initialChildSize: 0.5,
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
+              color: Theme.of(context).colorScheme.surfaceContainer,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [
                 BoxShadow(
