@@ -1,5 +1,5 @@
 const categoryIcons = [
-  'truck'
+  'truck', 'car'
 ];
 
 const colors = [

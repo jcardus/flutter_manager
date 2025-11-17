@@ -247,11 +247,9 @@ class _MapViewState extends State<MapView> {
   }
 
   getMapIcon(String? category) {
-    switch (category) {
-      case 'truck':
-        return categoryIcons[0];
-      default:
-        return categoryIcons[0];
+    if (category != null && categoryIcons.contains(category)) {
+      return category;
     }
+    return 'truck';
   }
 }

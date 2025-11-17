@@ -72,7 +72,9 @@ for COLOR_SPEC in "${COLOR_ARRAY[@]}"; do
         echo "[$global_count/$total_images] Color: $COLOR_NAME | Angle: $angle -> $png_filename"
 
         # Download the SVG image using hex code
-        curl -s "${BASE_URL}?grados=${angle}&b=${COLOR_HEX}" -o "${svg_filename}"
+        URL="${BASE_URL}?grados=${angle}&c=${COLOR_HEX}&b=F0F0F0"
+        echo "$URL"
+        curl -s "${URL}" -o "${svg_filename}"
 
         # Convert SVG to PNG with transparency
         rsvg-convert "${svg_filename}" -o "${OUTPUT_DIR}/${png_filename}"
