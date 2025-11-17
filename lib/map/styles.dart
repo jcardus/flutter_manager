@@ -69,7 +69,7 @@ class MapStyles {
       'features': [],
     },
     'cluster': true,
-    'clusterRadius': 10,
+    'clusterRadius': 15,
     'clusterMaxZoom': 14,
   };
 
