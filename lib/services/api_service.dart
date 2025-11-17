@@ -24,25 +24,8 @@ class ApiService {
     final baseUrl = AuthService.baseUrl;
     final uri = Uri.parse('$baseUrl$endpoint');
 
-    final headers = <String, String>{
-      'accept': 'application/json',
-    };
-
-    // On web, use token from query string in Authorization header
-    if (kIsWeb) {
-      final token = _getWebToken();
-      if (token != null) {
-        headers['Authorization'] = 'Bearer $token';
-      }
-    } else {
-      // On native, use cookie authentication
-      final cookie = await _authService.getCookie();
-      if (cookie != null && cookie.isNotEmpty) {
-        headers['Cookie'] = cookie;
-      }
-    }
-
     try {
+      final headers = await _getAuthHeaders({'accept': 'application/json'});
       final resp = await http.get(uri, headers: headers);
       if (resp.statusCode == 200) {
         final List<dynamic> data = jsonDecode(resp.body) as List<dynamic>;
@@ -76,12 +59,9 @@ class ApiService {
     );
   }
 
-  Future<String?> shareDevice(int deviceId, DateTime expiration) async {
-    final baseUrl = AuthService.baseUrl;
-    final uri = Uri.parse('$baseUrl/api/devices/share');
-
+  Future<Map<String, String>> _getAuthHeaders([Map<String, String>? extraHeaders]) async {
     final headers = <String, String>{
-      'Content-Type': 'application/x-www-form-urlencoded',
+      if (extraHeaders != null) ...extraHeaders,
     };
 
     // On web, use token from query string in Authorization header
@@ -98,7 +78,15 @@ class ApiService {
       }
     }
 
+    return headers;
+  }
+
+  Future<String?> shareDevice(int deviceId, DateTime expiration) async {
+    final baseUrl = AuthService.baseUrl;
+    final uri = Uri.parse('$baseUrl/api/devices/share');
+
     try {
+      final headers = await _getAuthHeaders({'Content-Type': 'application/x-www-form-urlencoded'});
       final expirationString = expiration.toUtc().toIso8601String();
       final response = await http.post(
         uri,
@@ -115,6 +103,39 @@ class ApiService {
     } catch (e, stack) {
       dev.log('Error sharing device: $e', name: 'API', error: e, stackTrace: stack);
       return null;
+    }
+  }
+
+  Future<bool> sendCommand(int deviceId, String commandType) async {
+    final baseUrl = AuthService.baseUrl;
+    final uri = Uri.parse('$baseUrl/api/commands/send');
+
+    try {
+      final headers = await _getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+
+      final body = jsonEncode({
+        'deviceId': deviceId,
+        'type': commandType,
+      });
+
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: body,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      } else {
+        dev.log('Failed to send command: ${response.statusCode}', name: 'API');
+        return false;
+      }
+    } catch (e, stack) {
+      dev.log('Error sending command: $e', name: 'API', error: e, stackTrace: stack);
+      return false;
     }
   }
 }

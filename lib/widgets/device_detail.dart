@@ -166,7 +166,6 @@ class DeviceDetail extends StatelessWidget {
   Future<void> _shareLocation(BuildContext context) async {
     if (position == null) return;
 
-    final l10n = AppLocalizations.of(context)!;
     final apiService = ApiService();
 
     try {
@@ -179,7 +178,7 @@ class DeviceDetail extends StatelessWidget {
       if (shareToken != null) {
         final shareUrl = '$traccarBaseUrl?token=$shareToken';
         // Use native share dialog
-        final result = await SharePlus.instance.share(
+        await SharePlus.instance.share(
             ShareParams(uri: Uri.parse(shareUrl))
           // subject: '${device.name} location',
         );
@@ -206,14 +205,32 @@ class DeviceDetail extends StatelessWidget {
     }
   }
 
-  void _showHistory(BuildContext context) {
+  Future<void> _sendBlockCommand(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l10n.historyComingSoon),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    final apiService = ApiService();
+
+    try {
+      final success = await apiService.sendCommand(device.id, 'engineStop');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? l10n.blockCommandSent : l10n.blockCommandFailed),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      dev.log('Error sending block command: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.blockCommandFailed),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -365,9 +382,9 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.history,
-                      label: l10n.history,
-                      onPressed: () => _showHistory(context),
+                      icon: Icons.block,
+                      label: l10n.block,
+                      onPressed: () => _sendBlockCommand(context),
                     ),
                   ),
                 ],
