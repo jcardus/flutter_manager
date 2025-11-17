@@ -75,9 +75,11 @@
 
   "share": "Partilhar",
 
-  "history": "Histórico",
+  "block": "Bloquear",
 
   "locationCopied": "Localização copiada para a área de transferência",
 
-  "historyComingSoon": "Funcionalidade de histórico em breve"
+  "blockCommandSent": "Comando de bloqueio enviado",
+
+  "blockCommandFailed": "Falha ao enviar comando de bloqueio"
 }

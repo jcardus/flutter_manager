@@ -206,9 +206,9 @@
     "description": "Share location action button label"
   },
 
-  "history": "History",
-  "@history": {
-    "description": "History action button label"
+  "block": "Block",
+  "@block": {
+    "description": "Block command action button label"
   },
 
   "locationCopied": "Location copied to clipboard",
@@ -216,8 +216,13 @@
     "description": "Snackbar message when location is copied"
   },
 
-  "historyComingSoon": "History feature coming soon",
-  "@historyComingSoon": {
-    "description": "Snackbar message for history feature"
+  "blockCommandSent": "Block command sent",
+  "@blockCommandSent": {
+    "description": "Snackbar message when block command is sent"
+  },
+
+  "blockCommandFailed": "Failed to send block command",
+  "@blockCommandFailed": {
+    "description": "Snackbar message when block command fails"
   }
 }
