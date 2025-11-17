@@ -174,6 +174,7 @@ class DeviceDetail extends StatelessWidget {
                   );
                 },
               ),
+              Padding(padding: new EdgeInsets.symmetric(vertical: 6)),
               PositionDetail(pos: pos, device: device),
               // Position rows
             ]))

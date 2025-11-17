@@ -32,34 +32,77 @@ class PositionDetail extends StatelessWidget {
     }
   }
 
+  String _formatIgnition(bool? ignition) {
+    if (ignition == null) return 'Unknown';
+    return ignition ? 'On' : 'Off';
+  }
+
+  String _formatAddress(String? address) {
+    if (address == null || address.isEmpty) return 'Address not available';
+    return address;
+  }
+
+  String _formatOdometer(double? odometer) {
+    if (odometer == null) return 'N/A';
+    final km = odometer / 1000; // Convert meters to kilometers
+    return '${km.toStringAsFixed(1)} km';
+  }
+
 
   @override
   Widget build(BuildContext context) {
+    final ignition = pos.attributes?['ignition'] as bool?;
+    final odometer = pos.attributes?['totalDistance'] as num?;
+
     return Column(
       children: [
-        _InfoRow(
-          icon: Icons.speed,
-          label: 'Speed',
-          value: _formatSpeed(context, pos.speed),
-        ),
-        const SizedBox(height: 12),
-        _InfoRow(
-          icon: Icons.navigation,
-          label: 'Course',
-          value: '${pos.course.toStringAsFixed(0)}°',
-        ),
-        const SizedBox(height: 12),
-        _InfoRow(
-          icon: Icons.access_time,
-          label: 'Last Update',
-          value: _formatLastUpdate(context, device.lastUpdate),
-        ),
-        const SizedBox(height: 12),
+        // Address row spanning full width
         _InfoRow(
           icon: Icons.location_on,
-          label: 'Coordinates',
-          value:
-          '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}',
+          label: 'Address',
+          value: _formatAddress(pos.address),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _InfoRow(
+                icon: Icons.speed,
+                label: 'Speed',
+                value: _formatSpeed(context, pos.speed),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _InfoRow(
+                icon: Icons.power_settings_new,
+                label: 'Ignition',
+                value: _formatIgnition(ignition),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _InfoRow(
+                icon: Icons.access_time,
+                label: 'Last Update',
+                value: _formatLastUpdate(context, device.lastUpdate),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _InfoRow(
+                icon: Icons.route,
+                label: 'Odometer',
+                value: _formatOdometer(odometer?.toDouble()),
+              ),
+            ),
+          ],
         ),
       ],
     );
