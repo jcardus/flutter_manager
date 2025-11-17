@@ -1,12 +1,18 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:manager/widgets/position_detail.dart';
 import 'package:manager/widgets/street_view.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:io' show Platform;
 
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../utils/constants.dart';
+import '../services/api_service.dart';
 
 class DeviceDetail extends StatelessWidget {
   final Device device;
@@ -49,6 +55,165 @@ class DeviceDetail extends StatelessWidget {
       default:
         return Icons.navigation;
     }
+  }
+
+  Future<void> _openDirections(BuildContext context) async {
+    if (position == null) return;
+
+    final lat = position!.latitude;
+    final lng = position!.longitude;
+
+    if (Platform.isIOS) {
+      // Check which map apps are available on iOS
+      final availableApps = <MapApp>[];
+
+      // Apple Maps is always available on iOS
+      availableApps.add(MapApp(
+        name: 'Apple Maps',
+        iconWidget: FaIcon(FontAwesomeIcons.apple, color: Theme.of(context).primaryColor, size: 40),
+        uri: Uri.parse('http://maps.apple.com/?daddr=$lat,$lng'),
+      ));
+
+      // Check for Google Maps
+      final googleMapsUri = Uri.parse('comgooglemaps://?daddr=$lat,$lng&directionsmode=driving');
+      if (await canLaunchUrl(googleMapsUri)) {
+        availableApps.add(MapApp(
+          name: 'Google Maps',
+          iconWidget: FaIcon(FontAwesomeIcons.google, color: Theme.of(context).primaryColor, size: 40),
+          uri: googleMapsUri,
+          fallbackUri: Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng'),
+        ));
+      }
+
+      // Check for Waze
+      final wazeUri = Uri.parse('waze://?ll=$lat,$lng&navigate=yes');
+      if (await canLaunchUrl(wazeUri)) {
+        availableApps.add(MapApp(
+          name: 'Waze',
+          iconWidget: FaIcon(FontAwesomeIcons.waze, color: Theme.of(context).primaryColor, size: 40),
+          uri: wazeUri,
+        ));
+      }
+
+      if (!context.mounted) return;
+
+      // Show action sheet with available apps
+      showModalBottomSheet(
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ...availableApps.map((app) => ListTile(
+                  leading: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(child: app.iconWidget),
+                  ),
+                  title: Text(app.name),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    try {
+                      if (!await launchUrl(app.uri, mode: LaunchMode.externalApplication)) {
+                        if (app.fallbackUri != null) {
+                          await launchUrl(app.fallbackUri!, mode: LaunchMode.externalApplication);
+                        }
+                      }
+                    } catch (e) {
+                      if (app.fallbackUri != null) {
+                        await launchUrl(app.fallbackUri!, mode: LaunchMode.externalApplication);
+                      }
+                    }
+                  },
+                )),
+                ListTile(
+                  leading: const Icon(Icons.cancel),
+                  title: const Text('Cancel'),
+                  onTap: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      // Use Google Maps on Android
+      final mapUri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+      try {
+        final launched = await launchUrl(mapUri, mode: LaunchMode.externalApplication);
+        if (!launched && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open maps'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error opening maps'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _shareLocation(BuildContext context) async {
+    if (position == null) return;
+
+    final l10n = AppLocalizations.of(context)!;
+    final apiService = ApiService();
+
+    try {
+      // Calculate expiration date (24 hours from now)
+      final expiration = DateTime.now().add(const Duration(hours: 24));
+
+      // Call API service to share device
+      final shareToken = await apiService.shareDevice(device.id, expiration);
+
+      if (shareToken != null) {
+        final shareUrl = '$traccarBaseUrl?token=$shareToken';
+        // Use native share dialog
+        final result = await SharePlus.instance.share(
+            ShareParams(uri: Uri.parse(shareUrl))
+          // subject: '${device.name} location',
+        );
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to create share link'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      dev.log('Error sharing location: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error creating share link'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showHistory(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.historyComingSoon),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -185,30 +350,24 @@ class DeviceDetail extends StatelessWidget {
                   Expanded(
                     child: _ActionButton(
                       icon: Icons.directions,
-                      label: 'Directions',
-                      onPressed: () {
-                        // TODO: Open directions in maps app
-                      },
+                      label: l10n.directions,
+                      onPressed: () => _openDirections(context),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
                       icon: Icons.share_location,
-                      label: 'Share',
-                      onPressed: () {
-                        // TODO: Share location
-                      },
+                      label: l10n.share,
+                      onPressed: () => _shareLocation(context),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
                       icon: Icons.history,
-                      label: 'History',
-                      onPressed: () {
-                        // TODO: Show history
-                      },
+                      label: l10n.history,
+                      onPressed: () => _showHistory(context),
                     ),
                   ),
                 ],
@@ -266,5 +425,19 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class MapApp {
+  final String name;
+  final Widget iconWidget;
+  final Uri uri;
+  final Uri? fallbackUri;
+
+  MapApp({
+    required this.name,
+    required this.iconWidget,
+    required this.uri,
+    this.fallbackUri,
+  });
 }
 

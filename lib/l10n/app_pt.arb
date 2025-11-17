@@ -69,5 +69,15 @@
 
   "mapStyleLight": "Claro",
 
-  "loading": "A carregar..."
+  "loading": "A carregar...",
+
+  "directions": "Direções",
+
+  "share": "Partilhar",
+
+  "history": "Histórico",
+
+  "locationCopied": "Localização copiada para a área de transferência",
+
+  "historyComingSoon": "Funcionalidade de histórico em breve"
 }

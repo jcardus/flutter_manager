@@ -75,4 +75,46 @@ class ApiService {
       resourceName: 'positions',
     );
   }
+
+  Future<String?> shareDevice(int deviceId, DateTime expiration) async {
+    final baseUrl = AuthService.baseUrl;
+    final uri = Uri.parse('$baseUrl/api/devices/share');
+
+    final headers = <String, String>{
+      'Content-Type': 'application/x-www-form-urlencoded',
+    };
+
+    // On web, use token from query string in Authorization header
+    if (kIsWeb) {
+      final token = _getWebToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+    } else {
+      // On native, use cookie authentication
+      final cookie = await _authService.getCookie();
+      if (cookie != null && cookie.isNotEmpty) {
+        headers['Cookie'] = cookie;
+      }
+    }
+
+    try {
+      final expirationString = expiration.toUtc().toIso8601String();
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: 'deviceId=${Uri.encodeComponent(deviceId.toString())}&expiration=${Uri.encodeComponent(expirationString)}',
+      );
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        dev.log('Failed to share device: ${response.statusCode}', name: 'API');
+        return null;
+      }
+    } catch (e, stack) {
+      dev.log('Error sharing device: $e', name: 'API', error: e, stackTrace: stack);
+      return null;
+    }
+  }
 }

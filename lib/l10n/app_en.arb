@@ -194,5 +194,30 @@
   "loading": "Loading...",
   "@loading": {
     "description": "Loading indicator text"
+  },
+
+  "directions": "Directions",
+  "@directions": {
+    "description": "Directions action button label"
+  },
+
+  "share": "Share",
+  "@share": {
+    "description": "Share location action button label"
+  },
+
+  "history": "History",
+  "@history": {
+    "description": "History action button label"
+  },
+
+  "locationCopied": "Location copied to clipboard",
+  "@locationCopied": {
+    "description": "Snackbar message when location is copied"
+  },
+
+  "historyComingSoon": "History feature coming soon",
+  "@historyComingSoon": {
+    "description": "Snackbar message for history feature"
   }
 }
