@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:manager/widgets/position_detail.dart';
 import 'package:manager/widgets/street_view.dart';
+import 'dart:io' show Platform;
 
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
@@ -174,11 +176,95 @@ class DeviceDetail extends StatelessWidget {
                   );
                 },
               ),
-              Padding(padding: new EdgeInsets.symmetric(vertical: 6)),
+              const SizedBox(height: 12),
               PositionDetail(pos: pos, device: device),
-              // Position rows
+              const SizedBox(height: 16),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.directions,
+                      label: 'Directions',
+                      onPressed: () {
+                        // TODO: Open directions in maps app
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.share_location,
+                      label: 'Share',
+                      onPressed: () {
+                        // TODO: Share location
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Icons.history,
+                      label: 'History',
+                      onPressed: () {
+                        // TODO: Show history
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
             ]))
       ]));
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Material(
+      color: colors.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: colors.primary,
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
