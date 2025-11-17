@@ -106,20 +106,37 @@ class _MapViewState extends State<MapView> {
 
   Future<void> _onTap(Offset position) async {
     if (mapController == null) return;
-    final point = Point<double>(position.dx, position.dy);
-    final features = await mapController!.queryRenderedFeatures(point, [MapStyles.layerId], [
-      "has",
-      "deviceId"
-    ]);
+    try {
+      final point = Point<double>(position.dx, position.dy);
+      final features = await mapController!.queryRenderedFeatures(
+          point,
+          [MapStyles.layerId, MapStyles.clusterLayerId],
+          null
+      );
 
-    if (features.isNotEmpty) {
-      for (var feature in features) {
-        final properties = feature['properties'];
-        if (properties != null && properties['deviceId'] != null) {
-          _showDeviceBottomSheet(properties['deviceId']);
-          return;
+      if (features.isNotEmpty) {
+        for (var feature in features) {
+          final properties = feature['properties'];
+          if (properties != null && properties['deviceId'] != null) {
+            _showDeviceBottomSheet(properties['deviceId']);
+            return;
+          } else if (properties != null && properties['cluster_id'] != null) {
+            final coordinates = feature['geometry']['coordinates'] as List;
+            await mapController!.animateCamera(
+              CameraUpdate.zoomIn(),
+              duration: const Duration(milliseconds: 300),
+            );
+            await mapController!.animateCamera(
+                CameraUpdate.newLatLng(
+                  LatLng(coordinates[1] as double, coordinates[0] as double),
+                )
+            );
+            return;
+          }
         }
       }
+    } catch (e) {
+      dev.log('Error expanding cluster: $e');
     }
   }
 
