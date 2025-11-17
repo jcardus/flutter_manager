@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 class MapStyles {
   static const String sourceId = 'devices-source';
   static const String layerId = 'devices-layer';
+  static const String clusterLayerId = 'clusters';
+  static const String clusterCountLayerId = 'cluster-count';
   static const String _mapbox = 'pk.eyJ1IjoiZ3VzdGF2by1mbGVldG1hcCIsImEiOiJjbWQ4bTUwZ2EwMXkyMmpzOGI0c25reGFpIn0.ftht2eo6PRXkAEWy9oQ65g';
 
   // Style configurations
@@ -59,20 +61,69 @@ class MapStyles {
     )
   ];
 
-  /// Generate the devices source configuration
+  /// Generate the devices source configuration with clustering
   static Map<String, dynamic> get _devicesSource => {
     'type': 'geojson',
     'data': {
       'type': 'FeatureCollection',
       'features': [],
     },
+    'cluster': true,
+    'clusterRadius': 10,
+    'clusterMaxZoom': 14,
   };
 
-  /// Generate the devices layer configuration
+  /// Generate the cluster circles layer
+  static Map<String, dynamic> _clusterLayer(MapStyleConfig config) => {
+    'id': clusterLayerId,
+    'type': 'circle',
+    'source': sourceId,
+    'filter': ['has', 'point_count'],
+    'paint': {
+      'circle-color': [
+        'step',
+        ['get', 'point_count'],
+        config.clusterColorSmall,
+        10,
+        config.clusterColorMedium,
+        30,
+        config.clusterColorLarge,
+      ],
+      'circle-radius': [
+        'step',
+        ['get', 'point_count'],
+        20,
+        10,
+        30,
+        30,
+        40,
+      ],
+    },
+  };
+
+  /// Generate the cluster count layer
+  static Map<String, dynamic> _clusterCountLayer(MapStyleConfig config) => {
+    'id': clusterCountLayerId,
+    'type': 'symbol',
+    'source': sourceId,
+    'filter': ['has', 'point_count'],
+    'layout': {
+      'text-field': '{point_count_abbreviated}',
+      'text-font': ['Noto Sans Regular', 'Arial Unicode MS Regular'],
+      'text-size': 14,
+      'text-allow-overlap': true
+    },
+    'paint': {
+      'text-color': '#ffffff',
+    },
+  };
+
+  /// Generate the devices layer configuration (for unclustered points)
   static Map<String, dynamic> _devicesLayer(MapStyleConfig config, double devicePixelRatio) => {
     'id': layerId,
     'type': 'symbol',
     'source': sourceId,
+    'filter': ['!', ['has', 'point_count']],
     'layout': {
       'icon-image': '{category}_{color}_{baseRotation}',
       'icon-size': devicePixelRatio,
@@ -81,6 +132,8 @@ class MapStyles {
       'text-font': ['Noto Sans Regular', 'Arial Unicode MS Regular'],
       'text-offset': [0, 2],
       'text-anchor': 'top',
+      'icon-allow-overlap': true,
+      'text-allow-overlap': true
     },
     'paint': {
       'text-color': config.textColor,
@@ -114,6 +167,8 @@ class MapStyles {
           'minzoom': 0,
           'maxzoom': 22,
         },
+        _clusterLayer(config),
+        _clusterCountLayer(config),
         _devicesLayer(config, devicePixelRatio),
       ],
     };
@@ -284,8 +339,10 @@ class MapStyles {
       final sources = style['sources'] as Map<String, dynamic>;
       sources[sourceId] = _devicesSource;
 
-      // Add our devices layer at the end (on top)
+      // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
+      layers.add(_clusterLayer(config));
+      layers.add(_clusterCountLayer(config));
       layers.add(_devicesLayer(config, devicePixelRatio));
       return jsonEncode(style);
   }
@@ -313,6 +370,9 @@ class MapStyleConfig {
   final String attribution;
   final String textColor;
   final String textHaloColor;
+  final String clusterColorSmall;
+  final String clusterColorMedium;
+  final String clusterColorLarge;
 
   const MapStyleConfig({
     required this.nameKey,
@@ -321,6 +381,9 @@ class MapStyleConfig {
     required this.attribution,
     this.textColor = '#000000',
     this.textHaloColor = '#FFFFFF',
+    this.clusterColorSmall = '#4CAF50',
+    this.clusterColorMedium = '#FF9800',
+    this.clusterColorLarge = '#F44336',
   });
 
   /// Get the localized name for this style
