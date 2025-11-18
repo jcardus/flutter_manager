@@ -404,7 +404,9 @@ class _DeviceListItem extends StatelessWidget {
             ? Icon(Icons.block, color: Theme.of(context).colorScheme.error)
             : const Icon(Icons.chevron_right),
         onTap: () {
-          onTap?.call(device.id);
+          if (position != null) {
+            onTap?.call(device.id);
+          }
         },
       ),
     );

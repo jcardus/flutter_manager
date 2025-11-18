@@ -1,5 +1,6 @@
 import 'dart:developer' as dev;
 import 'dart:math';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -81,23 +82,21 @@ class _MapViewState extends State<MapView> {
   void _centerOnDevice(int deviceId) async {
     final position = widget.positions[deviceId];
     if (mapController == null || position == null) { return; }
-
-
+    final zoom = mapController!.cameraPosition!.zoom;
+    var p = await mapController!.toScreenLocation(
+        LatLng(position.latitude, position.longitude));
+    if (zoom < selectedZoomLevel) {
+      await mapController!.animateCamera(
+          CameraUpdate.zoomBy(selectedZoomLevel-zoom, Offset(p.x.toDouble(), p.y.toDouble())),
+          duration: Duration(milliseconds: 250));
+    }
+    p = await mapController!.toScreenLocation(
+        LatLng(position.latitude, position.longitude));
+    final ll = await mapController!.toLatLng(Point(p.x, p.y + scrollOffset));
     await mapController!.animateCamera(
-      CameraUpdate.newLatLngZoom(
-        LatLng(position.latitude, position.longitude), selectedZoomLevel),
-      duration: Duration(milliseconds: 1000)
+        CameraUpdate.newLatLng(ll),
+        duration: const Duration(milliseconds: 250)
     );
-
-    await mapController!.animateCamera(
-      CameraUpdate.scrollBy(0, scrollOffset)
-    );
-
-    _showDeviceBottomSheet(deviceId);
-  }
-
-  void _showDeviceBottomSheet(int deviceId) {
-    widget.onDeviceSelected?.call(deviceId);
   }
 
   void _onMapCreated(MapLibreMapController controller) {
@@ -118,18 +117,12 @@ class _MapViewState extends State<MapView> {
         for (var feature in features) {
           final properties = feature['properties'];
           if (properties != null && properties['deviceId'] != null) {
-            _showDeviceBottomSheet(properties['deviceId']);
+            widget.onDeviceSelected?.call(properties['deviceId']);
             return;
           } else if (properties != null && properties['cluster_id'] != null) {
-            final coordinates = feature['geometry']['coordinates'] as List;
             await mapController!.animateCamera(
-              CameraUpdate.zoomIn(),
-              duration: const Duration(milliseconds: 300),
-            );
-            await mapController!.animateCamera(
-                CameraUpdate.newLatLng(
-                  LatLng(coordinates[1] as double, coordinates[0] as double),
-                )
+              CameraUpdate.zoomBy(2, position),
+              duration: const Duration(milliseconds: 1000),
             );
             return;
           }
@@ -241,9 +234,11 @@ class _MapViewState extends State<MapView> {
               MapLibreMap(
                 onMapCreated: _onMapCreated,
                 onStyleLoadedCallback: _onStyleLoaded,
+                // onMapClick: (point, latLng) => _onTap(Offset(point.x, point.y)),
                 initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
                 styleString: snapshot.data!,
                 myLocationEnabled: true,
+                trackCameraPosition: true,
               ),
               Positioned.fill(
                 child: GestureDetector(
