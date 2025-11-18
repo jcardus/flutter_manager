@@ -69,7 +69,7 @@ class MapStyles {
       'features': [],
     },
     'cluster': true,
-    'clusterRadius': 15,
+    'clusterRadius': 20,
     'clusterMaxZoom': 14,
   };
 
@@ -86,7 +86,7 @@ class MapStyles {
         config.clusterColorSmall,
         10,
         config.clusterColorMedium,
-        30,
+        20,
         config.clusterColorLarge,
       ],
       'circle-radius': [
@@ -94,9 +94,9 @@ class MapStyles {
         ['get', 'point_count'],
         20,
         10,
-        30,
-        30,
-        40,
+        25,
+        20,
+        25,
       ],
     },
   };

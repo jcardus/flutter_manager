@@ -27,7 +27,6 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   int? _selectedDeviceId;
-  int? _bottomSheetDeviceId;
   final List<IconData> _iconList = [
     Icons.map_outlined,
     Icons.list,
@@ -62,15 +61,9 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
-  void _onDeviceSelected(int deviceId) {
-    setState(() {
-      _bottomSheetDeviceId = deviceId;
-    });
-  }
-
   void _closeBottomSheet() {
     setState(() {
-      _bottomSheetDeviceId = null;
+      _selectedDeviceId = null;
     });
   }
 
@@ -82,7 +75,7 @@ class _MainPageState extends State<MainPage> {
           devices: _devices,
           positions: _positions,
           selectedDevice: _selectedDeviceId,
-          onDeviceSelected: _onDeviceSelected,
+          onDeviceSelected: _onDeviceTap,
         ),
         DevicesListView(
           devices: _devices,
@@ -184,11 +177,29 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
           // Device Bottom Sheet (positioned after nav bar so it overlaps)
-        if (_bottomSheetDeviceId != null) DeviceBottomSheet(
-                device: _devices[_bottomSheetDeviceId]!,
-                position: _positions[_bottomSheetDeviceId],
-                onClose: _closeBottomSheet,
-              ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOut,
+                )),
+                child: child,
+              );
+            },
+            child: _selectedDeviceId != null
+                ? DeviceBottomSheet(
+                    key: ValueKey(_selectedDeviceId),
+                    device: _devices[_selectedDeviceId]!,
+                    position: _positions[_selectedDeviceId],
+                    onClose: _closeBottomSheet,
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );
