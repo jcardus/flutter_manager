@@ -62,6 +62,7 @@ class DeviceDetail extends StatelessWidget {
 
     final lat = position!.latitude;
     final lng = position!.longitude;
+    final color = Theme.of(context).primaryColor;
 
     if (Platform.isIOS) {
       // Check which map apps are available on iOS
@@ -70,7 +71,7 @@ class DeviceDetail extends StatelessWidget {
       // Apple Maps is always available on iOS
       availableApps.add(MapApp(
         name: 'Apple Maps',
-        iconWidget: FaIcon(FontAwesomeIcons.apple, color: Theme.of(context).primaryColor, size: 40),
+        iconWidget: FaIcon(FontAwesomeIcons.apple, color: color, size: 40),
         uri: Uri.parse('http://maps.apple.com/?daddr=$lat,$lng'),
       ));
 
@@ -79,7 +80,7 @@ class DeviceDetail extends StatelessWidget {
       if (await canLaunchUrl(googleMapsUri)) {
         availableApps.add(MapApp(
           name: 'Google Maps',
-          iconWidget: FaIcon(FontAwesomeIcons.google, color: Theme.of(context).primaryColor, size: 40),
+          iconWidget: FaIcon(FontAwesomeIcons.google, color: color, size: 40),
           uri: googleMapsUri,
           fallbackUri: Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng'),
         ));
@@ -90,7 +91,7 @@ class DeviceDetail extends StatelessWidget {
       if (await canLaunchUrl(wazeUri)) {
         availableApps.add(MapApp(
           name: 'Waze',
-          iconWidget: FaIcon(FontAwesomeIcons.waze, color: Theme.of(context).primaryColor, size: 40),
+          iconWidget: FaIcon(FontAwesomeIcons.waze, color: color, size: 40),
           uri: wazeUri,
         ));
       }
