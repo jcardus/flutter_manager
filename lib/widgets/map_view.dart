@@ -117,7 +117,7 @@ class _MapViewState extends State<MapView> {
         for (var feature in features) {
           final properties = feature['properties'];
           if (properties != null && properties['deviceId'] != null) {
-            widget.onDeviceSelected?.call(properties['deviceId']);
+            widget.onDeviceSelected?.call((properties['deviceId'] as num).toInt());
             return;
           } else if (properties != null && properties['cluster_id'] != null) {
             await mapController!.animateCamera(
@@ -128,8 +128,8 @@ class _MapViewState extends State<MapView> {
           }
         }
       }
-    } catch (e) {
-      dev.log('Error expanding cluster: $e');
+    } catch (e, stack) {
+      dev.log('Error expanding cluster', error: e, stackTrace: stack);
     }
   }
 
