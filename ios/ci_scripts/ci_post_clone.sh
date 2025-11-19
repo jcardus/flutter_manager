@@ -13,6 +13,5 @@ export PATH="$PATH:$HOME/flutter/bin"
 
 # Install Flutter artifacts for iOS (--ios), or macOS (--macos) platforms.
 flutter precache --ios
-
-./build.sh
+./build.sh "ios --config-only --no-codesign"
 exit 0
