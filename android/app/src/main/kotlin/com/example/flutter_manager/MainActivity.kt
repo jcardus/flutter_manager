@@ -1,4 +1,4 @@
-package com.example.flutter_manager
+package com.fleetmap.fleetmanager
 
 import io.flutter.embedding.android.FlutterActivity
 
