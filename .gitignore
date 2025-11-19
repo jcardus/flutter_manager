@@ -46,3 +46,4 @@ app.*.map.json
 /assets/map/icons/
 /ios/gc_keys.json
 /lib/l10n/*.dart
+/android/keystore

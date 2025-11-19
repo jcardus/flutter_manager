@@ -54,12 +54,11 @@ jobs:
             android/**/gradle-wrapper.properties
       - name: Build
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/keystore          
+          echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/keystore
+          export BUILD_NUMBER="${{ github.run_number }}"
+          export GOOGLE_MAPS_CLIENT_ID="${{ secrets.GOOGLE_MAPS_CLIENT_ID }}"
+          export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
           ./build.sh appbundle
-        env:
-          BUILD_NUMBER: "${{ github.run_number }}"
-          GOOGLE_MAPS_CLIENT_ID: "${{secrets.GOOGLE_MAPS_CLIENT_ID}}"
-          GOOGLE_MAPS_SIGNING_SECRET: "${{secrets.GOOGLE_MAPS_SIGNING_SECRET}}"
 
       - name: Create artifact
         continue-on-error: true
