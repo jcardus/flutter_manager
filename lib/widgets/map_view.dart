@@ -1,6 +1,6 @@
 import 'dart:developer' as dev;
+import 'dart:io';
 import 'dart:math';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -103,10 +103,9 @@ class _MapViewState extends State<MapView> {
     mapController = controller;
   }
 
-  Future<void> _onTap(Offset position) async {
+  Future<void> _onMapClick(Point<double> point, LatLng? coordinates) async {
     if (mapController == null) return;
     try {
-      final point = Point<double>(position.dx, position.dy);
       final features = await mapController!.queryRenderedFeatures(
           point,
           [MapStyles.layerId, MapStyles.clusterLayerId],
@@ -120,8 +119,10 @@ class _MapViewState extends State<MapView> {
             widget.onDeviceSelected?.call((properties['deviceId'] as num).toInt());
             return;
           } else if (properties != null && properties['cluster_id'] != null) {
+            final zoom = mapController!.cameraPosition!.zoom;
+            coordinates ??= await mapController!.toLatLng(point);
             await mapController!.animateCamera(
-              CameraUpdate.zoomBy(2, position),
+              CameraUpdate.newLatLngZoom(coordinates, zoom + 2),
               duration: const Duration(milliseconds: 1000),
             );
             return;
@@ -129,7 +130,7 @@ class _MapViewState extends State<MapView> {
         }
       }
     } catch (e, stack) {
-      dev.log('Error expanding cluster', error: e, stackTrace: stack);
+      dev.log('_onMapClick', error: e, stackTrace: stack);
     }
   }
 
@@ -229,23 +230,32 @@ class _MapViewState extends State<MapView> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
+
+          final mapWidget = MapLibreMap(
+            onMapCreated: _onMapCreated,
+            onStyleLoadedCallback: _onStyleLoaded,
+            onMapClick: Platform.isAndroid ? _onMapClick : null,
+            initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
+            styleString: snapshot.data!,
+            myLocationEnabled: true,
+            trackCameraPosition: true,
+          );
+
           return Stack(
             children: [
-              MapLibreMap(
-                onMapCreated: _onMapCreated,
-                onStyleLoadedCallback: _onStyleLoaded,
-                // onMapClick: (point, latLng) => _onTap(Offset(point.x, point.y)),
-                initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
-                styleString: snapshot.data!,
-                myLocationEnabled: true,
-                trackCameraPosition: true,
-              ),
-              Positioned.fill(
-                child: GestureDetector(
-                  onTapUp: (details) => _onTap(details.localPosition),
-                  behavior: HitTestBehavior.translucent
-                ),
-              ),
+              if (Platform.isIOS)
+                Listener(
+                  onPointerUp: (PointerUpEvent event) {
+                    _onMapClick(
+                      Point(event.localPosition.dx, event.localPosition.dy),
+                      null
+                    );
+                  },
+                  behavior: HitTestBehavior.translucent,
+                  child: mapWidget,
+                )
+              else
+                mapWidget,
               MapStyleSelector(
                 selectedStyleIndex: _styleIndex,
                 mapReady: _mapReady,
