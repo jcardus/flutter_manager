@@ -81,7 +81,8 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_AUTH }}
           packageName: com.fleetmap.fleetmanager
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
-          track: beta
+          track: internal
+          status: draft
 
 
   deploy-web:
