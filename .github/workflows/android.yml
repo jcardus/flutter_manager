@@ -50,6 +50,7 @@ jobs:
           export GOOGLE_MAPS_CLIENT_ID="${{ secrets.GOOGLE_MAPS_CLIENT_ID }}"
           export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
           ./build.sh appbundle
+          ./build.sh apk
 
       - name: Create artifact
         continue-on-error: true
