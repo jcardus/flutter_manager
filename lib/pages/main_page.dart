@@ -160,20 +160,22 @@ class _MainPageState extends State<MainPage> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: CurvedNavigationBar(
-              index: _selectedIndex,
-              height: 60,
-              items: <Widget>[
-                Icon(_iconList[0], size: 30, color: Colors.white),
-                Icon(_iconList[1], size: 30, color: Colors.white),
-                Icon(_iconList[2], size: 30, color: Colors.white),
-              ],
-              color: Theme.of(context).colorScheme.primary,
-              buttonBackgroundColor: Theme.of(context).colorScheme.primary,
-              backgroundColor: Colors.transparent,
-              animationCurve: Curves.easeInOut,
-              animationDuration: const Duration(milliseconds: 300),
-              onTap: (index) {setState(() {_selectedIndex = index;});},
+            child: SafeArea(
+              child: CurvedNavigationBar(
+                index: _selectedIndex,
+                height: 60,
+                items: <Widget>[
+                  Icon(_iconList[0], size: 30, color: Colors.white),
+                  Icon(_iconList[1], size: 30, color: Colors.white),
+                  Icon(_iconList[2], size: 30, color: Colors.white),
+                ],
+                color: Theme.of(context).colorScheme.primary,
+                buttonBackgroundColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: Colors.transparent,
+                animationCurve: Curves.easeInOut,
+                animationDuration: const Duration(milliseconds: 300),
+                onTap: (index) {setState(() {_selectedIndex = index;});},
+              )
             ),
           ),
           // Device Bottom Sheet (positioned after nav bar so it overlaps)
