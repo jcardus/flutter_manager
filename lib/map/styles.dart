@@ -133,7 +133,8 @@ class MapStyles {
       'text-offset': [0, 2],
       'text-anchor': 'top',
       'icon-allow-overlap': true,
-      'text-allow-overlap': true
+      'text-allow-overlap': true,
+      'icon-rotate': ['get', 'rotate']
     },
     'paint': {
       'text-color': config.textColor,
