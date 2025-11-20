@@ -1,3 +1,5 @@
+ICON_NAMES="cam_caja_60,sedan_50"
+OUTPUT_NAMES="truck,car"
 if [ -n "$ICON_NAMES" ]; then
     counter=1
     for ICON_NAME in $(echo "$ICON_NAMES" | tr ',' ' '); do

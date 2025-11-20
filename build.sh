@@ -1,4 +1,3 @@
-scripts/generate_icons.sh
 flutter pub get
 flutter build $1 \
           --build-number "$BUILD_NUMBER" \
