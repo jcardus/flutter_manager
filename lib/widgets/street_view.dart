@@ -46,6 +46,30 @@ class _StreetViewState extends State<StreetView> {
     _fetchImageId();
   }
 
+  @override
+  void didUpdateWidget(StreetView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Check if position has changed significantly
+    if (_hasPositionChanged(oldWidget.position, widget.position)) {
+      setState(() {
+        _isLoading = true;
+        _hasImage = false;
+        _pendingImageId = null;
+      });
+      _fetchImageId();
+    }
+  }
+
+  bool _hasPositionChanged(Position oldPos, Position newPos) {
+    // Consider position changed if lat/lon/course differ
+    const double latLonThreshold = 0.0001; // ~11 meters
+    const double courseThreshold = 10.0; // 10 degrees
+
+    return (oldPos.latitude - newPos.latitude).abs() > latLonThreshold ||
+           (oldPos.longitude - newPos.longitude).abs() > latLonThreshold ||
+           (oldPos.course - newPos.course).abs() > courseThreshold;
+  }
+
   String _buildHtml() {
     return '''
 <!DOCTYPE html>
@@ -87,7 +111,9 @@ class _StreetViewState extends State<StreetView> {
           imageId: imageId,
           component: {
             cover: false,
-            zoom: false
+            zoom: false,
+            direction: false,
+            sequence: false
           }
         });
 
@@ -133,11 +159,19 @@ class _StreetViewState extends State<StreetView> {
 
       if (imageData != null && mounted) {
         // Calculate bearing difference (how much to pan)
-        double bearingDiff = widget.position.course - imageData.compassAngle;
+        // Only rotate if the image is panoramic
+        double bearingDiff = 0;
+        if (imageData.isPano) {
+          bearingDiff = widget.position.course - imageData.compassAngle;
 
-        // Normalize to -180 to 180 range
-        while (bearingDiff > 180) bearingDiff -= 360;
-        while (bearingDiff < -180) bearingDiff += 360;
+          // Normalize to -180 to 180 range
+          while (bearingDiff > 180) {
+            bearingDiff -= 360;
+          }
+          while (bearingDiff < -180) {
+            bearingDiff += 360;
+          }
+        }
 
         if (_pageLoaded) {
           // Page is ready, load the image immediately
