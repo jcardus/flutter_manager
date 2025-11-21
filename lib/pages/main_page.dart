@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
-import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
@@ -27,11 +26,6 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   int? _selectedDeviceId;
-  final List<IconData> _iconList = [
-    Icons.map_outlined,
-    Icons.list,
-    Icons.person_outline,
-  ];
 
   @override
   void initState() {
@@ -155,30 +149,39 @@ class _MainPageState extends State<MainPage> {
       body: Stack(
         children: [
           _buildCurrentScreen(),
-          // Curved Navigation Bar Overlay
+          // Floating Navigation Bar
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: SafeArea(
-              child: CurvedNavigationBar(
-                index: _selectedIndex,
-                height: 60,
-                items: <Widget>[
-                  Icon(_iconList[0], size: 30, color: Colors.white),
-                  Icon(_iconList[1], size: 30, color: Colors.white),
-                  Icon(_iconList[2], size: 30, color: Colors.white),
-                ],
-                color: Theme.of(context).colorScheme.primary,
-                buttonBackgroundColor: Theme.of(context).colorScheme.primary,
-                backgroundColor: Colors.transparent,
-                animationCurve: Curves.easeInOut,
-                animationDuration: const Duration(milliseconds: 300),
-                onTap: (index) {setState(() {_selectedIndex = index;});},
-              )
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Material(
+                    elevation: 3,
+                    borderRadius: BorderRadius.circular(10),
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildNavItem(0, Icons.map_outlined, 'Map'),
+                          const SizedBox(width: 4),
+                          _buildNavItem(1, Icons.list, 'Devices'),
+                          const SizedBox(width: 4),
+                          _buildNavItem(2, Icons.person_outline, 'Profile'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-          // Device Bottom Sheet (positioned after nav bar so it overlaps)
+          // Device Bottom Sheet
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 500),
             transitionBuilder: (Widget child, Animation<double> animation) {
@@ -203,6 +206,49 @@ class _MainPageState extends State<MainPage> {
                 : const SizedBox.shrink(),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, String label) {
+    final isSelected = _selectedIndex == index;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isSelected
+                  ? Theme.of(context).colorScheme.onPrimaryContainer
+                  : Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
