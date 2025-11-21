@@ -41,7 +41,7 @@ class MapillaryService {
       final url = Uri.parse(
         'https://graph.mapillary.com/images'
         '?access_token=$mapillaryToken'
-        '&fields=id,compass_angle'
+        '&fields=id,computed_compass_angle'
         '&bbox=${bbox.join(',')}',
       );
 
@@ -55,20 +55,20 @@ class MapillaryService {
           return null;
         }
 
-        // Sort by closest compass angle to the course
+        // Sort by closest computed compass angle to the course
         data.sort((a, b) {
-          final angleA = (a['compass_angle'] ?? 0.0).toDouble();
-          final angleB = (b['compass_angle'] ?? 0.0).toDouble();
+          final angleA = (a['computed_compass_angle'] ?? 0.0).toDouble();
+          final angleB = (b['computed_compass_angle'] ?? 0.0).toDouble();
           final diffA = (course - angleA).abs();
           final diffB = (course - angleB).abs();
           return diffA.compareTo(diffB);
         });
 
-        // Return the closest match with both ID and compass angle
+        // Return the closest match with both ID and computed compass angle
         final best = data[0];
         return MapillaryImage(
           id: best['id'] as String,
-          compassAngle: (best['compass_angle'] ?? 0.0).toDouble(),
+          compassAngle: (best['computed_compass_angle'] ?? 0.0).toDouble(),
         );
       }
 
