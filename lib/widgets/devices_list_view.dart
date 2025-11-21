@@ -110,7 +110,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                     },
                     child:
                     _StatCard(
-                      icon: Icons.devices,
+                      icon: Icons.list_alt,
                       label: l10n.total,
                       value: totalDevices.toString(),
                       color: _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.primary
