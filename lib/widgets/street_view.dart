@@ -51,11 +51,6 @@ class _StreetViewState extends State<StreetView> {
     super.didUpdateWidget(oldWidget);
     // Check if position has changed significantly
     if (_hasPositionChanged(oldWidget.position, widget.position)) {
-      setState(() {
-        _isLoading = true;
-        _hasImage = false;
-        _pendingImageId = null;
-      });
       _fetchImageId();
     }
   }
