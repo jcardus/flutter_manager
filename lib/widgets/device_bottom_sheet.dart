@@ -25,7 +25,8 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   Widget build(BuildContext context) {
     final position = widget.position;
     return DraggableScrollableSheet(
-      maxChildSize: 0.75,
+      maxChildSize: 0.6,
+      minChildSize: 0.15,
       initialChildSize: 0.6,
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(

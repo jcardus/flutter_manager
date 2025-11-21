@@ -59,7 +59,7 @@ class PositionDetail extends StatelessWidget {
         // Address row spanning full width
         _InfoRow(
           icon: Icons.location_on,
-          label: 'Address',
+          label: '',
           value: _formatAddress(pos.address),
         ),
         const SizedBox(height: 12),
@@ -136,7 +136,8 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              if (label.isNotEmpty)
+                Text(
                 label,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,

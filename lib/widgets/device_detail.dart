@@ -375,7 +375,7 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.share_location,
+                      icon: Platform.isIOS ? Icons.ios_share : Icons.share,
                       label: l10n.share,
                       onPressed: () => _shareLocation(context),
                     ),
@@ -383,7 +383,7 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.block,
+                      icon: Icons.lock,
                       label: l10n.block,
                       onPressed: () => _sendBlockCommand(context),
                     ),
