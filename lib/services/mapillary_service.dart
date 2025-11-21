@@ -7,8 +7,13 @@ import '../utils/constants.dart';
 class MapillaryImage {
   final String id;
   final double compassAngle;
+  final bool isPano;
 
-  MapillaryImage({required this.id, required this.compassAngle});
+  MapillaryImage({
+    required this.id,
+    required this.compassAngle,
+    required this.isPano,
+  });
 }
 
 class MapillaryService {
@@ -41,7 +46,7 @@ class MapillaryService {
       final url = Uri.parse(
         'https://graph.mapillary.com/images'
         '?access_token=$mapillaryToken'
-        '&fields=id,computed_compass_angle'
+        '&fields=id,computed_compass_angle,is_pano'
         '&bbox=${bbox.join(',')}',
       );
 
@@ -64,11 +69,12 @@ class MapillaryService {
           return diffA.compareTo(diffB);
         });
 
-        // Return the closest match with both ID and computed compass angle
+        // Return the closest match with ID, computed compass angle, and isPano
         final best = data[0];
         return MapillaryImage(
           id: best['id'] as String,
           compassAngle: (best['computed_compass_angle'] ?? 0.0).toDouble(),
+          isPano: best['is_pano'] as bool? ?? false,
         );
       }
 
