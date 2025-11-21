@@ -230,37 +230,34 @@ class _MapViewState extends State<MapView> {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          final mapWidget = MapLibreMap(
-            onMapCreated: _onMapCreated,
-            onStyleLoadedCallback: _onStyleLoaded,
-            onMapClick: Platform.isAndroid ? _onMapClick : null,
-            initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
-            styleString: snapshot.data!,
-            myLocationEnabled: true,
-            trackCameraPosition: true,
-          );
-
           return Stack(
             children: [
-              if (Platform.isIOS)
-                Listener(
-                  onPointerUp: (PointerUpEvent event) {
-                    _onMapClick(
-                      Point(event.localPosition.dx, event.localPosition.dy),
-                      null
-                    );
-                  },
-                  behavior: HitTestBehavior.translucent,
-                  child: mapWidget,
-                )
-              else
-                mapWidget,
-              MapStyleSelector(
-                selectedStyleIndex: _styleIndex,
-                mapReady: _mapReady,
-                onStyleSelected: _applyStyle,
+              MapLibreMap(
+                onMapCreated: _onMapCreated,
+                onStyleLoadedCallback: _onStyleLoaded,
+                onMapClick: Platform.isIOS ? null: _onMapClick,
+                initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
+                styleString: snapshot.data!,
+                myLocationEnabled: true,
+                trackCameraPosition: true,
               ),
+              if (Platform.isIOS)
+                Positioned.fill(
+                  child: GestureDetector(
+                      onTapUp: (event) =>
+                          _onMapClick(
+                              Point(event.localPosition.dx,
+                                  event.localPosition.dy),
+                              null
+                          ),
+                      behavior: HitTestBehavior.translucent
+                  ),
+                ),
+              MapStyleSelector(
+                  selectedStyleIndex: _styleIndex,
+                  mapReady: _mapReady,
+                  onStyleSelected: _applyStyle,
+                )
             ],
           );
         },
