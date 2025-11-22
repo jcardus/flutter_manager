@@ -224,5 +224,15 @@
   "blockCommandFailed": "Failed to send block command",
   "@blockCommandFailed": {
     "description": "Snackbar message when block command fails"
+  },
+
+  "route": "Route",
+  "@route": {
+    "description": "Route action button label"
+  },
+
+  "odometer": "Odometer",
+  "@odometer": {
+    "description": "Odometer action button label"
   }
 }
