@@ -19,12 +19,14 @@ class DeviceDetail extends StatelessWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onClose;
+  final VoidCallback? onShowRoute;
 
   const DeviceDetail({
     super.key,
     required this.device,
     required this.position,
-    required this.onClose
+    required this.onClose,
+    this.onShowRoute,
   });
 
   Color _getStatusColor(BuildContext context) {
@@ -235,14 +237,10 @@ class DeviceDetail extends StatelessWidget {
     }
   }
 
-  Future<void> _showRoute(BuildContext context) async {
-    // TODO: Implement route functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Route feature coming soon'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  void _showRoute(BuildContext context) {
+    if (onShowRoute != null) {
+      onShowRoute!();
+    }
   }
 
   @override

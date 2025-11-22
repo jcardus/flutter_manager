@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import 'device_detail.dart';
+import 'device_route.dart';
 
 class DeviceBottomSheet extends StatefulWidget {
   final Device device;
@@ -20,6 +21,13 @@ class DeviceBottomSheet extends StatefulWidget {
 }
 
 class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
+  bool _showingRoute = false;
+
+  void _toggleRoute() {
+    setState(() {
+      _showingRoute = !_showingRoute;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,11 +52,24 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
             child: SingleChildScrollView(
               physics: ClampingScrollPhysics(),
               controller: scrollController,
-              child: DeviceDetail(
-                position: position,
-                device: widget.device, onClose: widget.onClose
-            ))
-        );
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _showingRoute
+                    ? DeviceRoute(
+                        key: const ValueKey('route'),
+                        position: position,
+                        device: widget.device,
+                        onBack: _toggleRoute,
+                      )
+                    : DeviceDetail(
+                        key: const ValueKey('detail'),
+                        position: position,
+                        device: widget.device,
+                        onClose: widget.onClose,
+                        onShowRoute: _toggleRoute,
+                      ),
+              ),
+            ));
       },
     );
   }
