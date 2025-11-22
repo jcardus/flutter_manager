@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import 'web_helper_stub.dart'
     if (dart.library.html) 'web_helper_web.dart' as web_helper;
 
@@ -56,6 +57,20 @@ class ApiService {
       endpoint: '/api/positions',
       fromJson: Position.fromJson,
       resourceName: 'positions',
+    );
+  }
+
+  Future<List<Event>> fetchEvents({
+    required int deviceId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromParam = from.toUtc().toIso8601String();
+    final toParam = to.toUtc().toIso8601String();
+    return _fetchList(
+      endpoint: '/api/reports/events?deviceId=$deviceId&from=$fromParam&to=$toParam',
+      fromJson: Event.fromJson,
+      resourceName: 'events',
     );
   }
 
