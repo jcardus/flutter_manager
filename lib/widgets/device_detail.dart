@@ -1,13 +1,14 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:manager/widgets/position_detail.dart';
 import 'package:manager/widgets/street_view.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io' show Platform;
 
+import '../icons/Icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
@@ -234,6 +235,16 @@ class DeviceDetail extends StatelessWidget {
     }
   }
 
+  Future<void> _showRoute(BuildContext context) async {
+    // TODO: Implement route functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Route feature coming soon'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -370,6 +381,14 @@ class DeviceDetail extends StatelessWidget {
                       icon: Icons.directions,
                       label: l10n.directions,
                       onPressed: () => _openDirections(context),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: PlatformIcons.route,
+                      label: l10n.route,
+                      onPressed: () => _showRoute(context),
                     ),
                   ),
                   const SizedBox(width: 12),
