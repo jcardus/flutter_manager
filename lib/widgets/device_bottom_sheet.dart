@@ -1,7 +1,49 @@
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import 'device_detail.dart';
+import 'device_route.dart';
+
+class _MeasureSize extends SingleChildRenderObjectWidget {
+  final ValueChanged<Size> onChange;
+
+  const _MeasureSize({
+    required this.onChange,
+    required Widget child,
+  }) : super(child: child);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _MeasureSizeRenderObject(onChange);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, _MeasureSizeRenderObject renderObject) {
+    renderObject.onChange = onChange;
+  }
+}
+
+class _MeasureSizeRenderObject extends RenderProxyBox {
+  ValueChanged<Size> onChange;
+  Size? _oldSize;
+
+  _MeasureSizeRenderObject(this.onChange);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+
+    Size newSize = child!.size;
+    if (_oldSize == newSize) return;
+
+    _oldSize = newSize;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      onChange(newSize);
+    });
+  }
+}
 
 class DeviceBottomSheet extends StatefulWidget {
   final Device device;
@@ -20,14 +62,46 @@ class DeviceBottomSheet extends StatefulWidget {
 }
 
 class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
+  static const double _minChildSize = 0.15;
+  static const double _maxChildSizeLimit = 0.95;
+
+  bool _showingRoute = false;
+  double _maxChildSize = 0.5;
+  final DraggableScrollableController _draggableController = DraggableScrollableController();
+
+  @override
+  void dispose() {
+    _draggableController.dispose();
+    super.dispose();
+  }
+
+  void _toggleRoute() {
+    setState(() {
+      _showingRoute = !_showingRoute;
+    });
+  }
+
+  void _onContentSizeChanged(Size size) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final contentHeight = size.height;
+
+    final ratio = (contentHeight / screenHeight).clamp(_minChildSize, _maxChildSizeLimit);
+
+    if ((ratio - _maxChildSize).abs() > 0) {
+      dev.log('New calculated size: $ratio (was $_maxChildSize)');
+      _maxChildSize = ratio;
+      setState(() {});
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final position = widget.position;
     return DraggableScrollableSheet(
-      maxChildSize: 0.6,
-      minChildSize: 0.15,
-      initialChildSize: 0.6,
+      controller: _draggableController,
+      maxChildSize: _maxChildSize,
+      minChildSize: _minChildSize,
+      initialChildSize: _maxChildSize,
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(
             decoration: BoxDecoration(
@@ -44,11 +118,27 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
             child: SingleChildScrollView(
               physics: ClampingScrollPhysics(),
               controller: scrollController,
-              child: DeviceDetail(
-                position: position,
-                device: widget.device, onClose: widget.onClose
-            ))
-        );
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _MeasureSize(
+                  onChange: _onContentSizeChanged,
+                  child: _showingRoute
+                      ? DeviceRoute(
+                          key: const ValueKey('route'),
+                          position: position,
+                          device: widget.device,
+                          onBack: _toggleRoute,
+                        )
+                      : DeviceDetail(
+                          key: const ValueKey('detail'),
+                          position: position,
+                          device: widget.device,
+                          onClose: widget.onClose,
+                          onShowRoute: _toggleRoute,
+                        ),
+                ),
+              ),
+            ));
       },
     );
   }
