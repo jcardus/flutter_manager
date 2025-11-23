@@ -39,9 +39,7 @@ class _MeasureSizeRenderObject extends RenderProxyBox {
     if (_oldSize == newSize) return;
 
     _oldSize = newSize;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      onChange(newSize);
-    });
+    onChange(newSize);
   }
 }
 
@@ -67,6 +65,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
 
   bool _showingRoute = false;
   double _maxChildSize = 0.5;
+  String? _lastMeasuredView;
   final DraggableScrollableController _draggableController = DraggableScrollableController();
 
   @override
@@ -82,16 +81,28 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   }
 
   void _onContentSizeChanged(Size size) {
+    final currentView = _showingRoute ? 'route' : 'detail';
+
+    // Only measure size when switching views, not on position updates
+    if (_lastMeasuredView == currentView) return;
+
     final screenHeight = MediaQuery.of(context).size.height;
     final contentHeight = size.height;
 
     final ratio = (contentHeight / screenHeight).clamp(_minChildSize, _maxChildSizeLimit);
 
-    if ((ratio - _maxChildSize).abs() > 0) {
-      dev.log('New calculated size: $ratio (was $_maxChildSize)');
-      _maxChildSize = ratio;
-      setState(() {});
-    }
+    // Ensure minimum reasonable size for detail view
+    final adjustedRatio = currentView == 'detail' ? ratio.clamp(0.45, _maxChildSizeLimit) : ratio;
+
+    dev.log('New calculated size: $adjustedRatio (was $_maxChildSize)');
+    _lastMeasuredView = currentView;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _maxChildSize = adjustedRatio;
+        });
+      }
+    });
   }
 
   @override

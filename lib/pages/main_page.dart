@@ -243,7 +243,7 @@ class _MainPageState extends State<MainPage> {
   }
 }
 
-// Separate widget that only rebuilds when selected device data changes
+// Separate widget that only rebuilds when selected device changes
 class _BottomSheetBuilder extends StatefulWidget {
   final int? selectedDeviceId;
   final Map<int, Device> devices;
@@ -262,66 +262,57 @@ class _BottomSheetBuilder extends StatefulWidget {
 }
 
 class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
-  Widget? _cachedBottomSheet;
   int? _lastDeviceId;
   int? _lastPositionId;
+  Widget? _cachedSheet;
 
   @override
   Widget build(BuildContext context) {
     final selectedDeviceId = widget.selectedDeviceId;
 
-    // Check if we need to rebuild the bottom sheet
     if (selectedDeviceId != null) {
       final device = widget.devices[selectedDeviceId];
       final position = widget.positions[selectedDeviceId];
       final currentPositionId = position?.id;
 
-      // Check if device changed (animate) or just position updated (no animation)
+      // Check if device or its position changed
       final deviceChanged = selectedDeviceId != _lastDeviceId;
       final positionChanged = currentPositionId != _lastPositionId;
 
-      if (_cachedBottomSheet == null || deviceChanged || positionChanged) {
+      // Only rebuild if selected device's data actually changed
+      if (deviceChanged || positionChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
 
-        // Only animate when device changes or first opening
-        if (deviceChanged || _cachedBottomSheet == null) {
-          _cachedBottomSheet = AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 1),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOut,
-                )),
-                child: child,
-              );
-            },
-            child: DeviceBottomSheet(
-              key: ValueKey(selectedDeviceId),
-              device: device!,
-              position: position,
-              onClose: widget.onClose,
-            ),
-          );
-        } else {
-          // Position changed but device is the same - just rebuild without animation
-          _cachedBottomSheet = DeviceBottomSheet(
+        _cachedSheet = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+              )),
+              child: child,
+            );
+          },
+          child: DeviceBottomSheet(
             key: ValueKey(selectedDeviceId),
             device: device!,
             position: position,
             onClose: widget.onClose,
-          );
-        }
+          ),
+        );
       }
+
+      return _cachedSheet!;
     } else {
       _lastDeviceId = null;
       _lastPositionId = null;
-      _cachedBottomSheet = const SizedBox.shrink();
+      _cachedSheet = null;
+      return const SizedBox.shrink();
     }
-    return _cachedBottomSheet!;
   }
 }
