@@ -79,13 +79,13 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  void _centerOnDevice(int deviceId) async {
+  void _centerOnDevice(int deviceId, {bool changeZoom = true}) async {
     final position = widget.positions[deviceId];
     if (mapController == null || position == null) { return; }
     final zoom = mapController!.cameraPosition!.zoom;
     var p = await mapController!.toScreenLocation(
         LatLng(position.latitude, position.longitude));
-    if (zoom < selectedZoomLevel) {
+    if (zoom < selectedZoomLevel && changeZoom) {
       await mapController!.animateCamera(
           CameraUpdate.zoomBy(selectedZoomLevel-zoom, Offset(p.x.toDouble(), p.y.toDouble())),
           duration: Duration(milliseconds: 250));
@@ -169,6 +169,31 @@ class _MapViewState extends State<MapView> {
       });
     }
     await mapController!.setGeoJsonSource(MapStyles.sourceId, {'type': 'FeatureCollection', 'features': features});
+    // Check if selected device is visible, pan if needed
+    _checkSelectedDeviceVisibility();
+  }
+
+  Future<void> _checkSelectedDeviceVisibility() async {
+    if (mapController == null || widget.selectedDevice == null) return;
+
+    final position = widget.positions[widget.selectedDevice];
+    if (position == null) return;
+
+    final visibleRegion = await mapController!.getVisibleRegion();
+
+    // Check if selected device is within visible bounds
+    final lat = position.latitude;
+    final lng = position.longitude;
+
+    final isVisible = lat >= visibleRegion.southwest.latitude &&
+        lat <= visibleRegion.northeast.latitude &&
+        lng >= visibleRegion.southwest.longitude &&
+        lng <= visibleRegion.northeast.longitude;
+
+    // If selected device is not visible, pan to it
+    if (!isVisible) {
+      _centerOnDevice(widget.selectedDevice!, changeZoom: false);
+    }
   }
 
   void _fitMapToDevices() {
