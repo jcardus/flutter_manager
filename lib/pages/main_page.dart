@@ -62,24 +62,30 @@ class _MainPageState extends State<MainPage> {
   }
 
   Widget _buildCurrentScreen() {
-    return IndexedStack(
-      index: _selectedIndex,
+    return Stack(
       children: [
-        MapView(
-          devices: _devices,
-          positions: _positions,
-          selectedDevice: _selectedDeviceId,
-          onDeviceSelected: _onDeviceTap,
+        // Keep map alive but only visible when selected
+        Offstage(
+          offstage: _selectedIndex != 0,
+          child: MapView(
+            devices: _devices,
+            positions: _positions,
+            selectedDevice: _selectedDeviceId,
+            onDeviceSelected: _onDeviceTap,
+          ),
         ),
-        DevicesListView(
-          devices: _devices,
-          positions: _positions,
-          onDeviceTap: _onDeviceTap,
-        ),
-        ProfileView(
-          deviceCount: _devices.length,
-          activeCount: _positions.length,
-        ),
+        // Conditionally render other views (not kept alive)
+        if (_selectedIndex == 1)
+          DevicesListView(
+            devices: _devices,
+            positions: _positions,
+            onDeviceTap: _onDeviceTap,
+          ),
+        if (_selectedIndex == 2)
+          ProfileView(
+            deviceCount: _devices.length,
+            activeCount: _positions.length,
+          ),
       ],
     );
   }
@@ -182,28 +188,11 @@ class _MainPageState extends State<MainPage> {
             ),
           ),
           // Device Bottom Sheet
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 1),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOut,
-                )),
-                child: child,
-              );
-            },
-            child: _selectedDeviceId != null
-                ? DeviceBottomSheet(
-                    key: ValueKey(_selectedDeviceId),
-                    device: _devices[_selectedDeviceId]!,
-                    position: _positions[_selectedDeviceId],
-                    onClose: _closeBottomSheet,
-                  )
-                : const SizedBox.shrink(),
+          _BottomSheetBuilder(
+            selectedDeviceId: _selectedDeviceId,
+            devices: _devices,
+            positions: _positions,
+            onClose: _closeBottomSheet,
           ),
         ],
       ),
@@ -251,5 +240,79 @@ class _MainPageState extends State<MainPage> {
         ),
       ),
     );
+  }
+}
+
+// Separate widget that only rebuilds when selected device changes
+class _BottomSheetBuilder extends StatefulWidget {
+  final int? selectedDeviceId;
+  final Map<int, Device> devices;
+  final Map<int, Position> positions;
+  final VoidCallback? onClose;
+
+  const _BottomSheetBuilder({
+    required this.selectedDeviceId,
+    required this.devices,
+    required this.positions,
+    this.onClose,
+  });
+
+  @override
+  State<_BottomSheetBuilder> createState() => _BottomSheetBuilderState();
+}
+
+class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
+  int? _lastDeviceId;
+  int? _lastPositionId;
+  Widget? _cachedSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedDeviceId = widget.selectedDeviceId;
+
+    if (selectedDeviceId != null) {
+      final device = widget.devices[selectedDeviceId];
+      final position = widget.positions[selectedDeviceId];
+      final currentPositionId = position?.id;
+
+      // Check if device or its position changed
+      final deviceChanged = selectedDeviceId != _lastDeviceId;
+      final positionChanged = currentPositionId != _lastPositionId;
+
+      // Only rebuild if selected device's data actually changed
+      if (deviceChanged || positionChanged || _cachedSheet == null) {
+        _lastDeviceId = selectedDeviceId;
+        _lastPositionId = currentPositionId;
+
+        _cachedSheet = AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOut,
+              )),
+              child: child,
+            );
+          },
+          child: DeviceBottomSheet(
+            key: ValueKey(selectedDeviceId),
+            device: device!,
+            position: position,
+            onClose: widget.onClose,
+          ),
+        );
+      }
+
+      return _cachedSheet!;
+    } else {
+      _lastDeviceId = null;
+      _lastPositionId = null;
+      _cachedSheet = null;
+      return const SizedBox.shrink();
+    }
   }
 }

@@ -225,6 +225,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                       final device = filteredDevices[index];
                       final position = widget.positions[device.id];
                       return _DeviceListItem(
+                        key: ValueKey(device.id),
                         device: device,
                         position: position,
                         onTap: widget.onDeviceTap,
@@ -283,6 +284,7 @@ class _DeviceListItem extends StatelessWidget {
   final void Function(int deviceId)? onTap;
 
   const _DeviceListItem({
+    super.key,
     required this.device,
     this.position,
     this.onTap,
