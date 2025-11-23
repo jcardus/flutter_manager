@@ -26,6 +26,7 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   int? _selectedDeviceId;
+  bool _showingRoute = false;
 
   @override
   void initState() {
@@ -58,6 +59,13 @@ class _MainPageState extends State<MainPage> {
   void _closeBottomSheet() {
     setState(() {
       _selectedDeviceId = null;
+      _showingRoute = false;
+    });
+  }
+
+  void _onRouteToggle(bool showingRoute) {
+    setState(() {
+      _showingRoute = showingRoute;
     });
   }
 
@@ -71,6 +79,7 @@ class _MainPageState extends State<MainPage> {
             devices: _devices,
             positions: _positions,
             selectedDevice: _selectedDeviceId,
+            showingRoute: _showingRoute,
             onDeviceSelected: _onDeviceTap,
           ),
         ),
@@ -193,6 +202,7 @@ class _MainPageState extends State<MainPage> {
             devices: _devices,
             positions: _positions,
             onClose: _closeBottomSheet,
+            onRouteToggle: _onRouteToggle,
           ),
         ],
       ),
@@ -249,12 +259,14 @@ class _BottomSheetBuilder extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onRouteToggle;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
     required this.devices,
     required this.positions,
     this.onClose,
+    this.onRouteToggle,
   });
 
   @override
@@ -303,6 +315,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             device: device!,
             position: position,
             onClose: widget.onClose,
+            onRouteToggle: widget.onRouteToggle,
           ),
         );
       }

@@ -47,12 +47,14 @@ class DeviceBottomSheet extends StatefulWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onRouteToggle;
 
   const DeviceBottomSheet({
     super.key,
     required this.device,
     this.position,
     this.onClose,
+    this.onRouteToggle,
   });
 
   @override
@@ -78,21 +80,21 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
     setState(() {
       _showingRoute = !_showingRoute;
     });
+    widget.onRouteToggle?.call(_showingRoute);
   }
 
   void _onContentSizeChanged(Size size) {
     final currentView = _showingRoute ? 'route' : 'detail';
 
-    // Only measure size when switching views, not on position updates
-    if (_lastMeasuredView == currentView) return;
-
+    // Only measure size when opening drawer
+    if (_lastMeasuredView != null) return;
     final screenHeight = MediaQuery.of(context).size.height;
     final contentHeight = size.height;
 
     final ratio = (contentHeight / screenHeight).clamp(_minChildSize, _maxChildSizeLimit);
 
-    // Ensure minimum reasonable size for detail view
-    final adjustedRatio = currentView == 'detail' ? ratio.clamp(0.45, _maxChildSizeLimit) : ratio;
+    // Ensure minimum reasonable size
+    final adjustedRatio = ratio.clamp(0.5, _maxChildSizeLimit);
 
     dev.log('New calculated size: $adjustedRatio (was $_maxChildSize)');
     _lastMeasuredView = currentView;

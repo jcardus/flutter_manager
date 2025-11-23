@@ -14,6 +14,7 @@ class MapView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
   final int? selectedDevice;
+  final bool showingRoute;
   final Function(int deviceId)? onDeviceSelected;
 
   const MapView({
@@ -21,6 +22,7 @@ class MapView extends StatefulWidget {
     required this.devices,
     required this.positions,
     this.selectedDevice,
+    this.showingRoute = false,
     this.onDeviceSelected,
   });
 
@@ -174,7 +176,8 @@ class _MapViewState extends State<MapView> {
   }
 
   Future<void> _checkSelectedDeviceVisibility() async {
-    if (mapController == null || widget.selectedDevice == null) return;
+    // Don't auto-pan if showing route view
+    if (mapController == null || widget.selectedDevice == null || widget.showingRoute) return;
 
     final position = widget.positions[widget.selectedDevice];
     if (position == null) return;
