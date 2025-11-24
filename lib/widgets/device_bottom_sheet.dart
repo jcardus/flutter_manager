@@ -48,6 +48,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final Position? position;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
+  final bool showingRoute;
 
   const DeviceBottomSheet({
     super.key,
@@ -55,6 +56,7 @@ class DeviceBottomSheet extends StatefulWidget {
     this.position,
     this.onClose,
     this.onRouteToggle,
+    this.showingRoute = false,
   });
 
   @override
@@ -65,7 +67,6 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   static const double _minChildSize = 0.15;
   static const double _maxChildSizeLimit = 0.95;
 
-  bool _showingRoute = false;
   double _maxChildSize = 0.5;
   String? _lastMeasuredView;
   final DraggableScrollableController _draggableController = DraggableScrollableController();
@@ -77,14 +78,11 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   }
 
   void _toggleRoute() {
-    setState(() {
-      _showingRoute = !_showingRoute;
-    });
-    widget.onRouteToggle?.call(_showingRoute);
+    widget.onRouteToggle?.call(!widget.showingRoute);
   }
 
   void _onContentSizeChanged(Size size) {
-    final currentView = _showingRoute ? 'route' : 'detail';
+    final currentView = widget.showingRoute ? 'route' : 'detail';
 
     // Only measure size when opening drawer
     if (_lastMeasuredView != null) return;
@@ -135,7 +133,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                 duration: const Duration(milliseconds: 300),
                 child: _MeasureSize(
                   onChange: _onContentSizeChanged,
-                  child: _showingRoute
+                  child: widget.showingRoute
                       ? DeviceRoute(
                           key: const ValueKey('route'),
                           position: position,

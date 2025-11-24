@@ -4,7 +4,7 @@ import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
-import '../l10n/app_localizations.dart';
+import 'common/handle_bar.dart';
 
 class DeviceRoute extends StatefulWidget {
   final Device device;
@@ -97,42 +97,12 @@ class _DeviceRouteState extends State<DeviceRoute> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            width: 50,
-            height: 2,
-            decoration: BoxDecoration(
-              color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Header with back button
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              ),
-              Expanded(
-                child: Text(
-                  l10n.route,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const HandleBar(),
           // Date selector with navigation arrows
           Row(
             children: [
@@ -174,18 +144,17 @@ class _DeviceRouteState extends State<DeviceRoute> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
           // Events list
           if (_isLoading)
             const Center(
               child: Padding(
-                padding: EdgeInsets.all(32.0),
+                padding: EdgeInsets.symmetric(vertical: 16.0),
                 child: CircularProgressIndicator(),
               ),
             )
           else if (_events.isEmpty)
             Padding(
-              padding: const EdgeInsets.all(32.0),
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Center(
                 child: Text(
                   'No events for ${DateFormat.yMd().format(_selectedDate)}',
@@ -199,14 +168,15 @@ class _DeviceRouteState extends State<DeviceRoute> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(vertical: 10),
               itemCount: _events.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
+              separatorBuilder: (context, index) => const SizedBox(height: 1),
               itemBuilder: (context, index) {
                 final event = _events[index];
                 return _EventCard(event: event);
               },
             ),
-          const SizedBox(height: 16),
+
         ],
       ),
     );
@@ -254,13 +224,7 @@ class _EventCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
+    return Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -296,8 +260,7 @@ class _EventCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 }
 

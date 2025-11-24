@@ -14,6 +14,7 @@ import '../models/device.dart';
 import '../models/position.dart';
 import '../utils/constants.dart';
 import '../services/api_service.dart';
+import 'common/handle_bar.dart';
 
 class DeviceDetail extends StatelessWidget {
   final Device device;
@@ -246,7 +247,6 @@ class DeviceDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final textTheme = theme.textTheme;
     final l10n = AppLocalizations.of(context)!;
     final statusColor = _getStatusColor(context);
@@ -257,16 +257,7 @@ class DeviceDetail extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 15),
         child: Column(
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              width: 50,
-              height: 2,
-              decoration: BoxDecoration(
-                color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const HandleBar(),
             if (pos != null) Container(
               margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
               child: Column(children: [

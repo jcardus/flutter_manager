@@ -203,7 +203,29 @@ class _MainPageState extends State<MainPage> {
             positions: _positions,
             onClose: _closeBottomSheet,
             onRouteToggle: _onRouteToggle,
+            showingRoute: _showingRoute,
           ),
+          // Back button when showing route
+          if (_showingRoute)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 4,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => _onRouteToggle(false),
+                      iconSize: 24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -260,6 +282,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final Map<int, Position> positions;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
+  final bool showingRoute;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -267,6 +290,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     required this.positions,
     this.onClose,
     this.onRouteToggle,
+    this.showingRoute = false,
   });
 
   @override
@@ -276,6 +300,7 @@ class _BottomSheetBuilder extends StatefulWidget {
 class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
   int? _lastDeviceId;
   int? _lastPositionId;
+  bool? _lastShowingRoute;
   Widget? _cachedSheet;
 
   @override
@@ -287,14 +312,16 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       final position = widget.positions[selectedDeviceId];
       final currentPositionId = position?.id;
 
-      // Check if device or its position changed
+      // Check if device, position, or route view changed
       final deviceChanged = selectedDeviceId != _lastDeviceId;
       final positionChanged = currentPositionId != _lastPositionId;
+      final routeViewChanged = widget.showingRoute != _lastShowingRoute;
 
-      // Only rebuild if selected device's data actually changed
-      if (deviceChanged || positionChanged || _cachedSheet == null) {
+      // Only rebuild if selected device's data or view actually changed
+      if (deviceChanged || positionChanged || routeViewChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
+        _lastShowingRoute = widget.showingRoute;
 
         _cachedSheet = AnimatedSwitcher(
           duration: const Duration(milliseconds: 500),
@@ -316,6 +343,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             position: position,
             onClose: widget.onClose,
             onRouteToggle: widget.onRouteToggle,
+            showingRoute: widget.showingRoute,
           ),
         );
       }
@@ -324,6 +352,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
     } else {
       _lastDeviceId = null;
       _lastPositionId = null;
+      _lastShowingRoute = null;
       _cachedSheet = null;
       return const SizedBox.shrink();
     }
