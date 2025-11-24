@@ -37,6 +37,7 @@ class _MapViewState extends State<MapView> {
   int _styleIndex = 0;
   Future<String>? _initialStyleFuture;
   double scrollOffset = 0;
+  bool? _lastShowingRoute;
 
 
   @override
@@ -171,8 +172,24 @@ class _MapViewState extends State<MapView> {
       });
     }
     await mapController!.setGeoJsonSource(MapStyles.sourceId, {'type': 'FeatureCollection', 'features': features});
+
+    // Only update layer visibility if showingRoute changed
+    if (_lastShowingRoute != widget.showingRoute) {
+      await _updateLayersVisibility();
+      _lastShowingRoute = widget.showingRoute;
+    }
+
     // Check if selected device is visible, pan if needed
     _checkSelectedDeviceVisibility();
+  }
+
+  Future<void> _updateLayersVisibility() async {
+    if (mapController == null) return;
+
+    final visible = !widget.showingRoute;
+    await mapController!.setLayerVisibility(MapStyles.layerId, visible);
+    await mapController!.setLayerVisibility(MapStyles.clusterLayerId, visible);
+    await mapController!.setLayerVisibility(MapStyles.clusterCountLayerId, visible);
   }
 
   Future<void> _checkSelectedDeviceVisibility() async {
