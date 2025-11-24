@@ -5,12 +5,14 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
+import '../icons/Icons.dart' as platform_icons;
 
 class DeviceRoute extends StatefulWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final ValueChanged<Position>? onEventTap;
 
   const DeviceRoute({
     super.key,
@@ -18,6 +20,7 @@ class DeviceRoute extends StatefulWidget {
     required this.position,
     this.onBack,
     this.onRoutePositionsLoaded,
+    this.onEventTap,
   });
 
   @override
@@ -27,6 +30,7 @@ class DeviceRoute extends StatefulWidget {
 class _DeviceRouteState extends State<DeviceRoute> {
   DateTime _selectedDate = DateTime.now();
   List<Event> _events = [];
+  List<Position> _positions = [];
   bool _isLoading = false;
   final ApiService _apiService = ApiService();
 
@@ -65,6 +69,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
 
     setState(() {
       _events = events;
+      _positions = positions;
       _isLoading = false;
     });
   }
@@ -188,7 +193,19 @@ class _DeviceRouteState extends State<DeviceRoute> {
               separatorBuilder: (context, index) => const SizedBox(height: 1),
               itemBuilder: (context, index) {
                 final event = _events[index];
-                return _EventCard(event: event);
+                final position = event.positionId != null
+                    ? _positions.firstWhere(
+                        (p) => p.id == event.positionId,
+                        orElse: () => _positions.first,
+                      )
+                    : null;
+                return _EventCard(
+                  event: event,
+                  position: position,
+                  onTap: position != null
+                      ? () => widget.onEventTap?.call(position)
+                      : null,
+                );
               },
             ),
 
@@ -200,15 +217,21 @@ class _DeviceRouteState extends State<DeviceRoute> {
 
 class _EventCard extends StatelessWidget {
   final Event event;
+  final Position? position;
+  final VoidCallback? onTap;
 
-  const _EventCard({required this.event});
+  const _EventCard({
+    required this.event,
+    this.position,
+    this.onTap,
+  });
 
   IconData _getEventIcon(String type) {
     switch (type.toLowerCase()) {
       case 'ignitionon':
-        return Icons.power_settings_new;
+        return platform_icons.PlatformIcons.ignitionOn;
       case 'ignitionoff':
-        return Icons.power_off;
+        return platform_icons.PlatformIcons.ignitionOff;
       case 'geofenceenter':
         return Icons.login;
       case 'geofenceexit':
@@ -218,7 +241,7 @@ class _EventCard extends StatelessWidget {
       case 'commandresult':
         return Icons.check_circle;
       case 'devicemoving':
-        return Icons.directions_car;
+        return platform_icons.PlatformIcons.play;
       case 'devicestopped':
         return Icons.stop_circle;
       case 'deviceoverspeed':
@@ -239,43 +262,56 @@ class _EventCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: colors.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _getEventIcon(event.type),
+                color: colors.primary,
+                size: 24,
+              ),
             ),
-            child: Icon(
-              _getEventIcon(event.type),
-              color: colors.primary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatEventType(event.type),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _formatEventType(event.type),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat.jm().format(event.eventTime.toLocal()),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat.jm().format(event.eventTime.toLocal()),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      );
+            if (onTap != null)
+              Icon(
+                Icons.location_on,
+                color: colors.primary,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -64,10 +64,12 @@ class ApiService {
   }) async {
     final fromParam = from.toUtc().toIso8601String();
     final toParam = to.toUtc().toIso8601String();
-    return _fetchList(
+    final events = await _fetchList(
       endpoint: '/api/reports/events?deviceId=$deviceId&from=$fromParam&to=$toParam',
       fromJson: Event.fromJson
     );
+    // Filter out deviceOnline events
+    return events.where((event) => event.type != 'deviceOnline' && event.type != 'deviceOffline').toList();
   }
 
   Future<List<Position>> fetchDevicePositions({

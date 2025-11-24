@@ -17,6 +17,7 @@ class MapView extends StatefulWidget {
   final bool showingRoute;
   final List<Position> routePositions;
   final Function(int deviceId)? onDeviceSelected;
+  final Position? eventPositionToCenter;
 
   const MapView({
     super.key,
@@ -26,6 +27,7 @@ class MapView extends StatefulWidget {
     this.showingRoute = false,
     this.routePositions = const [],
     this.onDeviceSelected,
+    this.eventPositionToCenter,
   });
 
   @override
@@ -73,6 +75,22 @@ class _MapViewState extends State<MapView> {
         _centerOnDevice(widget.selectedDevice!);
       });
     }
+
+    // Clear event marker when not showing route or no device selected
+    if ((widget.selectedDevice == null || !widget.showingRoute) &&
+        (oldWidget.selectedDevice != null || oldWidget.showingRoute)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _clearEventMarker();
+      });
+    }
+
+    // Center on event position if provided
+    if (widget.eventPositionToCenter != null &&
+        widget.eventPositionToCenter != oldWidget.eventPositionToCenter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _centerOnEventPosition(widget.eventPositionToCenter!);
+      });
+    }
   }
 
   Future<void> _update() async {
@@ -94,6 +112,40 @@ class _MapViewState extends State<MapView> {
     await mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
         duration: const Duration(milliseconds: 250)
+    );
+  }
+
+  void _centerOnEventPosition(Position position) async {
+    if (mapController == null) { return; }
+
+    // Update event marker source
+    final markerFeature = {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'Point',
+        'coordinates': [position.longitude, position.latitude],
+      },
+      'properties': {},
+    };
+
+    await mapController!.setGeoJsonSource(
+      MapStyles.eventMarkerSourceId,
+      {'type': 'FeatureCollection', 'features': [markerFeature]},
+    );
+
+    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel ?
+        selectedZoomLevel : mapController!.cameraPosition!.zoom;
+    await mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
+        duration: const Duration(milliseconds: 500)
+    );
+  }
+
+  Future<void> _clearEventMarker() async {
+    if (mapController == null) { return; }
+    await mapController!.setGeoJsonSource(
+      MapStyles.eventMarkerSourceId,
+      {'type': 'FeatureCollection', 'features': []},
     );
   }
 

@@ -7,10 +7,12 @@ import 'package:http/http.dart' as http;
 class MapStyles {
   static const String devicesSourceId = 'devices-source';
   static const String deviceRouteSourceId = 'device-route';
+  static const String eventMarkerSourceId = 'event-marker-source';
   static const String layerId = 'devices-layer';
   static const String routeLayerId = 'route-layer';
   static const String clusterLayerId = 'clusters';
   static const String clusterCountLayerId = 'cluster-count';
+  static const String eventMarkerLayerId = 'event-marker-layer';
   static const String _mapbox = 'pk.eyJ1IjoiZ3VzdGF2by1mbGVldG1hcCIsImEiOiJjbWQ4bTUwZ2EwMXkyMmpzOGI0c25reGFpIn0.ftht2eo6PRXkAEWy9oQ65g';
 
   // Style configurations
@@ -76,6 +78,14 @@ class MapStyles {
   };
 
   static Map<String, dynamic> get _routeSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
+  static Map<String, dynamic> get _eventMarkerSource => {
     'type': 'geojson',
     'data': {
       'type': 'FeatureCollection',
@@ -167,6 +177,18 @@ class MapStyles {
     },
   };
 
+  static Map<String, dynamic> _eventMarkerLayer(MapStyleConfig config) => {
+    'id': eventMarkerLayerId,
+    'type': 'circle',
+    'source': eventMarkerSourceId,
+    'paint': {
+      'circle-radius': 12,
+      'circle-color': '#FF5722',
+      'circle-stroke-width': 3,
+      'circle-stroke-color': '#FFFFFF',
+    },
+  };
+
 
   /// Generate a complete MapLibre style JSON string from a config (for raster tiles only)
   static String generateStyleJson(MapStyleConfig config, double devicePixelRatio) {
@@ -185,6 +207,7 @@ class MapStyles {
         'base-map': baseSource,
         devicesSourceId: _devicesSource,
         deviceRouteSourceId: _routeSource,
+        eventMarkerSourceId: _eventMarkerSource,
       },
       'layers': [
         {
@@ -198,6 +221,7 @@ class MapStyles {
         _clusterLayer(config),
         _clusterCountLayer(config),
         _devicesLayer(config, devicePixelRatio),
+        _eventMarkerLayer(config),
       ],
     };
 
@@ -367,6 +391,7 @@ class MapStyles {
       final sources = style['sources'] as Map<String, dynamic>;
       sources[devicesSourceId] = _devicesSource;
       sources[deviceRouteSourceId] = _routeSource;
+      sources[eventMarkerSourceId] = _eventMarkerSource;
 
       // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
@@ -374,6 +399,7 @@ class MapStyles {
       layers.add(_clusterLayer(config));
       layers.add(_clusterCountLayer(config));
       layers.add(_devicesLayer(config, devicePixelRatio));
+      layers.add(_eventMarkerLayer(config));
       return jsonEncode(style);
   }
 

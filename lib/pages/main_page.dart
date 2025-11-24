@@ -29,6 +29,7 @@ class _MainPageState extends State<MainPage> {
   bool _showingRoute = false;
   List<Position> _routePositions = [];
   double _bottomSheetSize = 0.0;
+  Position? _eventPositionToCenter;
 
   @override
   void initState() {
@@ -88,6 +89,20 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  void _onEventTap(Position position) {
+    setState(() {
+      _eventPositionToCenter = position;
+    });
+    // Reset after next frame to allow MapView to process it
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _eventPositionToCenter = null;
+        });
+      }
+    });
+  }
+
   Widget _buildCurrentScreen() {
     return Stack(
       children: [
@@ -111,6 +126,7 @@ class _MainPageState extends State<MainPage> {
                   showingRoute: _showingRoute,
                   routePositions: _routePositions,
                   onDeviceSelected: _onDeviceTap,
+                  eventPositionToCenter: _eventPositionToCenter,
                 ),
               );
             },
@@ -239,6 +255,7 @@ class _MainPageState extends State<MainPage> {
             showingRoute: _showingRoute,
             onRoutePositionsLoaded: _onRoutePositionsLoaded,
             onSheetSizeChanged: _onBottomSheetSizeChanged,
+            onEventTap: _onEventTap,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -320,6 +337,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final bool showingRoute;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
+  final ValueChanged<Position>? onEventTap;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -330,6 +348,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.showingRoute = false,
     this.onRoutePositionsLoaded,
     this.onSheetSizeChanged,
+    this.onEventTap,
   });
 
   @override
@@ -385,6 +404,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             showingRoute: widget.showingRoute,
             onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
             onSheetSizeChanged: widget.onSheetSizeChanged,
+            onEventTap: widget.onEventTap,
           ),
         );
       }
