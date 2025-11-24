@@ -13,6 +13,7 @@ class MapStyles {
   static const String clusterLayerId = 'clusters';
   static const String clusterCountLayerId = 'cluster-count';
   static const String eventMarkerLayerId = 'event-marker-layer';
+  static const String eventMarkerCircleLayerId = 'event-marker-circle-layer';
   static const String _mapbox = 'pk.eyJ1IjoiZ3VzdGF2by1mbGVldG1hcCIsImEiOiJjbWQ4bTUwZ2EwMXkyMmpzOGI0c25reGFpIn0.ftht2eo6PRXkAEWy9oQ65g';
 
   // Style configurations
@@ -177,15 +178,26 @@ class MapStyles {
     },
   };
 
-  static Map<String, dynamic> _eventMarkerLayer(MapStyleConfig config) => {
-    'id': eventMarkerLayerId,
+  static Map<String, dynamic> _eventMarkerCircleLayer(MapStyleConfig config) => {
+    'id': eventMarkerCircleLayerId,
     'type': 'circle',
     'source': eventMarkerSourceId,
     'paint': {
-      'circle-radius': 12,
-      'circle-color': '#FF5722',
+      'circle-radius': 15,
+      'circle-color': '#FFFFFF',
       'circle-stroke-width': 3,
-      'circle-stroke-color': '#FFFFFF',
+      'circle-stroke-color': '#FF5722',
+    },
+  };
+
+  static Map<String, dynamic> _eventMarkerLayer(MapStyleConfig config) => {
+    'id': eventMarkerLayerId,
+    'type': 'symbol',
+    'source': eventMarkerSourceId,
+    'layout': {
+      'icon-image': ['get', 'icon'],
+      'icon-size': 1.5,
+      'icon-allow-overlap': true,
     },
   };
 
@@ -221,6 +233,7 @@ class MapStyles {
         _clusterLayer(config),
         _clusterCountLayer(config),
         _devicesLayer(config, devicePixelRatio),
+        _eventMarkerCircleLayer(config),
         _eventMarkerLayer(config),
       ],
     };
@@ -399,6 +412,7 @@ class MapStyles {
       layers.add(_clusterLayer(config));
       layers.add(_clusterCountLayer(config));
       layers.add(_devicesLayer(config, devicePixelRatio));
+      layers.add(_eventMarkerCircleLayer(config));
       layers.add(_eventMarkerLayer(config));
       return jsonEncode(style);
   }

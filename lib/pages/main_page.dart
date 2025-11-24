@@ -6,6 +6,7 @@ import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
@@ -30,6 +31,7 @@ class _MainPageState extends State<MainPage> {
   List<Position> _routePositions = [];
   double _bottomSheetSize = 0.0;
   Position? _eventPositionToCenter;
+  Event? _selectedEvent;
 
   @override
   void initState() {
@@ -89,9 +91,10 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
-  void _onEventTap(Position position) {
+  void _onEventTap(Position position, Event event) {
     setState(() {
       _eventPositionToCenter = position;
+      _selectedEvent = event;
     });
     // Reset after next frame to allow MapView to process it
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -127,6 +130,7 @@ class _MainPageState extends State<MainPage> {
                   routePositions: _routePositions,
                   onDeviceSelected: _onDeviceTap,
                   eventPositionToCenter: _eventPositionToCenter,
+                  selectedEvent: _selectedEvent,
                 ),
               );
             },
@@ -337,7 +341,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final bool showingRoute;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
-  final ValueChanged<Position>? onEventTap;
+  final Function(Position position, Event event)? onEventTap;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,

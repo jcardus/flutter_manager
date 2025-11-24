@@ -1,14 +1,18 @@
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import '../utils/constants.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
+import '../icons/Icons.dart' as platform_icons;
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -18,6 +22,7 @@ class MapView extends StatefulWidget {
   final List<Position> routePositions;
   final Function(int deviceId)? onDeviceSelected;
   final Position? eventPositionToCenter;
+  final Event? selectedEvent;
 
   const MapView({
     super.key,
@@ -28,6 +33,7 @@ class MapView extends StatefulWidget {
     this.routePositions = const [],
     this.onDeviceSelected,
     this.eventPositionToCenter,
+    this.selectedEvent,
   });
 
   @override
@@ -115,17 +121,60 @@ class _MapViewState extends State<MapView> {
     );
   }
 
-  void _centerOnEventPosition(Position position) async {
-    if (mapController == null) { return; }
+  IconData _getEventIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+        return platform_icons.PlatformIcons.ignitionOn;
+      case 'ignitionoff':
+        return platform_icons.PlatformIcons.ignitionOff;
+      case 'geofenceenter':
+        return Icons.login;
+      case 'geofenceexit':
+        return Icons.logout;
+      case 'alarm':
+        return Icons.warning;
+      case 'commandresult':
+        return Icons.check_circle;
+      case 'devicemoving':
+        return platform_icons.PlatformIcons.play;
+      case 'devicestopped':
+        return Icons.stop_circle;
+      case 'deviceoverspeed':
+        return Icons.speed;
+      default:
+        return Icons.event;
+    }
+  }
 
-    // Update event marker source
+  void _centerOnEventPosition(Position position) async {
+    if (mapController == null || widget.selectedEvent == null) { return; }
+
+    // Generate icon name based on event type
+    final iconName = 'event-marker-${widget.selectedEvent!.type.toLowerCase()}';
+
+    // Check if icon already exists, if not add it
+    try {
+      final icon = _getEventIcon(widget.selectedEvent!.type);
+      await addImageFromIcon(
+        iconName,
+        icon,
+        const Color(0xFFFF5722),
+        size: 48,
+      );
+    } catch (e) {
+      dev.log('Error adding event icon: $e');
+    }
+
+    // Update event marker source with the specific icon
     final markerFeature = {
       'type': 'Feature',
       'geometry': {
         'type': 'Point',
         'coordinates': [position.longitude, position.latitude],
       },
-      'properties': {},
+      'properties': {
+        'icon': iconName,
+      },
     };
 
     await mapController!.setGeoJsonSource(
@@ -188,6 +237,32 @@ class _MapViewState extends State<MapView> {
     dev.log('adding $name, $assetName');
     final bytes = await rootBundle.load(assetName);
     final list = bytes.buffer.asUint8List();
+    return mapController!.addImage(name, list);
+  }
+
+  Future<void> addImageFromIcon(String name, IconData icon, Color color, {double size = 48}) async {
+    final pictureRecorder = ui.PictureRecorder();
+    final canvas = Canvas(pictureRecorder);
+
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    textPainter.text = TextSpan(
+      text: String.fromCharCode(icon.codePoint),
+      style: TextStyle(
+        fontSize: size,
+        fontFamily: icon.fontFamily,
+        color: color,
+      ),
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset.zero);
+
+    final image = await pictureRecorder.endRecording().toImage(
+      size.toInt(),
+      size.toInt(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final list = byteData!.buffer.asUint8List();
+
     return mapController!.addImage(name, list);
   }
 
@@ -380,6 +455,7 @@ class _MapViewState extends State<MapView> {
           }
         }
       }
+
       setState(() { _mapReady = true; });
       _update();
     } catch (e) {

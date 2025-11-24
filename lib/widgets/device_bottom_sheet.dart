@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import 'device_detail.dart';
 import 'device_route.dart';
 
@@ -51,7 +52,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final bool showingRoute;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
-  final ValueChanged<Position>? onEventTap;
+  final Function(Position position, Event event)? onEventTap;
 
   const DeviceBottomSheet({
     super.key,

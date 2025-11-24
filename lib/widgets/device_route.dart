@@ -12,7 +12,7 @@ class DeviceRoute extends StatefulWidget {
   final Position? position;
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
-  final ValueChanged<Position>? onEventTap;
+  final Function(Position position, Event event)? onEventTap;
 
   const DeviceRoute({
     super.key,
@@ -203,7 +203,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
                   event: event,
                   position: position,
                   onTap: position != null
-                      ? () => widget.onEventTap?.call(position)
+                      ? () => widget.onEventTap?.call(position, event)
                       : null,
                 );
               },
