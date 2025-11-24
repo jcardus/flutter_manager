@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../icons/Icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
@@ -34,7 +35,7 @@ class PositionDetail extends StatelessWidget {
 
   String _formatIgnition(bool? ignition) {
     if (ignition == null) return 'Unknown';
-    return ignition ? 'On' : 'Off';
+    return ignition ? 'Ingition On' : 'Ignition Off';
   }
 
   String _formatAddress(String? address) {
@@ -58,8 +59,8 @@ class PositionDetail extends StatelessWidget {
       children: [
         // Address row spanning full width
         _InfoRow(
-          icon: Icons.location_on,
-          label: 'Address',
+          icon: PlatformIcons.location,
+          label: '',
           value: _formatAddress(pos.address),
         ),
         const SizedBox(height: 12),
@@ -68,16 +69,16 @@ class PositionDetail extends StatelessWidget {
           children: [
             Expanded(
               child: _InfoRow(
-                icon: Icons.speed,
-                label: 'Speed',
+                icon: pos.speed >= 90 ? PlatformIcons.speedFast : pos.speed > 0 ? PlatformIcons.speedMedium : PlatformIcons.speedSlow,
+                label: '',
                 value: _formatSpeed(context, pos.speed),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _InfoRow(
-                icon: Icons.power_settings_new,
-                label: 'Ignition',
+                icon: ignition != null && ignition ? PlatformIcons.ignitionOn : PlatformIcons.ignitionOff,
+                label: '',
                 value: _formatIgnition(ignition),
               ),
             ),
@@ -89,16 +90,16 @@ class PositionDetail extends StatelessWidget {
           children: [
             Expanded(
               child: _InfoRow(
-                icon: Icons.access_time,
-                label: 'Last Update',
+                icon: PlatformIcons.lastLocationTime,
+                label: '',
                 value: _formatLastUpdate(context, device.lastUpdate),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _InfoRow(
-                icon: Icons.route,
-                label: 'Odometer',
+                icon: PlatformIcons.odometer,
+                label: '',
                 value: _formatOdometer(odometer?.toDouble()),
               ),
             ),
@@ -136,7 +137,8 @@ class _InfoRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              if (label.isNotEmpty)
+                Text(
                 label,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,

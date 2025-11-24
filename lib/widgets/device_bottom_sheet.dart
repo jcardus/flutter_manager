@@ -1,18 +1,69 @@
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import 'device_detail.dart';
+import 'device_route.dart';
+
+class _MeasureSize extends SingleChildRenderObjectWidget {
+  final ValueChanged<Size> onChange;
+
+  const _MeasureSize({
+    required this.onChange,
+    required Widget child,
+  }) : super(child: child);
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _MeasureSizeRenderObject(onChange);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, _MeasureSizeRenderObject renderObject) {
+    renderObject.onChange = onChange;
+  }
+}
+
+class _MeasureSizeRenderObject extends RenderProxyBox {
+  ValueChanged<Size> onChange;
+  Size? _oldSize;
+
+  _MeasureSizeRenderObject(this.onChange);
+
+  @override
+  void performLayout() {
+    super.performLayout();
+
+    Size newSize = child!.size;
+    if (_oldSize == newSize) return;
+
+    _oldSize = newSize;
+    onChange(newSize);
+  }
+}
 
 class DeviceBottomSheet extends StatefulWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onRouteToggle;
+  final bool showingRoute;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final ValueChanged<double>? onSheetSizeChanged;
+  final Function(Position position, Event event)? onEventTap;
 
   const DeviceBottomSheet({
     super.key,
     required this.device,
     this.position,
     this.onClose,
+    this.onRouteToggle,
+    this.showingRoute = false,
+    this.onRoutePositionsLoaded,
+    this.onSheetSizeChanged,
+    this.onEventTap,
   });
 
   @override
@@ -20,18 +71,76 @@ class DeviceBottomSheet extends StatefulWidget {
 }
 
 class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
+  static const double _minChildSize = 0.15;
+  static const double _maxChildSizeLimit = 0.95;
+
+  double _maxChildSize = 0.5;
+  String? _lastMeasuredView;
+  final DraggableScrollableController _draggableController = DraggableScrollableController();
+
+  @override
+  void initState() {
+    super.initState();
+    _draggableController.addListener(_onSheetPositionChanged);
+  }
+
+  @override
+  void dispose() {
+    _draggableController.removeListener(_onSheetPositionChanged);
+    _draggableController.dispose();
+    super.dispose();
+  }
+
+  void _onSheetPositionChanged() {
+    if (_draggableController.isAttached) {
+      final size = _draggableController.size;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onSheetSizeChanged?.call(size);
+      });
+    }
+  }
+
+  void _toggleRoute() {
+    widget.onRouteToggle?.call(!widget.showingRoute);
+  }
+
+  void _onContentSizeChanged(Size size) {
+    final currentView = widget.showingRoute ? 'route' : 'detail';
+
+    // Only measure size when opening drawer
+    if (_lastMeasuredView != null) return;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final contentHeight = size.height;
+
+    final ratio = (contentHeight / screenHeight).clamp(_minChildSize, _maxChildSizeLimit);
+
+    // Ensure minimum reasonable size
+    final adjustedRatio = ratio.clamp(0.5, _maxChildSizeLimit);
+
+    dev.log('New calculated size: $adjustedRatio (was $_maxChildSize)');
+    _lastMeasuredView = currentView;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _maxChildSize = adjustedRatio;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final position = widget.position;
     return DraggableScrollableSheet(
-      maxChildSize: 0.75,
-      initialChildSize: 0.6,
+      controller: _draggableController,
+      maxChildSize: _maxChildSize,
+      minChildSize: _minChildSize,
+      initialChildSize: _maxChildSize,
       builder: (BuildContext context, ScrollController scrollController) {
         return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),
@@ -43,11 +152,29 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
             child: SingleChildScrollView(
               physics: ClampingScrollPhysics(),
               controller: scrollController,
-              child: DeviceDetail(
-                position: position,
-                device: widget.device, onClose: widget.onClose
-            ))
-        );
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _MeasureSize(
+                  onChange: _onContentSizeChanged,
+                  child: widget.showingRoute
+                      ? DeviceRoute(
+                          key: const ValueKey('route'),
+                          position: position,
+                          device: widget.device,
+                          onBack: _toggleRoute,
+                          onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
+                          onEventTap: widget.onEventTap,
+                        )
+                      : DeviceDetail(
+                          key: const ValueKey('detail'),
+                          position: position,
+                          device: widget.device,
+                          onClose: widget.onClose,
+                          onShowRoute: _toggleRoute,
+                        ),
+                ),
+              ),
+            ));
       },
     );
   }

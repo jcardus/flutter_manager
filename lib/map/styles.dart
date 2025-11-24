@@ -5,10 +5,15 @@ import 'package:manager/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 
 class MapStyles {
-  static const String sourceId = 'devices-source';
+  static const String devicesSourceId = 'devices-source';
+  static const String deviceRouteSourceId = 'device-route';
+  static const String eventMarkerSourceId = 'event-marker-source';
   static const String layerId = 'devices-layer';
+  static const String routeLayerId = 'route-layer';
   static const String clusterLayerId = 'clusters';
   static const String clusterCountLayerId = 'cluster-count';
+  static const String eventMarkerLayerId = 'event-marker-layer';
+  static const String eventMarkerCircleLayerId = 'event-marker-circle-layer';
   static const String _mapbox = 'pk.eyJ1IjoiZ3VzdGF2by1mbGVldG1hcCIsImEiOiJjbWQ4bTUwZ2EwMXkyMmpzOGI0c25reGFpIn0.ftht2eo6PRXkAEWy9oQ65g';
 
   // Style configurations
@@ -73,11 +78,27 @@ class MapStyles {
     'clusterMaxZoom': 14,
   };
 
+  static Map<String, dynamic> get _routeSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
+  static Map<String, dynamic> get _eventMarkerSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
   /// Generate the cluster circles layer
   static Map<String, dynamic> _clusterLayer(MapStyleConfig config) => {
     'id': clusterLayerId,
     'type': 'circle',
-    'source': sourceId,
+    'source': devicesSourceId,
     'filter': ['has', 'point_count'],
     'paint': {
       'circle-color': [
@@ -105,7 +126,7 @@ class MapStyles {
   static Map<String, dynamic> _clusterCountLayer(MapStyleConfig config) => {
     'id': clusterCountLayerId,
     'type': 'symbol',
-    'source': sourceId,
+    'source': devicesSourceId,
     'filter': ['has', 'point_count'],
     'layout': {
       'text-field': '{point_count_abbreviated}',
@@ -122,7 +143,7 @@ class MapStyles {
   static Map<String, dynamic> _devicesLayer(MapStyleConfig config, double devicePixelRatio) => {
     'id': layerId,
     'type': 'symbol',
-    'source': sourceId,
+    'source': devicesSourceId,
     'filter': ['!', ['has', 'point_count']],
     'layout': {
       'icon-image': '{category}_{color}_{baseRotation}',
@@ -133,7 +154,8 @@ class MapStyles {
       'text-offset': [0, 2],
       'text-anchor': 'top',
       'icon-allow-overlap': true,
-      'text-allow-overlap': true
+      'text-allow-overlap': true,
+      'icon-rotate': ['get', 'rotate']
     },
     'paint': {
       'text-color': config.textColor,
@@ -141,6 +163,44 @@ class MapStyles {
       'text-halo-width': 2,
     },
   };
+
+  static Map<String, dynamic> _routeLayer(MapStyleConfig config, double devicePixelRatio) => {
+    'source': deviceRouteSourceId,
+    'id': routeLayerId,
+    'type': 'line',
+    'layout': {
+      'line-join': 'round',
+      'line-cap': 'round',
+    },
+    'paint': {
+      'line-color': '#2196F3',
+      'line-width': 3,
+    },
+  };
+
+  static Map<String, dynamic> _eventMarkerCircleLayer(MapStyleConfig config) => {
+    'id': eventMarkerCircleLayerId,
+    'type': 'circle',
+    'source': eventMarkerSourceId,
+    'paint': {
+      'circle-radius': 15,
+      'circle-color': '#FFFFFF',
+      'circle-stroke-width': 3,
+      'circle-stroke-color': '#FF5722',
+    },
+  };
+
+  static Map<String, dynamic> _eventMarkerLayer(MapStyleConfig config) => {
+    'id': eventMarkerLayerId,
+    'type': 'symbol',
+    'source': eventMarkerSourceId,
+    'layout': {
+      'icon-image': ['get', 'icon'],
+      'icon-size': 1.5,
+      'icon-allow-overlap': true,
+    },
+  };
+
 
   /// Generate a complete MapLibre style JSON string from a config (for raster tiles only)
   static String generateStyleJson(MapStyleConfig config, double devicePixelRatio) {
@@ -157,7 +217,9 @@ class MapStyles {
       'glyphs': 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       'sources': {
         'base-map': baseSource,
-        sourceId: _devicesSource,
+        devicesSourceId: _devicesSource,
+        deviceRouteSourceId: _routeSource,
+        eventMarkerSourceId: _eventMarkerSource,
       },
       'layers': [
         {
@@ -167,9 +229,12 @@ class MapStyles {
           'minzoom': 0,
           'maxzoom': 22,
         },
+        _routeLayer(config, devicePixelRatio),
         _clusterLayer(config),
         _clusterCountLayer(config),
         _devicesLayer(config, devicePixelRatio),
+        _eventMarkerCircleLayer(config),
+        _eventMarkerLayer(config),
       ],
     };
 
@@ -337,13 +402,18 @@ class MapStyles {
 
       // Add our devices source
       final sources = style['sources'] as Map<String, dynamic>;
-      sources[sourceId] = _devicesSource;
+      sources[devicesSourceId] = _devicesSource;
+      sources[deviceRouteSourceId] = _routeSource;
+      sources[eventMarkerSourceId] = _eventMarkerSource;
 
       // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
+      layers.add(_routeLayer(config, devicePixelRatio));
       layers.add(_clusterLayer(config));
       layers.add(_clusterCountLayer(config));
       layers.add(_devicesLayer(config, devicePixelRatio));
+      layers.add(_eventMarkerCircleLayer(config));
+      layers.add(_eventMarkerLayer(config));
       return jsonEncode(style);
   }
 

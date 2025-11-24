@@ -81,5 +81,9 @@
 
   "blockCommandSent": "Comando de bloqueio enviado",
 
-  "blockCommandFailed": "Falha ao enviar comando de bloqueio"
+  "blockCommandFailed": "Falha ao enviar comando de bloqueio",
+
+  "route": "Rota",
+
+  "odometer": "Odómetro"
 }

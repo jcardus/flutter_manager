@@ -15,7 +15,6 @@ dependencies:
 
   intl: ^0.20.2
   cupertino_icons: ^1.0.8
-  curved_navigation_bar: ^1.0.6
   maplibre_gl: ^0.24.1
   shared_preferences: ^2.3.3
   http: ^1.2.2
@@ -40,6 +39,10 @@ flutter:
   assets:
     - assets/marker.png
     - assets/map/icons/
+  fonts:
+    - family: platform-font
+      fonts:
+        - asset: assets/fonts/icons.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

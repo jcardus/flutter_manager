@@ -1,29 +1,33 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:manager/widgets/position_detail.dart';
 import 'package:manager/widgets/street_view.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io' show Platform;
 
+import '../icons/Icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../utils/constants.dart';
 import '../services/api_service.dart';
+import 'common/handle_bar.dart';
 
 class DeviceDetail extends StatelessWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onClose;
+  final VoidCallback? onShowRoute;
 
   const DeviceDetail({
     super.key,
     required this.device,
     required this.position,
-    required this.onClose
+    required this.onClose,
+    this.onShowRoute,
   });
 
   Color _getStatusColor(BuildContext context) {
@@ -234,10 +238,15 @@ class DeviceDetail extends StatelessWidget {
     }
   }
 
+  void _showRoute(BuildContext context) {
+    if (onShowRoute != null) {
+      onShowRoute!();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final textTheme = theme.textTheme;
     final l10n = AppLocalizations.of(context)!;
     final statusColor = _getStatusColor(context);
@@ -248,16 +257,7 @@ class DeviceDetail extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 15),
         child: Column(
           children: [
-            // Handle bar
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              width: 50,
-              height: 2,
-              decoration: BoxDecoration(
-                color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+            const HandleBar(),
             if (pos != null) Container(
               margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
               child: Column(children: [
@@ -375,7 +375,15 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.share_location,
+                      icon: PlatformIcons.route,
+                      label: l10n.route,
+                      onPressed: () => _showRoute(context),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ActionButton(
+                      icon: Platform.isIOS ? Icons.ios_share : Icons.share,
                       label: l10n.share,
                       onPressed: () => _shareLocation(context),
                     ),
@@ -383,7 +391,7 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.block,
+                      icon: Icons.lock,
                       label: l10n.block,
                       onPressed: () => _sendBlockCommand(context),
                     ),

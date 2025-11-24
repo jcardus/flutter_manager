@@ -23,6 +23,7 @@ class DevicesListView extends StatefulWidget {
 
 class _DevicesListViewState extends State<DevicesListView> {
   String _searchQuery = '';
+  String _searchStatusQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +31,12 @@ class _DevicesListViewState extends State<DevicesListView> {
       ..sort((a, b) => a.name.compareTo(b.name));
 
     // Filter devices based on search query
-    final filteredDevices = _searchQuery.isEmpty
+    final filteredDevices = _searchQuery.isEmpty && _searchStatusQuery.isEmpty
         ? devicesList
         : devicesList
             .where((device) =>
-                device.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+                (_searchQuery.isEmpty || device.name.toLowerCase().contains(_searchQuery.toLowerCase())) &&
+                (_searchStatusQuery.isEmpty || device.status?.toLowerCase() == _searchStatusQuery))
             .toList();
 
     // Calculate stats
@@ -100,23 +102,50 @@ class _DevicesListViewState extends State<DevicesListView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _StatCard(
-                    icon: Icons.devices,
-                    label: l10n.total,
-                    value: totalDevices.toString(),
-                    color: Theme.of(context).colorScheme.primary,
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _searchStatusQuery = '';
+                      });
+                    },
+                    child:
+                    _StatCard(
+                      icon: Icons.list_alt,
+                      label: l10n.total,
+                      value: totalDevices.toString(),
+                      color: _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.primary.withAlpha(75),
+                    )
                   ),
-                  _StatCard(
-                    icon: Icons.check_circle,
-                    label: l10n.online,
-                    value: onlineDevices.toString(),
-                    color: Theme.of(context).colorScheme.tertiary,
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _searchStatusQuery = 'online';
+                      });
+                    },
+                    child:
+                      _StatCard(
+                        icon: Icons.check_circle,
+                        label: l10n.online,
+                        value: onlineDevices.toString(),
+                        color: _searchStatusQuery == 'online' || _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.tertiary
+                            : Theme.of(context).colorScheme.tertiary.withAlpha(75),
+                      )
                   ),
-                  _StatCard(
-                    icon: Icons.cancel,
-                    label: l10n.offline,
-                    value: offlineDevices.toString(),
-                    color: Theme.of(context).colorScheme.error,
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _searchStatusQuery = 'offline';
+                      });
+                    },
+                    child:
+                      _StatCard(
+                      icon: Icons.cancel,
+                      label: l10n.offline,
+                      value: offlineDevices.toString(),
+                      color: _searchStatusQuery == 'offline' || _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.error.withAlpha(75),
+                    )
                   ),
                 ],
               ),
@@ -196,6 +225,7 @@ class _DevicesListViewState extends State<DevicesListView> {
                       final device = filteredDevices[index];
                       final position = widget.positions[device.id];
                       return _DeviceListItem(
+                        key: ValueKey(device.id),
                         device: device,
                         position: position,
                         onTap: widget.onDeviceTap,
@@ -254,6 +284,7 @@ class _DeviceListItem extends StatelessWidget {
   final void Function(int deviceId)? onTap;
 
   const _DeviceListItem({
+    super.key,
     required this.device,
     this.position,
     this.onTap,
