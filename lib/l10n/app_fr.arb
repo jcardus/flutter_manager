@@ -1,0 +1,93 @@
+{
+  "@@locale": "fr",
+
+  "appTitle": "Gestionnaire",
+
+  "signIn": "Se connecter",
+
+  "emailOrUsername": "Email ou nom d’utilisateur",
+
+  "password": "Mot de passe",
+
+  "required": "Obligatoire",
+
+  "login": "Connexion",
+
+  "loginFailed": "Échec de la connexion",
+
+  "noDevicesFound": "Aucun appareil trouvé",
+
+  "waitingForData": "En attente des données...",
+
+  "total": "Total",
+
+  "online": "En ligne",
+
+  "offline": "Hors ligne",
+
+  "searchDevices": "Rechercher des appareils...",
+
+  "tryDifferentSearch": "Essayez un autre terme de recherche",
+
+  "statusUnknown": "INCONNU",
+
+  "justNow": "À l’instant",
+
+  "minutesAgo": "Il y a {minutes} min",
+
+  "hoursAgo": "Il y a {hours} h",
+
+  "daysAgo": "Il y a {days} j",
+
+  "never": "Jamais",
+
+  "speedNotAvailable": "N/D",
+
+  "speedKmh": "{speed} km/h",
+
+  "user": "Utilisateur",
+
+  "statistics": "Statistiques",
+
+  "devices": "Appareils",
+
+  "active": "Actifs",
+
+  "logout": "Se déconnecter",
+
+  "logoutConfirmation": "Êtes-vous sûr de vouloir vous déconnecter ?",
+
+  "cancel": "Annuler",
+
+  "mapStyleMapbox": "Mapbox",
+
+  "mapStyleGoogle": "Google",
+
+  "mapStyleSatellite": "Satellite",
+
+  "mapStyleDark": "Sombre",
+
+  "mapStyleLight": "Clair",
+
+  "loading": "Chargement...",
+
+  "directions": "Directions",
+
+  "share": "Partager",
+
+  "block": "Bloquer",
+
+  "locationCopied": "Emplacement copié dans le presse-papiers",
+
+  "blockCommandSent": "Commande de blocage envoyée",
+
+  "blockCommandFailed": "Échec de l’envoi de la commande de blocage",
+
+  "route": "Itinéraire",
+
+  "odometer": "Odomètre",
+
+  "map": "Carte",
+
+  "profile": "Profil"
+}

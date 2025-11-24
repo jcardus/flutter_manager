@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
@@ -213,6 +214,8 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -236,11 +239,11 @@ class _MainPageState extends State<MainPage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildNavItem(0, Icons.map_outlined, 'Map'),
+                          _buildNavItem(0, Icons.map_outlined, l10n.map),
                           const SizedBox(width: 4),
-                          _buildNavItem(1, Icons.list, 'Devices'),
+                          _buildNavItem(1, Icons.list, l10n.devices),
                           const SizedBox(width: 4),
-                          _buildNavItem(2, Icons.person_outline, 'Profile'),
+                          _buildNavItem(2, Icons.person_outline, l10n.profile),
                         ],
                       ),
                     ),

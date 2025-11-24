@@ -234,5 +234,9 @@
   "odometer": "Odometer",
   "@odometer": {
     "description": "Odometer action button label"
-  }
+  },
+
+  "map": "Map",
+
+  "profile": "Profile"
 }
