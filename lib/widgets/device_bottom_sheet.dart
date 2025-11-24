@@ -50,6 +50,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final ValueChanged<double>? onSheetSizeChanged;
 
   const DeviceBottomSheet({
     super.key,
@@ -59,6 +60,7 @@ class DeviceBottomSheet extends StatefulWidget {
     this.onRouteToggle,
     this.showingRoute = false,
     this.onRoutePositionsLoaded,
+    this.onSheetSizeChanged,
   });
 
   @override
@@ -74,9 +76,25 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   final DraggableScrollableController _draggableController = DraggableScrollableController();
 
   @override
+  void initState() {
+    super.initState();
+    _draggableController.addListener(_onSheetPositionChanged);
+  }
+
+  @override
   void dispose() {
+    _draggableController.removeListener(_onSheetPositionChanged);
     _draggableController.dispose();
     super.dispose();
+  }
+
+  void _onSheetPositionChanged() {
+    if (_draggableController.isAttached) {
+      final size = _draggableController.size;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onSheetSizeChanged?.call(size);
+      });
+    }
   }
 
   void _toggleRoute() {
@@ -119,7 +137,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
         return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),

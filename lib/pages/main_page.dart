@@ -28,6 +28,7 @@ class _MainPageState extends State<MainPage> {
   int? _selectedDeviceId;
   bool _showingRoute = false;
   List<Position> _routePositions = [];
+  double _bottomSheetSize = 0.0;
 
   @override
   void initState() {
@@ -62,6 +63,7 @@ class _MainPageState extends State<MainPage> {
       _selectedDeviceId = null;
       _showingRoute = false;
       _routePositions = [];
+      _bottomSheetSize = 0.0;
     });
   }
 
@@ -80,19 +82,38 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  void _onBottomSheetSizeChanged(double size) {
+    setState(() {
+      _bottomSheetSize = size;
+    });
+  }
+
   Widget _buildCurrentScreen() {
     return Stack(
       children: [
         // Keep map alive but only visible when selected
         Offstage(
           offstage: _selectedIndex != 0,
-          child: MapView(
-            devices: _devices,
-            positions: _positions,
-            selectedDevice: _selectedDeviceId,
-            showingRoute: _showingRoute,
-            routePositions: _routePositions,
-            onDeviceSelected: _onDeviceTap,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final screenHeight = constraints.maxHeight;
+              // Map height = screen height - bottom sheet height + 10px overlap
+              // This creates a small gap so the rounded top corners of the sheet are visible
+              final mapHeight = _selectedDeviceId != null
+                  ? screenHeight * (1 - _bottomSheetSize) + 10
+                  : screenHeight;
+              return SizedBox(
+                height: mapHeight,
+                child: MapView(
+                  devices: _devices,
+                  positions: _positions,
+                  selectedDevice: _selectedDeviceId,
+                  showingRoute: _showingRoute,
+                  routePositions: _routePositions,
+                  onDeviceSelected: _onDeviceTap,
+                ),
+              );
+            },
           ),
         ),
         // Conditionally render other views (not kept alive)
@@ -217,6 +238,7 @@ class _MainPageState extends State<MainPage> {
             onRouteToggle: _onRouteToggle,
             showingRoute: _showingRoute,
             onRoutePositionsLoaded: _onRoutePositionsLoaded,
+            onSheetSizeChanged: _onBottomSheetSizeChanged,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -297,6 +319,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final ValueChanged<double>? onSheetSizeChanged;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -306,6 +329,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onRouteToggle,
     this.showingRoute = false,
     this.onRoutePositionsLoaded,
+    this.onSheetSizeChanged,
   });
 
   @override
@@ -339,7 +363,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
         _lastShowingRoute = widget.showingRoute;
 
         _cachedSheet = AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
+          duration: const Duration(milliseconds: 100),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return SlideTransition(
               position: Tween<Offset>(
@@ -360,6 +384,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onRouteToggle: widget.onRouteToggle,
             showingRoute: widget.showingRoute,
             onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
+            onSheetSizeChanged: widget.onSheetSizeChanged,
           ),
         );
       }

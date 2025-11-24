@@ -40,6 +40,7 @@ class _MapViewState extends State<MapView> {
   Future<String>? _initialStyleFuture;
   double scrollOffset = 0;
   bool? _lastShowingRoute;
+  List<Position> _lastRoutePositions = [];
 
 
   @override
@@ -88,19 +89,10 @@ class _MapViewState extends State<MapView> {
   void _centerOnDevice(int deviceId, {bool changeZoom = true}) async {
     final position = widget.positions[deviceId];
     if (mapController == null || position == null) { return; }
-    final zoom = mapController!.cameraPosition!.zoom;
-    var p = await mapController!.toScreenLocation(
-        LatLng(position.latitude, position.longitude));
-    if (zoom < selectedZoomLevel && changeZoom) {
-      await mapController!.animateCamera(
-          CameraUpdate.zoomBy(selectedZoomLevel-zoom, Offset(p.x.toDouble(), p.y.toDouble())),
-          duration: Duration(milliseconds: 250));
-    }
-    p = await mapController!.toScreenLocation(
-        LatLng(position.latitude, position.longitude));
-    final ll = await mapController!.toLatLng(Point(p.x, p.y + scrollOffset));
+    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel && changeZoom ?
+        selectedZoomLevel : mapController!.cameraPosition!.zoom;
     await mapController!.animateCamera(
-        CameraUpdate.newLatLng(ll),
+        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
         duration: const Duration(milliseconds: 250)
     );
   }
@@ -198,11 +190,17 @@ class _MapViewState extends State<MapView> {
   Future<void> _updateRouteSource() async {
     if (mapController == null) return;
 
+    // Check if route positions have changed
+    if (_routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
+      return;
+    }
+
     if (widget.routePositions.isEmpty) {
       await mapController!.setGeoJsonSource(
         MapStyles.deviceRouteSourceId,
         {'type': 'FeatureCollection', 'features': []},
       );
+      _lastRoutePositions = [];
       return;
     }
 
@@ -226,8 +224,19 @@ class _MapViewState extends State<MapView> {
       {'type': 'FeatureCollection', 'features': [lineString]},
     );
 
+    // Store current positions for next comparison
+    _lastRoutePositions = List.from(widget.routePositions);
+
     // Fit map to route
     _fitMapToRoute();
+  }
+
+  bool _routePositionsEqual(List<Position> a, List<Position> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
   }
 
   void _fitMapToRoute() {
@@ -239,10 +248,6 @@ class _MapViewState extends State<MapView> {
     final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
     final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
 
-    // Use scrollOffset * 2 to get half screen height for bottom padding
-    final bottomPadding = scrollOffset * 3;
-
-    dev.log('$scrollOffset');
     mapController!.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(
@@ -250,9 +255,9 @@ class _MapViewState extends State<MapView> {
           northeast: LatLng(maxLat, maxLng),
         ),
         left: 50,
-        top: 0,
+        top: 50,
         right: 50,
-        bottom: bottomPadding,
+        bottom: 50,
       ),
     );
   }
