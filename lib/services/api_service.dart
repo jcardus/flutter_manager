@@ -20,7 +20,6 @@ class ApiService {
   Future<List<T>> _fetchList<T>({
     required String endpoint,
     required T Function(Map<String, dynamic>) fromJson,
-    required String resourceName,
   }) async {
     final baseUrl = AuthService.baseUrl;
     final uri = Uri.parse('$baseUrl$endpoint');
@@ -35,11 +34,11 @@ class ApiService {
             .toList();
         return items;
       } else {
-        dev.log('Failed to fetch $resourceName: ${resp.statusCode}', name: 'API');
+        dev.log('Failed to fetch $endpoint: ${resp.statusCode}', name: 'API');
         return [];
       }
     } catch (e, stack) {
-      dev.log('Error fetching $resourceName: $e', name: 'API', error: e, stackTrace: stack);
+      dev.log('Error fetching $endpoint: $e', name: 'API', error: e, stackTrace: stack);
       return [];
     }
   }
@@ -47,16 +46,14 @@ class ApiService {
   Future<List<Device>> fetchDevices() async {
     return _fetchList(
       endpoint: '/api/devices',
-      fromJson: Device.fromJson,
-      resourceName: 'devices',
+      fromJson: Device.fromJson
     );
   }
 
   Future<List<Position>> fetchPositions() async {
     return _fetchList(
       endpoint: '/api/positions',
-      fromJson: Position.fromJson,
-      resourceName: 'positions',
+      fromJson: Position.fromJson
     );
   }
 
@@ -69,10 +66,23 @@ class ApiService {
     final toParam = to.toUtc().toIso8601String();
     return _fetchList(
       endpoint: '/api/reports/events?deviceId=$deviceId&from=$fromParam&to=$toParam',
-      fromJson: Event.fromJson,
-      resourceName: 'events',
+      fromJson: Event.fromJson
     );
   }
+
+  Future<List<Position>> fetchDevicePositions({
+    required int deviceId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromParam = from.toUtc().toIso8601String();
+    final toParam = to.toUtc().toIso8601String();
+    return _fetchList(
+      endpoint: '/api/reports/route?deviceId=$deviceId&from=$fromParam&to=$toParam',
+      fromJson: Position.fromJson
+    );
+  }
+
 
   Future<Map<String, String>> _getAuthHeaders([Map<String, String>? extraHeaders]) async {
     final headers = <String, String>{

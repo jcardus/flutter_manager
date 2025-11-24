@@ -5,8 +5,10 @@ import 'package:manager/l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 
 class MapStyles {
-  static const String sourceId = 'devices-source';
+  static const String devicesSourceId = 'devices-source';
+  static const String deviceRouteSourceId = 'device-route';
   static const String layerId = 'devices-layer';
+  static const String routeLayerId = 'route-layer';
   static const String clusterLayerId = 'clusters';
   static const String clusterCountLayerId = 'cluster-count';
   static const String _mapbox = 'pk.eyJ1IjoiZ3VzdGF2by1mbGVldG1hcCIsImEiOiJjbWQ4bTUwZ2EwMXkyMmpzOGI0c25reGFpIn0.ftht2eo6PRXkAEWy9oQ65g';
@@ -73,11 +75,19 @@ class MapStyles {
     'clusterMaxZoom': 14,
   };
 
+  static Map<String, dynamic> get _routeSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
   /// Generate the cluster circles layer
   static Map<String, dynamic> _clusterLayer(MapStyleConfig config) => {
     'id': clusterLayerId,
     'type': 'circle',
-    'source': sourceId,
+    'source': devicesSourceId,
     'filter': ['has', 'point_count'],
     'paint': {
       'circle-color': [
@@ -105,7 +115,7 @@ class MapStyles {
   static Map<String, dynamic> _clusterCountLayer(MapStyleConfig config) => {
     'id': clusterCountLayerId,
     'type': 'symbol',
-    'source': sourceId,
+    'source': devicesSourceId,
     'filter': ['has', 'point_count'],
     'layout': {
       'text-field': '{point_count_abbreviated}',
@@ -122,7 +132,7 @@ class MapStyles {
   static Map<String, dynamic> _devicesLayer(MapStyleConfig config, double devicePixelRatio) => {
     'id': layerId,
     'type': 'symbol',
-    'source': sourceId,
+    'source': devicesSourceId,
     'filter': ['!', ['has', 'point_count']],
     'layout': {
       'icon-image': '{category}_{color}_{baseRotation}',
@@ -143,6 +153,21 @@ class MapStyles {
     },
   };
 
+  static Map<String, dynamic> _routeLayer(MapStyleConfig config, double devicePixelRatio) => {
+    'source': deviceRouteSourceId,
+    'id': routeLayerId,
+    'type': 'line',
+    'layout': {
+      'line-join': 'round',
+      'line-cap': 'round',
+    },
+    'paint': {
+      'line-color': '#2196F3',
+      'line-width': 3,
+    },
+  };
+
+
   /// Generate a complete MapLibre style JSON string from a config (for raster tiles only)
   static String generateStyleJson(MapStyleConfig config, double devicePixelRatio) {
     final Map<String, dynamic> baseSource = {
@@ -158,7 +183,8 @@ class MapStyles {
       'glyphs': 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       'sources': {
         'base-map': baseSource,
-        sourceId: _devicesSource,
+        devicesSourceId: _devicesSource,
+        deviceRouteSourceId: _routeSource,
       },
       'layers': [
         {
@@ -168,6 +194,7 @@ class MapStyles {
           'minzoom': 0,
           'maxzoom': 22,
         },
+        _routeLayer(config, devicePixelRatio),
         _clusterLayer(config),
         _clusterCountLayer(config),
         _devicesLayer(config, devicePixelRatio),
@@ -338,10 +365,12 @@ class MapStyles {
 
       // Add our devices source
       final sources = style['sources'] as Map<String, dynamic>;
-      sources[sourceId] = _devicesSource;
+      sources[devicesSourceId] = _devicesSource;
+      sources[deviceRouteSourceId] = _routeSource;
 
       // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
+      layers.add(_routeLayer(config, devicePixelRatio));
       layers.add(_clusterLayer(config));
       layers.add(_clusterCountLayer(config));
       layers.add(_devicesLayer(config, devicePixelRatio));

@@ -49,6 +49,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
 
   const DeviceBottomSheet({
     super.key,
@@ -57,6 +58,7 @@ class DeviceBottomSheet extends StatefulWidget {
     this.onClose,
     this.onRouteToggle,
     this.showingRoute = false,
+    this.onRoutePositionsLoaded,
   });
 
   @override
@@ -139,6 +141,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                           position: position,
                           device: widget.device,
                           onBack: _toggleRoute,
+                          onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
                         )
                       : DeviceDetail(
                           key: const ValueKey('detail'),

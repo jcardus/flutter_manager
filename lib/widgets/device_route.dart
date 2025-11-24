@@ -10,12 +10,14 @@ class DeviceRoute extends StatefulWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onBack;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
 
   const DeviceRoute({
     super.key,
     required this.device,
     required this.position,
     this.onBack,
+    this.onRoutePositionsLoaded,
   });
 
   @override
@@ -42,11 +44,24 @@ class _DeviceRouteState extends State<DeviceRoute> {
     final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    final events = await _apiService.fetchEvents(
+    final eventsFuture = _apiService.fetchEvents(
       deviceId: widget.device.id,
       from: startOfDay,
       to: endOfDay,
     );
+
+    final positionsFuture = _apiService.fetchDevicePositions(
+      deviceId: widget.device.id,
+      from: startOfDay,
+      to: endOfDay,
+    );
+
+    final results = await Future.wait([eventsFuture, positionsFuture]);
+    final events = results[0] as List<Event>;
+    final positions = results[1] as List<Position>;
+
+    // Notify parent about route positions
+    widget.onRoutePositionsLoaded?.call(positions);
 
     setState(() {
       _events = events;

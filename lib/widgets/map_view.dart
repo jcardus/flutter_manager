@@ -15,6 +15,7 @@ class MapView extends StatefulWidget {
   final Map<int, Position> positions;
   final int? selectedDevice;
   final bool showingRoute;
+  final List<Position> routePositions;
   final Function(int deviceId)? onDeviceSelected;
 
   const MapView({
@@ -23,6 +24,7 @@ class MapView extends StatefulWidget {
     required this.positions,
     this.selectedDevice,
     this.showingRoute = false,
+    this.routePositions = const [],
     this.onDeviceSelected,
   });
 
@@ -72,9 +74,10 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  void _update() {
+  Future<void> _update() async {
     if (widget.positions.isNotEmpty && mapController != null && _mapReady) {
-      _updateMapSource();
+      await _updateMapSource();
+      await _updateRouteSource();
       if (!_initialFitDone) {
         _fitMapToDevices();
         _initialFitDone = true;
@@ -171,7 +174,7 @@ class _MapViewState extends State<MapView> {
         },
       });
     }
-    await mapController!.setGeoJsonSource(MapStyles.sourceId, {'type': 'FeatureCollection', 'features': features});
+    await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': features});
 
     // Only update layer visibility if showingRoute changed
     if (_lastShowingRoute != widget.showingRoute) {
@@ -190,6 +193,68 @@ class _MapViewState extends State<MapView> {
     await mapController!.setLayerVisibility(MapStyles.layerId, visible);
     await mapController!.setLayerVisibility(MapStyles.clusterLayerId, visible);
     await mapController!.setLayerVisibility(MapStyles.clusterCountLayerId, visible);
+  }
+
+  Future<void> _updateRouteSource() async {
+    if (mapController == null) return;
+
+    if (widget.routePositions.isEmpty) {
+      await mapController!.setGeoJsonSource(
+        MapStyles.deviceRouteSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      return;
+    }
+
+    // Build LineString from route positions
+    final coordinates = widget.routePositions
+        .map((p) => [p.longitude, p.latitude])
+        .toList();
+
+    final lineString = {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'LineString',
+        'coordinates': coordinates,
+      },
+      'properties': {},
+    };
+
+    dev.log('updating route');
+    await mapController!.setGeoJsonSource(
+      MapStyles.deviceRouteSourceId,
+      {'type': 'FeatureCollection', 'features': [lineString]},
+    );
+
+    // Fit map to route
+    _fitMapToRoute();
+  }
+
+  void _fitMapToRoute() {
+    if (mapController == null || widget.routePositions.isEmpty) return;
+
+    final positions = widget.routePositions;
+    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+
+    // Use scrollOffset * 2 to get half screen height for bottom padding
+    final bottomPadding = scrollOffset * 3;
+
+    dev.log('$scrollOffset');
+    mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        left: 50,
+        top: 0,
+        right: 50,
+        bottom: bottomPadding,
+      ),
+    );
   }
 
   Future<void> _checkSelectedDeviceVisibility() async {

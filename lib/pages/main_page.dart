@@ -27,6 +27,7 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Position> _positions = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
+  List<Position> _routePositions = [];
 
   @override
   void initState() {
@@ -60,12 +61,22 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _selectedDeviceId = null;
       _showingRoute = false;
+      _routePositions = [];
     });
   }
 
   void _onRouteToggle(bool showingRoute) {
     setState(() {
       _showingRoute = showingRoute;
+      if (!showingRoute) {
+        _routePositions = [];
+      }
+    });
+  }
+
+  void _onRoutePositionsLoaded(List<Position> positions) {
+    setState(() {
+      _routePositions = positions;
     });
   }
 
@@ -80,6 +91,7 @@ class _MainPageState extends State<MainPage> {
             positions: _positions,
             selectedDevice: _selectedDeviceId,
             showingRoute: _showingRoute,
+            routePositions: _routePositions,
             onDeviceSelected: _onDeviceTap,
           ),
         ),
@@ -204,6 +216,7 @@ class _MainPageState extends State<MainPage> {
             onClose: _closeBottomSheet,
             onRouteToggle: _onRouteToggle,
             showingRoute: _showingRoute,
+            onRoutePositionsLoaded: _onRoutePositionsLoaded,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -283,6 +296,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -291,6 +305,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onClose,
     this.onRouteToggle,
     this.showingRoute = false,
+    this.onRoutePositionsLoaded,
   });
 
   @override
@@ -344,6 +359,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onClose: widget.onClose,
             onRouteToggle: widget.onRouteToggle,
             showingRoute: widget.showingRoute,
+            onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
           ),
         );
       }
