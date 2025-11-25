@@ -1,5 +1,5 @@
 name: manager
-description: "Track Fleet"
+description: "Moviflotte"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 version: 3.0.1+1
