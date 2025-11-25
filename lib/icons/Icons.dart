@@ -24,6 +24,8 @@ class PlatformIcons {
   static const IconData update = IconData(0xe9ff, fontFamily: _fontFamily);
   static const IconData lastLocationTime = IconData(0xea40, fontFamily: _fontFamily);
   static const IconData location = IconData(0xe935, fontFamily: _fontFamily);
+  static const IconData stop = IconData(0xe90e, fontFamily: _fontFamily);
+  static const IconData play = IconData(0xe9bd, fontFamily: _fontFamily);
 
 
 }

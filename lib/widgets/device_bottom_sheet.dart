@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import 'device_detail.dart';
 import 'device_route.dart';
 
@@ -47,12 +48,24 @@ class DeviceBottomSheet extends StatefulWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onRouteToggle;
+  final bool showingRoute;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final ValueChanged<double>? onSheetSizeChanged;
+  final Function(Position position, Event event)? onEventTap;
+  final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
 
   const DeviceBottomSheet({
     super.key,
     required this.device,
     this.position,
     this.onClose,
+    this.onRouteToggle,
+    this.showingRoute = false,
+    this.onRoutePositionsLoaded,
+    this.onSheetSizeChanged,
+    this.onEventTap,
+    this.onStateSegmentTap,
   });
 
   @override
@@ -63,36 +76,48 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
   static const double _minChildSize = 0.15;
   static const double _maxChildSizeLimit = 0.95;
 
-  bool _showingRoute = false;
   double _maxChildSize = 0.5;
   String? _lastMeasuredView;
   final DraggableScrollableController _draggableController = DraggableScrollableController();
 
   @override
+  void initState() {
+    super.initState();
+    _draggableController.addListener(_onSheetPositionChanged);
+  }
+
+  @override
   void dispose() {
+    _draggableController.removeListener(_onSheetPositionChanged);
     _draggableController.dispose();
     super.dispose();
   }
 
+  void _onSheetPositionChanged() {
+    if (_draggableController.isAttached) {
+      final size = _draggableController.size;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onSheetSizeChanged?.call(size);
+      });
+    }
+  }
+
   void _toggleRoute() {
-    setState(() {
-      _showingRoute = !_showingRoute;
-    });
+    widget.onRouteToggle?.call(!widget.showingRoute);
   }
 
   void _onContentSizeChanged(Size size) {
-    final currentView = _showingRoute ? 'route' : 'detail';
+    final currentView = widget.showingRoute ? 'route' : 'detail';
 
-    // Only measure size when switching views, not on position updates
-    if (_lastMeasuredView == currentView) return;
-
+    // Only measure size when opening drawer
+    if (_lastMeasuredView != null) return;
     final screenHeight = MediaQuery.of(context).size.height;
     final contentHeight = size.height;
 
     final ratio = (contentHeight / screenHeight).clamp(_minChildSize, _maxChildSizeLimit);
 
-    // Ensure minimum reasonable size for detail view
-    final adjustedRatio = currentView == 'detail' ? ratio.clamp(0.45, _maxChildSizeLimit) : ratio;
+    // Ensure minimum reasonable size
+    final adjustedRatio = ratio.clamp(0.5, _maxChildSizeLimit);
 
     dev.log('New calculated size: $adjustedRatio (was $_maxChildSize)');
     _lastMeasuredView = currentView;
@@ -117,7 +142,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
         return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainer,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),
@@ -133,12 +158,15 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                 duration: const Duration(milliseconds: 300),
                 child: _MeasureSize(
                   onChange: _onContentSizeChanged,
-                  child: _showingRoute
+                  child: widget.showingRoute
                       ? DeviceRoute(
                           key: const ValueKey('route'),
                           position: position,
                           device: widget.device,
                           onBack: _toggleRoute,
+                          onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
+                          onEventTap: widget.onEventTap,
+                          onStateSegmentTap: widget.onStateSegmentTap,
                         )
                       : DeviceDetail(
                           key: const ValueKey('detail'),

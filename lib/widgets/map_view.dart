@@ -1,27 +1,45 @@
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import '../utils/constants.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
+import '../icons/Icons.dart' as platform_icons;
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
   final int? selectedDevice;
+  final bool showingRoute;
+  final List<Position> routePositions;
+  final List<Position> movingSegmentPositions;
+  final Event? segmentStartEvent;
+  final Event? segmentEndEvent;
   final Function(int deviceId)? onDeviceSelected;
+  final Position? eventPositionToCenter;
+  final Event? selectedEvent;
 
   const MapView({
     super.key,
     required this.devices,
     required this.positions,
     this.selectedDevice,
+    this.showingRoute = false,
+    this.routePositions = const [],
+    this.movingSegmentPositions = const [],
+    this.segmentStartEvent,
+    this.segmentEndEvent,
     this.onDeviceSelected,
+    this.eventPositionToCenter,
+    this.selectedEvent,
   });
 
   @override
@@ -35,6 +53,9 @@ class _MapViewState extends State<MapView> {
   int _styleIndex = 0;
   Future<String>? _initialStyleFuture;
   double scrollOffset = 0;
+  bool? _lastShowingRoute;
+  List<Position> _lastRoutePositions = [];
+  List<Position> _lastMovingSegmentPositions = [];
 
 
   @override
@@ -67,11 +88,29 @@ class _MapViewState extends State<MapView> {
         _centerOnDevice(widget.selectedDevice!);
       });
     }
+
+    // Clear event marker when not showing route or no device selected
+    if ((widget.selectedDevice == null || !widget.showingRoute) &&
+        (oldWidget.selectedDevice != null || oldWidget.showingRoute)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _clearEventMarker();
+      });
+    }
+
+    // Center on event position if provided
+    if (widget.eventPositionToCenter != null &&
+        widget.eventPositionToCenter != oldWidget.eventPositionToCenter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _centerOnEventPosition(widget.eventPositionToCenter!);
+      });
+    }
   }
 
-  void _update() {
+  Future<void> _update() async {
     if (widget.positions.isNotEmpty && mapController != null && _mapReady) {
-      _updateMapSource();
+      await _updateMapSource();
+      await _updateRouteSource();
+      await _updateMovingSegmentSource();
       if (!_initialFitDone) {
         _fitMapToDevices();
         _initialFitDone = true;
@@ -79,23 +118,105 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  void _centerOnDevice(int deviceId) async {
+  void _centerOnDevice(int deviceId, {bool changeZoom = true}) async {
     final position = widget.positions[deviceId];
     if (mapController == null || position == null) { return; }
-    final zoom = mapController!.cameraPosition!.zoom;
-    var p = await mapController!.toScreenLocation(
-        LatLng(position.latitude, position.longitude));
-    if (zoom < selectedZoomLevel) {
-      await mapController!.animateCamera(
-          CameraUpdate.zoomBy(selectedZoomLevel-zoom, Offset(p.x.toDouble(), p.y.toDouble())),
-          duration: Duration(milliseconds: 250));
-    }
-    p = await mapController!.toScreenLocation(
-        LatLng(position.latitude, position.longitude));
-    final ll = await mapController!.toLatLng(Point(p.x, p.y + scrollOffset));
+    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel && changeZoom ?
+        selectedZoomLevel : mapController!.cameraPosition!.zoom;
     await mapController!.animateCamera(
-        CameraUpdate.newLatLng(ll),
+        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
         duration: const Duration(milliseconds: 250)
+    );
+  }
+
+  IconData _getEventIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+        return platform_icons.PlatformIcons.ignitionOn;
+      case 'ignitionoff':
+        return platform_icons.PlatformIcons.ignitionOff;
+      case 'geofenceenter':
+        return Icons.login;
+      case 'geofenceexit':
+        return Icons.logout;
+      case 'alarm':
+        return Icons.warning;
+      case 'commandresult':
+        return Icons.check_circle;
+      case 'devicemoving':
+        return platform_icons.PlatformIcons.play;
+      case 'devicestopped':
+        return Icons.stop_circle;
+      case 'deviceoverspeed':
+        return Icons.speed;
+      default:
+        return Icons.event;
+    }
+  }
+
+  Color _getEventColor(String type, BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+      case 'devicemoving':
+        return colors.tertiary; // Green for movement/ignition on
+      case 'ignitionoff':
+      case 'devicestopped':
+        return colors.error; // Red for stop/ignition off
+      default:
+        return colors.primary;
+    }
+  }
+
+  void _centerOnEventPosition(Position position) async {
+    if (mapController == null || widget.selectedEvent == null) { return; }
+
+    // Generate icon name based on event type
+    final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
+
+    // Check if icon already exists, if not add it
+    try {
+      final icon = _getEventIcon(widget.selectedEvent!.displayType);
+      await addImageFromIcon(
+        iconName,
+        icon,
+        const Color(0xFFFF5722),
+        size: 48,
+      );
+    } catch (e) {
+      dev.log('Error adding event icon: $e');
+    }
+
+    // Update event marker source with the specific icon
+    final markerFeature = {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'Point',
+        'coordinates': [position.longitude, position.latitude],
+      },
+      'properties': {
+        'icon': iconName,
+      },
+    };
+
+    await mapController!.setGeoJsonSource(
+      MapStyles.eventMarkerSourceId,
+      {'type': 'FeatureCollection', 'features': [markerFeature]},
+    );
+
+    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel ?
+        selectedZoomLevel : mapController!.cameraPosition!.zoom;
+    await mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
+        duration: const Duration(milliseconds: 500)
+    );
+  }
+
+  Future<void> _clearEventMarker() async {
+    if (mapController == null) { return; }
+    await mapController!.setGeoJsonSource(
+      MapStyles.eventMarkerSourceId,
+      {'type': 'FeatureCollection', 'features': []},
     );
   }
 
@@ -141,6 +262,32 @@ class _MapViewState extends State<MapView> {
     return mapController!.addImage(name, list);
   }
 
+  Future<void> addImageFromIcon(String name, IconData icon, Color color, {double size = 48}) async {
+    final pictureRecorder = ui.PictureRecorder();
+    final canvas = Canvas(pictureRecorder);
+
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    textPainter.text = TextSpan(
+      text: String.fromCharCode(icon.codePoint),
+      style: TextStyle(
+        fontSize: size,
+        fontFamily: icon.fontFamily,
+        color: color,
+      ),
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, Offset.zero);
+
+    final image = await pictureRecorder.endRecording().toImage(
+      size.toInt(),
+      size.toInt(),
+    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final list = byteData!.buffer.asUint8List();
+
+    return mapController!.addImage(name, list);
+  }
+
   Future<void> _updateMapSource() async {
     final List<Map<String, dynamic>> features = [];
     for (var entry in widget.positions.entries) {
@@ -168,7 +315,241 @@ class _MapViewState extends State<MapView> {
         },
       });
     }
-    await mapController!.setGeoJsonSource(MapStyles.sourceId, {'type': 'FeatureCollection', 'features': features});
+    await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': features});
+
+    // Only update layer visibility if showingRoute changed
+    if (_lastShowingRoute != widget.showingRoute) {
+      await _updateLayersVisibility();
+      _lastShowingRoute = widget.showingRoute;
+    }
+
+    // Check if selected device is visible, pan if needed
+    _checkSelectedDeviceVisibility();
+  }
+
+  Future<void> _updateLayersVisibility() async {
+    if (mapController == null) return;
+
+    final visible = !widget.showingRoute;
+    await mapController!.setLayerVisibility(MapStyles.layerId, visible);
+    await mapController!.setLayerVisibility(MapStyles.clusterLayerId, visible);
+    await mapController!.setLayerVisibility(MapStyles.clusterCountLayerId, visible);
+  }
+
+  Future<void> _updateRouteSource() async {
+    if (mapController == null) return;
+
+    // Check if route positions have changed
+    if (_routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
+      return;
+    }
+
+    if (widget.routePositions.length < 2 ) {
+      await mapController!.setGeoJsonSource(
+        MapStyles.deviceRouteSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      _lastRoutePositions = [];
+      return;
+    }
+
+    // Build LineString from route positions
+    final coordinates = widget.routePositions
+        .map((p) => [p.longitude, p.latitude])
+        .toList();
+
+    final lineString = {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'LineString',
+        'coordinates': coordinates,
+      },
+      'properties': {},
+    };
+
+
+    dev.log('updating route ${coordinates.length}');
+    await mapController!.setGeoJsonSource(
+      MapStyles.deviceRouteSourceId,
+      {'type': 'FeatureCollection', 'features': [lineString]},
+    );
+
+    // Store current positions for next comparison
+    _lastRoutePositions = List.from(widget.routePositions);
+
+    // Fit map to route
+    _fitMapToRoute();
+  }
+
+  bool _routePositionsEqual(List<Position> a, List<Position> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
+  }
+
+  Future<void> _updateMovingSegmentSource() async {
+    if (mapController == null) return;
+
+    // Check if moving segment positions have changed
+    if (_routePositionsEqual(widget.movingSegmentPositions, _lastMovingSegmentPositions)) {
+      return;
+    }
+
+    if (widget.movingSegmentPositions.length < 2 ) {
+      await mapController!.setGeoJsonSource(
+        MapStyles.movingSegmentSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      _lastMovingSegmentPositions = [];
+      return;
+    }
+
+    // Build LineString from moving segment positions
+    final coordinates = widget.movingSegmentPositions
+        .map((p) => [p.longitude, p.latitude])
+        .toList();
+
+    final lineString = {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'LineString',
+        'coordinates': coordinates,
+      },
+      'properties': {},
+    };
+
+    dev.log('updating moving segment ${coordinates.length}');
+    await mapController!.setGeoJsonSource(
+      MapStyles.movingSegmentSourceId,
+      {'type': 'FeatureCollection', 'features': [lineString]},
+    );
+
+    // Add start and end markers using event marker source
+    final startPos = widget.movingSegmentPositions.first;
+    final endPos = widget.movingSegmentPositions.last;
+
+    // Get the event icons and add them
+    if (widget.segmentStartEvent != null && widget.segmentEndEvent != null) {
+      final startIcon = _getEventIcon(widget.segmentStartEvent!.displayType);
+      final endIcon = _getEventIcon(widget.segmentEndEvent!.displayType);
+
+      final startColor = _getEventColor(widget.segmentStartEvent!.displayType, context);
+      final endColor = _getEventColor(widget.segmentEndEvent!.displayType, context);
+
+      await addImageFromIcon('segment-start', startIcon, startColor, size: 48);
+      await addImageFromIcon('segment-end', endIcon, endColor, size: 48);
+
+      final markers = [
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [startPos.longitude, startPos.latitude],
+          },
+          'properties': {
+            'icon': 'segment-start',
+          },
+        },
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [endPos.longitude, endPos.latitude],
+          },
+          'properties': {
+            'icon': 'segment-end',
+          },
+        },
+      ];
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': markers},
+      );
+    }
+
+    // Store current positions for next comparison
+    _lastMovingSegmentPositions = List.from(widget.movingSegmentPositions);
+
+    // Fit map to moving segment
+    _fitMapToMovingSegment();
+  }
+
+  void _fitMapToRoute() {
+    if (mapController == null || widget.routePositions.isEmpty) return;
+
+    final positions = widget.routePositions;
+    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+
+    mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        left: 50,
+        top: 50,
+        right: 50,
+        bottom: 50,
+      ),
+    );
+  }
+
+  void _fitMapToMovingSegment() {
+    if (mapController == null || widget.movingSegmentPositions.isEmpty) return;
+
+    final positions = widget.movingSegmentPositions;
+    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+
+    mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        left: 50,
+        top: 50,
+        right: 50,
+        bottom: 100,
+      ),
+      duration: const Duration(milliseconds: 500),
+    );
+  }
+
+  Future<void> _checkSelectedDeviceVisibility() async {
+    // Don't auto-pan if showing route view
+    if (mapController == null || widget.selectedDevice == null || widget.showingRoute) return;
+
+    final position = widget.positions[widget.selectedDevice];
+    if (position == null) return;
+
+    final visibleRegion = await mapController!.getVisibleRegion();
+
+    // Check if selected device is within visible bounds
+    final lat = position.latitude;
+    final lng = position.longitude;
+
+    final isVisible = lat >= visibleRegion.southwest.latitude &&
+        lat <= visibleRegion.northeast.latitude &&
+        lng >= visibleRegion.southwest.longitude &&
+        lng <= visibleRegion.northeast.longitude;
+
+    // If selected device is not visible, pan to it
+    if (!isVisible) {
+      _centerOnDevice(widget.selectedDevice!, changeZoom: false);
+    }
   }
 
   void _fitMapToDevices() {
@@ -213,6 +594,7 @@ class _MapViewState extends State<MapView> {
           }
         }
       }
+
       setState(() { _mapReady = true; });
       _update();
     } catch (e) {

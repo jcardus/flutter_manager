@@ -4,27 +4,55 @@ import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
-import '../l10n/app_localizations.dart';
+import 'common/handle_bar.dart';
+import '../icons/Icons.dart' as platform_icons;
 
 class DeviceRoute extends StatefulWidget {
   final Device device;
   final Position? position;
   final VoidCallback? onBack;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final Function(Position position, Event event)? onEventTap;
+  final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
 
   const DeviceRoute({
     super.key,
     required this.device,
     required this.position,
     this.onBack,
+    this.onRoutePositionsLoaded,
+    this.onEventTap,
+    this.onStateSegmentTap,
   });
 
   @override
   State<DeviceRoute> createState() => _DeviceRouteState();
 }
 
+// Base class for list items
+abstract class _ListItem {}
+
+class _EventItem extends _ListItem {
+  final Event event;
+  final Position? position;
+
+  _EventItem(this.event, this.position);
+}
+
+class _StateSeparator extends _ListItem {
+  final String state;
+  final Duration duration;
+  final List<Position> positions;
+  final Event startEvent;
+  final Event endEvent;
+
+  _StateSeparator(this.state, this.duration, this.positions, this.startEvent, this.endEvent);
+}
+
 class _DeviceRouteState extends State<DeviceRoute> {
   DateTime _selectedDate = DateTime.now();
   List<Event> _events = [];
+  List<Position> _positions = [];
   bool _isLoading = false;
   final ApiService _apiService = ApiService();
 
@@ -42,14 +70,28 @@ class _DeviceRouteState extends State<DeviceRoute> {
     final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    final events = await _apiService.fetchEvents(
+    final eventsFuture = _apiService.fetchEvents(
       deviceId: widget.device.id,
       from: startOfDay,
       to: endOfDay,
     );
 
+    final positionsFuture = _apiService.fetchDevicePositions(
+      deviceId: widget.device.id,
+      from: startOfDay,
+      to: endOfDay,
+    );
+
+    final results = await Future.wait([eventsFuture, positionsFuture]);
+    final events = results[0] as List<Event>;
+    final positions = results[1] as List<Position>;
+
+    // Notify parent about route positions
+    widget.onRoutePositionsLoaded?.call(positions);
+
     setState(() {
       _events = events;
+      _positions = positions;
       _isLoading = false;
     });
   }
@@ -93,46 +135,64 @@ class _DeviceRouteState extends State<DeviceRoute> {
     }
   }
 
+  (String, List<Position>) _determineStateAndPositions(DateTime startTime, DateTime endTime) {
+    // Find positions between the two events
+    final positionsBetween = _positions.where((p) {
+      final posTime = p.deviceTime;
+      return posTime.isAfter(startTime) && posTime.isBefore(endTime);
+    }).toList();
+
+    if (positionsBetween.isEmpty) {
+      return ('stopped', []);
+    }
+
+    // Check if any position shows movement (speed > 0)
+    final hasMovement = positionsBetween.any((p) => p.speed > 0);
+    return (hasMovement ? 'moving' : 'stopped', positionsBetween);
+  }
+
+  List<_ListItem> _buildListItems() {
+    final items = <_ListItem>[];
+
+    for (int i = 0; i < _events.length; i++) {
+      final event = _events[i];
+      Position? position;
+      if (event.positionId != null) {
+        try {
+          position = _positions.firstWhere((p) => p.id == event.positionId);
+        } catch (e) {
+          position = null;
+        }
+      }
+
+      items.add(_EventItem(event, position));
+
+      // Check if there's a next event and calculate time gap
+      if (i < _events.length - 1) {
+        final nextEvent = _events[i + 1];
+        final gap = nextEvent.eventTime.difference(event.eventTime);
+
+        // If gap is more than 2 minutes, add a separator
+        if (gap.inMinutes >= 2) {
+          final (state, positions) = _determineStateAndPositions(event.eventTime, nextEvent.eventTime);
+          items.add(_StateSeparator(state, gap, positions, event, nextEvent));
+        }
+      }
+    }
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            width: 50,
-            height: 2,
-            decoration: BoxDecoration(
-              color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Header with back button
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: widget.onBack,
-              ),
-              Expanded(
-                child: Text(
-                  l10n.route,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const HandleBar(),
           // Date selector with navigation arrows
           Row(
             children: [
@@ -174,18 +234,17 @@ class _DeviceRouteState extends State<DeviceRoute> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
           // Events list
           if (_isLoading)
             const Center(
               child: Padding(
-                padding: EdgeInsets.all(32.0),
+                padding: EdgeInsets.symmetric(vertical: 16.0),
                 child: CircularProgressIndicator(),
               ),
             )
           else if (_events.isEmpty)
             Padding(
-              padding: const EdgeInsets.all(32.0),
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
               child: Center(
                 child: Text(
                   'No events for ${DateFormat.yMd().format(_selectedDate)}',
@@ -196,17 +255,126 @@ class _DeviceRouteState extends State<DeviceRoute> {
               ),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _events.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final event = _events[index];
-                return _EventCard(event: event);
+            Builder(
+              builder: (context) {
+                final items = _buildListItems();
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    if (item is _EventItem) {
+                      return _EventCard(
+                        event: item.event,
+                        position: item.position,
+                        onTap: item.position != null
+                            ? () => widget.onEventTap?.call(item.position!, item.event)
+                            : null,
+                      );
+                    } else if (item is _StateSeparator) {
+                      return _StateRow(
+                        state: item.state,
+                        duration: item.duration,
+                        onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
+                            ? () => widget.onStateSegmentTap?.call(item.positions, item.startEvent, item.endEvent)
+                            : null,
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                );
               },
             ),
-          const SizedBox(height: 16),
+
+        ],
+      ),
+    );
+  }
+}
+
+class _StateRow extends StatelessWidget {
+  final String state;
+  final Duration duration;
+  final VoidCallback? onTap;
+
+  const _StateRow({
+    required this.state,
+    required this.duration,
+    this.onTap,
+  });
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isMoving = state.toLowerCase() == 'moving';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              color: colors.outlineVariant,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isMoving
+                      ? colors.primaryContainer.withValues(alpha: 0.5)
+                      : colors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
+                      size: 14,
+                      color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${state.toUpperCase()} - ${_formatDuration(duration)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: colors.outlineVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -215,15 +383,21 @@ class _DeviceRouteState extends State<DeviceRoute> {
 
 class _EventCard extends StatelessWidget {
   final Event event;
+  final Position? position;
+  final VoidCallback? onTap;
 
-  const _EventCard({required this.event});
+  const _EventCard({
+    required this.event,
+    this.position,
+    this.onTap,
+  });
 
   IconData _getEventIcon(String type) {
     switch (type.toLowerCase()) {
       case 'ignitionon':
-        return Icons.power_settings_new;
+        return platform_icons.PlatformIcons.ignitionOn;
       case 'ignitionoff':
-        return Icons.power_off;
+        return platform_icons.PlatformIcons.ignitionOff;
       case 'geofenceenter':
         return Icons.login;
       case 'geofenceexit':
@@ -233,7 +407,7 @@ class _EventCard extends StatelessWidget {
       case 'commandresult':
         return Icons.check_circle;
       case 'devicemoving':
-        return Icons.directions_car;
+        return platform_icons.PlatformIcons.play;
       case 'devicestopped':
         return Icons.stop_circle;
       case 'deviceoverspeed':
@@ -249,53 +423,83 @@ class _EventCard extends StatelessWidget {
     return type.replaceAllMapped(regex, (match) => ' ').toUpperCase();
   }
 
+  Color _getEventColor(String type, ColorScheme colors) {
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+      case 'devicemoving':
+        return colors.tertiary; // Green for movement/ignition on
+      case 'ignitionoff':
+      case 'devicestopped':
+        return colors.error; // Red for stop/ignition off
+      default:
+        return colors.primary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final iconColor = _getEventColor(event.displayType, colors);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: colors.primaryContainer,
-              borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _getEventIcon(event.displayType),
+                color: iconColor,
+                size: 24,
+              ),
             ),
-            child: Icon(
-              _getEventIcon(event.type),
-              color: colors.primary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatEventType(event.type),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _formatEventType(event.displayType),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        DateFormat.jm().format(event.eventTime.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat.jm().format(event.eventTime.toLocal()),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
+                  if (position?.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      position!.address!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

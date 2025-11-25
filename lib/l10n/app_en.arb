@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
 
-  "appTitle": "Manager",
+  "appTitle": "Track Fleet",
   "@appTitle": {
     "description": "Application title"
   },
@@ -234,5 +234,9 @@
   "odometer": "Odometer",
   "@odometer": {
     "description": "Odometer action button label"
-  }
+  },
+
+  "map": "Map",
+
+  "profile": "Profile"
 }

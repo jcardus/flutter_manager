@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
@@ -26,6 +28,14 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   int? _selectedDeviceId;
+  bool _showingRoute = false;
+  List<Position> _routePositions = [];
+  List<Position> _movingSegmentPositions = [];
+  Event? _segmentStartEvent;
+  Event? _segmentEndEvent;
+  double _bottomSheetSize = 0.0;
+  Position? _eventPositionToCenter;
+  Event? _selectedEvent;
 
   @override
   void initState() {
@@ -58,6 +68,59 @@ class _MainPageState extends State<MainPage> {
   void _closeBottomSheet() {
     setState(() {
       _selectedDeviceId = null;
+      _showingRoute = false;
+      _routePositions = [];
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
+      _bottomSheetSize = 0.0;
+    });
+  }
+
+  void _onRouteToggle(bool showingRoute) {
+    setState(() {
+      _showingRoute = showingRoute;
+      if (!showingRoute) {
+        _routePositions = [];
+        _movingSegmentPositions = [];
+        _segmentStartEvent = null;
+        _segmentEndEvent = null;
+      }
+    });
+  }
+
+  void _onRoutePositionsLoaded(List<Position> positions) {
+    setState(() {
+      _routePositions = positions;
+    });
+  }
+
+  void _onStateSegmentTap(List<Position> positions, Event startEvent, Event endEvent) {
+    setState(() {
+      _movingSegmentPositions = positions;
+      _segmentStartEvent = startEvent;
+      _segmentEndEvent = endEvent;
+    });
+  }
+
+  void _onBottomSheetSizeChanged(double size) {
+    setState(() {
+      _bottomSheetSize = size;
+    });
+  }
+
+  void _onEventTap(Position position, Event event) {
+    setState(() {
+      _eventPositionToCenter = position;
+      _selectedEvent = event;
+    });
+    // Reset after next frame to allow MapView to process it
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _eventPositionToCenter = null;
+        });
+      }
     });
   }
 
@@ -67,11 +130,31 @@ class _MainPageState extends State<MainPage> {
         // Keep map alive but only visible when selected
         Offstage(
           offstage: _selectedIndex != 0,
-          child: MapView(
-            devices: _devices,
-            positions: _positions,
-            selectedDevice: _selectedDeviceId,
-            onDeviceSelected: _onDeviceTap,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final screenHeight = constraints.maxHeight;
+              // Map height = screen height - bottom sheet height + 10px overlap
+              // This creates a small gap so the rounded top corners of the sheet are visible
+              final mapHeight = _selectedDeviceId != null
+                  ? screenHeight * (1 - _bottomSheetSize) + 10
+                  : screenHeight;
+              return SizedBox(
+                height: mapHeight,
+                child: MapView(
+                  devices: _devices,
+                  positions: _positions,
+                  selectedDevice: _selectedDeviceId,
+                  showingRoute: _showingRoute,
+                  routePositions: _routePositions,
+                  movingSegmentPositions: _movingSegmentPositions,
+                  segmentStartEvent: _segmentStartEvent,
+                  segmentEndEvent: _segmentEndEvent,
+                  onDeviceSelected: _onDeviceTap,
+                  eventPositionToCenter: _eventPositionToCenter,
+                  selectedEvent: _selectedEvent,
+                ),
+              );
+            },
           ),
         ),
         // Conditionally render other views (not kept alive)
@@ -151,6 +234,8 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       body: Stack(
         children: [
@@ -174,11 +259,11 @@ class _MainPageState extends State<MainPage> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildNavItem(0, Icons.map_outlined, 'Map'),
+                          _buildNavItem(0, Icons.map_outlined, l10n.map),
                           const SizedBox(width: 4),
-                          _buildNavItem(1, Icons.list, 'Devices'),
+                          _buildNavItem(1, Icons.list, l10n.devices),
                           const SizedBox(width: 4),
-                          _buildNavItem(2, Icons.person_outline, 'Profile'),
+                          _buildNavItem(2, Icons.person_outline, l10n.profile),
                         ],
                       ),
                     ),
@@ -193,7 +278,34 @@ class _MainPageState extends State<MainPage> {
             devices: _devices,
             positions: _positions,
             onClose: _closeBottomSheet,
+            onRouteToggle: _onRouteToggle,
+            showingRoute: _showingRoute,
+            onRoutePositionsLoaded: _onRoutePositionsLoaded,
+            onSheetSizeChanged: _onBottomSheetSizeChanged,
+            onEventTap: _onEventTap,
+            onStateSegmentTap: _onStateSegmentTap,
           ),
+          // Back button when showing route
+          if (_showingRoute)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 4,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => _onRouteToggle(false),
+                      iconSize: 24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -249,12 +361,24 @@ class _BottomSheetBuilder extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
   final VoidCallback? onClose;
+  final ValueChanged<bool>? onRouteToggle;
+  final bool showingRoute;
+  final ValueChanged<List<Position>>? onRoutePositionsLoaded;
+  final ValueChanged<double>? onSheetSizeChanged;
+  final Function(Position position, Event event)? onEventTap;
+  final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
     required this.devices,
     required this.positions,
     this.onClose,
+    this.onRouteToggle,
+    this.showingRoute = false,
+    this.onRoutePositionsLoaded,
+    this.onSheetSizeChanged,
+    this.onEventTap,
+    this.onStateSegmentTap,
   });
 
   @override
@@ -264,6 +388,7 @@ class _BottomSheetBuilder extends StatefulWidget {
 class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
   int? _lastDeviceId;
   int? _lastPositionId;
+  bool? _lastShowingRoute;
   Widget? _cachedSheet;
 
   @override
@@ -275,17 +400,19 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       final position = widget.positions[selectedDeviceId];
       final currentPositionId = position?.id;
 
-      // Check if device or its position changed
+      // Check if device, position, or route view changed
       final deviceChanged = selectedDeviceId != _lastDeviceId;
       final positionChanged = currentPositionId != _lastPositionId;
+      final routeViewChanged = widget.showingRoute != _lastShowingRoute;
 
-      // Only rebuild if selected device's data actually changed
-      if (deviceChanged || positionChanged || _cachedSheet == null) {
+      // Only rebuild if selected device's data or view actually changed
+      if (deviceChanged || positionChanged || routeViewChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
+        _lastShowingRoute = widget.showingRoute;
 
         _cachedSheet = AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
+          duration: const Duration(milliseconds: 100),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return SlideTransition(
               position: Tween<Offset>(
@@ -303,6 +430,12 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             device: device!,
             position: position,
             onClose: widget.onClose,
+            onRouteToggle: widget.onRouteToggle,
+            showingRoute: widget.showingRoute,
+            onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
+            onSheetSizeChanged: widget.onSheetSizeChanged,
+            onEventTap: widget.onEventTap,
+            onStateSegmentTap: widget.onStateSegmentTap,
           ),
         );
       }
@@ -311,6 +444,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
     } else {
       _lastDeviceId = null;
       _lastPositionId = null;
+      _lastShowingRoute = null;
       _cachedSheet = null;
       return const SizedBox.shrink();
     }
