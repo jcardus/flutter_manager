@@ -33,4 +33,13 @@ class Event {
       attributes: json['attributes'] as Map<String, dynamic>?,
     );
   }
+
+  /// Get the display type for the event
+  /// For alarm events, returns the specific alarm type from attributes
+  String get displayType {
+    if (type.toLowerCase() == 'alarm' && attributes != null && attributes!['alarm'] != null) {
+      return attributes!['alarm'] as String;
+    }
+    return type;
+  }
 }

@@ -7,9 +7,12 @@ import 'package:http/http.dart' as http;
 class MapStyles {
   static const String devicesSourceId = 'devices-source';
   static const String deviceRouteSourceId = 'device-route';
+  static const String movingSegmentSourceId = 'moving-segment';
   static const String eventMarkerSourceId = 'event-marker-source';
   static const String layerId = 'devices-layer';
   static const String routeLayerId = 'route-layer';
+  static const String routeCasingLayerId = 'route-layer-casing';
+  static const String movingSegmentLayerId = 'moving-segment-layer';
   static const String clusterLayerId = 'clusters';
   static const String clusterCountLayerId = 'cluster-count';
   static const String eventMarkerLayerId = 'event-marker-layer';
@@ -87,6 +90,14 @@ class MapStyles {
   };
 
   static Map<String, dynamic> get _eventMarkerSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
+  static Map<String, dynamic> get _movingSegmentSource => {
     'type': 'geojson',
     'data': {
       'type': 'FeatureCollection',
@@ -174,7 +185,35 @@ class MapStyles {
     },
     'paint': {
       'line-color': '#2196F3',
-      'line-width': 3,
+      'line-width': 8,
+    },
+  };
+
+  static Map<String, dynamic> _routeLayerCasing(MapStyleConfig config, double devicePixelRatio) => {
+    'source': deviceRouteSourceId,
+    'id': routeCasingLayerId,
+    'type': 'line',
+    'layout': {
+      'line-join': 'round',
+      'line-cap': 'round',
+    },
+    'paint': {
+      'line-color': 'white',
+      'line-width': 5,
+    },
+  };
+
+  static Map<String, dynamic> _movingSegmentLayer(MapStyleConfig config, double devicePixelRatio) => {
+    'source': movingSegmentSourceId,
+    'id': movingSegmentLayerId,
+    'type': 'line',
+    'layout': {
+      'line-join': 'round',
+      'line-cap': 'round',
+    },
+    'paint': {
+      'line-color': '#4CAF50',
+      'line-width': 6,
     },
   };
 
@@ -219,6 +258,7 @@ class MapStyles {
         'base-map': baseSource,
         devicesSourceId: _devicesSource,
         deviceRouteSourceId: _routeSource,
+        movingSegmentSourceId: _movingSegmentSource,
         eventMarkerSourceId: _eventMarkerSource,
       },
       'layers': [
@@ -230,6 +270,8 @@ class MapStyles {
           'maxzoom': 22,
         },
         _routeLayer(config, devicePixelRatio),
+        _routeLayerCasing(config, devicePixelRatio),
+        _movingSegmentLayer(config, devicePixelRatio),
         _clusterLayer(config),
         _clusterCountLayer(config),
         _devicesLayer(config, devicePixelRatio),
@@ -404,11 +446,14 @@ class MapStyles {
       final sources = style['sources'] as Map<String, dynamic>;
       sources[devicesSourceId] = _devicesSource;
       sources[deviceRouteSourceId] = _routeSource;
+      sources[movingSegmentSourceId] = _movingSegmentSource;
       sources[eventMarkerSourceId] = _eventMarkerSource;
 
       // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
       layers.add(_routeLayer(config, devicePixelRatio));
+      layers.add(_routeLayerCasing(config, devicePixelRatio));
+      layers.add(_movingSegmentLayer(config, devicePixelRatio));
       layers.add(_clusterLayer(config));
       layers.add(_clusterCountLayer(config));
       layers.add(_devicesLayer(config, devicePixelRatio));

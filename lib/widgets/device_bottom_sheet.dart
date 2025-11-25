@@ -53,6 +53,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
+  final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
 
   const DeviceBottomSheet({
     super.key,
@@ -64,6 +65,7 @@ class DeviceBottomSheet extends StatefulWidget {
     this.onRoutePositionsLoaded,
     this.onSheetSizeChanged,
     this.onEventTap,
+    this.onStateSegmentTap,
   });
 
   @override
@@ -164,6 +166,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                           onBack: _toggleRoute,
                           onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
                           onEventTap: widget.onEventTap,
+                          onStateSegmentTap: widget.onStateSegmentTap,
                         )
                       : DeviceDetail(
                           key: const ValueKey('detail'),

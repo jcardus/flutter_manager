@@ -20,6 +20,9 @@ class MapView extends StatefulWidget {
   final int? selectedDevice;
   final bool showingRoute;
   final List<Position> routePositions;
+  final List<Position> movingSegmentPositions;
+  final Event? segmentStartEvent;
+  final Event? segmentEndEvent;
   final Function(int deviceId)? onDeviceSelected;
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
@@ -31,6 +34,9 @@ class MapView extends StatefulWidget {
     this.selectedDevice,
     this.showingRoute = false,
     this.routePositions = const [],
+    this.movingSegmentPositions = const [],
+    this.segmentStartEvent,
+    this.segmentEndEvent,
     this.onDeviceSelected,
     this.eventPositionToCenter,
     this.selectedEvent,
@@ -49,6 +55,7 @@ class _MapViewState extends State<MapView> {
   double scrollOffset = 0;
   bool? _lastShowingRoute;
   List<Position> _lastRoutePositions = [];
+  List<Position> _lastMovingSegmentPositions = [];
 
 
   @override
@@ -103,6 +110,7 @@ class _MapViewState extends State<MapView> {
     if (widget.positions.isNotEmpty && mapController != null && _mapReady) {
       await _updateMapSource();
       await _updateRouteSource();
+      await _updateMovingSegmentSource();
       if (!_initialFitDone) {
         _fitMapToDevices();
         _initialFitDone = true;
@@ -146,15 +154,29 @@ class _MapViewState extends State<MapView> {
     }
   }
 
+  Color _getEventColor(String type, BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+      case 'devicemoving':
+        return colors.tertiary; // Green for movement/ignition on
+      case 'ignitionoff':
+      case 'devicestopped':
+        return colors.error; // Red for stop/ignition off
+      default:
+        return colors.primary;
+    }
+  }
+
   void _centerOnEventPosition(Position position) async {
     if (mapController == null || widget.selectedEvent == null) { return; }
 
     // Generate icon name based on event type
-    final iconName = 'event-marker-${widget.selectedEvent!.type.toLowerCase()}';
+    final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
 
     // Check if icon already exists, if not add it
     try {
-      final icon = _getEventIcon(widget.selectedEvent!.type);
+      final icon = _getEventIcon(widget.selectedEvent!.displayType);
       await addImageFromIcon(
         iconName,
         icon,
@@ -322,7 +344,7 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
-    if (widget.routePositions.isEmpty) {
+    if (widget.routePositions.length < 2 ) {
       await mapController!.setGeoJsonSource(
         MapStyles.deviceRouteSourceId,
         {'type': 'FeatureCollection', 'features': []},
@@ -345,7 +367,8 @@ class _MapViewState extends State<MapView> {
       'properties': {},
     };
 
-    dev.log('updating route');
+
+    dev.log('updating route ${coordinates.length}');
     await mapController!.setGeoJsonSource(
       MapStyles.deviceRouteSourceId,
       {'type': 'FeatureCollection', 'features': [lineString]},
@@ -364,6 +387,98 @@ class _MapViewState extends State<MapView> {
       if (a[i].id != b[i].id) return false;
     }
     return true;
+  }
+
+  Future<void> _updateMovingSegmentSource() async {
+    if (mapController == null) return;
+
+    // Check if moving segment positions have changed
+    if (_routePositionsEqual(widget.movingSegmentPositions, _lastMovingSegmentPositions)) {
+      return;
+    }
+
+    if (widget.movingSegmentPositions.length < 2 ) {
+      await mapController!.setGeoJsonSource(
+        MapStyles.movingSegmentSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      _lastMovingSegmentPositions = [];
+      return;
+    }
+
+    // Build LineString from moving segment positions
+    final coordinates = widget.movingSegmentPositions
+        .map((p) => [p.longitude, p.latitude])
+        .toList();
+
+    final lineString = {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'LineString',
+        'coordinates': coordinates,
+      },
+      'properties': {},
+    };
+
+    dev.log('updating moving segment ${coordinates.length}');
+    await mapController!.setGeoJsonSource(
+      MapStyles.movingSegmentSourceId,
+      {'type': 'FeatureCollection', 'features': [lineString]},
+    );
+
+    // Add start and end markers using event marker source
+    final startPos = widget.movingSegmentPositions.first;
+    final endPos = widget.movingSegmentPositions.last;
+
+    // Get the event icons and add them
+    if (widget.segmentStartEvent != null && widget.segmentEndEvent != null) {
+      final startIcon = _getEventIcon(widget.segmentStartEvent!.displayType);
+      final endIcon = _getEventIcon(widget.segmentEndEvent!.displayType);
+
+      final startColor = _getEventColor(widget.segmentStartEvent!.displayType, context);
+      final endColor = _getEventColor(widget.segmentEndEvent!.displayType, context);
+
+      await addImageFromIcon('segment-start', startIcon, startColor, size: 48);
+      await addImageFromIcon('segment-end', endIcon, endColor, size: 48);
+
+      final markers = [
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [startPos.longitude, startPos.latitude],
+          },
+          'properties': {
+            'icon': 'segment-start',
+          },
+        },
+        {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [endPos.longitude, endPos.latitude],
+          },
+          'properties': {
+            'icon': 'segment-end',
+          },
+        },
+      ];
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': markers},
+      );
+    }
+
+    // Store current positions for next comparison
+    _lastMovingSegmentPositions = List.from(widget.movingSegmentPositions);
+
+    // Fit map to moving segment
+    _fitMapToMovingSegment();
   }
 
   void _fitMapToRoute() {
@@ -386,6 +501,30 @@ class _MapViewState extends State<MapView> {
         right: 50,
         bottom: 50,
       ),
+    );
+  }
+
+  void _fitMapToMovingSegment() {
+    if (mapController == null || widget.movingSegmentPositions.isEmpty) return;
+
+    final positions = widget.movingSegmentPositions;
+    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
+    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
+    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
+    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
+
+    mapController!.animateCamera(
+      CameraUpdate.newLatLngBounds(
+        LatLngBounds(
+          southwest: LatLng(minLat, minLng),
+          northeast: LatLng(maxLat, maxLng),
+        ),
+        left: 50,
+        top: 50,
+        right: 50,
+        bottom: 100,
+      ),
+      duration: const Duration(milliseconds: 500),
     );
   }
 

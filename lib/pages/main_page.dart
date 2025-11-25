@@ -30,6 +30,9 @@ class _MainPageState extends State<MainPage> {
   int? _selectedDeviceId;
   bool _showingRoute = false;
   List<Position> _routePositions = [];
+  List<Position> _movingSegmentPositions = [];
+  Event? _segmentStartEvent;
+  Event? _segmentEndEvent;
   double _bottomSheetSize = 0.0;
   Position? _eventPositionToCenter;
   Event? _selectedEvent;
@@ -67,6 +70,9 @@ class _MainPageState extends State<MainPage> {
       _selectedDeviceId = null;
       _showingRoute = false;
       _routePositions = [];
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
       _bottomSheetSize = 0.0;
     });
   }
@@ -76,6 +82,9 @@ class _MainPageState extends State<MainPage> {
       _showingRoute = showingRoute;
       if (!showingRoute) {
         _routePositions = [];
+        _movingSegmentPositions = [];
+        _segmentStartEvent = null;
+        _segmentEndEvent = null;
       }
     });
   }
@@ -83,6 +92,14 @@ class _MainPageState extends State<MainPage> {
   void _onRoutePositionsLoaded(List<Position> positions) {
     setState(() {
       _routePositions = positions;
+    });
+  }
+
+  void _onStateSegmentTap(List<Position> positions, Event startEvent, Event endEvent) {
+    setState(() {
+      _movingSegmentPositions = positions;
+      _segmentStartEvent = startEvent;
+      _segmentEndEvent = endEvent;
     });
   }
 
@@ -129,6 +146,9 @@ class _MainPageState extends State<MainPage> {
                   selectedDevice: _selectedDeviceId,
                   showingRoute: _showingRoute,
                   routePositions: _routePositions,
+                  movingSegmentPositions: _movingSegmentPositions,
+                  segmentStartEvent: _segmentStartEvent,
+                  segmentEndEvent: _segmentEndEvent,
                   onDeviceSelected: _onDeviceTap,
                   eventPositionToCenter: _eventPositionToCenter,
                   selectedEvent: _selectedEvent,
@@ -263,6 +283,7 @@ class _MainPageState extends State<MainPage> {
             onRoutePositionsLoaded: _onRoutePositionsLoaded,
             onSheetSizeChanged: _onBottomSheetSizeChanged,
             onEventTap: _onEventTap,
+            onStateSegmentTap: _onStateSegmentTap,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -345,6 +366,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
+  final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -356,6 +378,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onRoutePositionsLoaded,
     this.onSheetSizeChanged,
     this.onEventTap,
+    this.onStateSegmentTap,
   });
 
   @override
@@ -412,6 +435,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
             onSheetSizeChanged: widget.onSheetSizeChanged,
             onEventTap: widget.onEventTap,
+            onStateSegmentTap: widget.onStateSegmentTap,
           ),
         );
       }
