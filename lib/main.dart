@@ -29,6 +29,7 @@ class App extends StatelessWidget {
       supportedLocales: const [
         Locale('en'),
         Locale('pt'),
+        Locale('fr'),
       ],
       home: const AuthGate(),
     );

@@ -85,5 +85,9 @@
 
   "route": "Rota",
 
-  "odometer": "Odómetro"
+  "odometer": "Odómetro",
+
+  "map": "Mapa",
+
+  "profile": "Perfil"
 }

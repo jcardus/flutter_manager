@@ -68,8 +68,10 @@ class ApiService {
       endpoint: '/api/reports/events?deviceId=$deviceId&from=$fromParam&to=$toParam',
       fromJson: Event.fromJson
     );
-    // Filter out deviceOnline events
-    return events.where((event) => event.type != 'deviceOnline' && event.type != 'deviceOffline').toList();
+    // Filter out deviceOnline and deviceOffline events
+    return events
+        .where((event) => event.type != 'deviceOnline' && event.type != 'deviceOffline')
+        .toList();
   }
 
   Future<List<Position>> fetchDevicePositions({

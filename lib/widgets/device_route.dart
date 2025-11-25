@@ -13,6 +13,7 @@ class DeviceRoute extends StatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
+  final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
 
   const DeviceRoute({
     super.key,
@@ -21,10 +22,31 @@ class DeviceRoute extends StatefulWidget {
     this.onBack,
     this.onRoutePositionsLoaded,
     this.onEventTap,
+    this.onStateSegmentTap,
   });
 
   @override
   State<DeviceRoute> createState() => _DeviceRouteState();
+}
+
+// Base class for list items
+abstract class _ListItem {}
+
+class _EventItem extends _ListItem {
+  final Event event;
+  final Position? position;
+
+  _EventItem(this.event, this.position);
+}
+
+class _StateSeparator extends _ListItem {
+  final String state;
+  final Duration duration;
+  final List<Position> positions;
+  final Event startEvent;
+  final Event endEvent;
+
+  _StateSeparator(this.state, this.duration, this.positions, this.startEvent, this.endEvent);
 }
 
 class _DeviceRouteState extends State<DeviceRoute> {
@@ -113,6 +135,54 @@ class _DeviceRouteState extends State<DeviceRoute> {
     }
   }
 
+  (String, List<Position>) _determineStateAndPositions(DateTime startTime, DateTime endTime) {
+    // Find positions between the two events
+    final positionsBetween = _positions.where((p) {
+      final posTime = p.deviceTime;
+      return posTime.isAfter(startTime) && posTime.isBefore(endTime);
+    }).toList();
+
+    if (positionsBetween.isEmpty) {
+      return ('stopped', []);
+    }
+
+    // Check if any position shows movement (speed > 0)
+    final hasMovement = positionsBetween.any((p) => p.speed > 0);
+    return (hasMovement ? 'moving' : 'stopped', positionsBetween);
+  }
+
+  List<_ListItem> _buildListItems() {
+    final items = <_ListItem>[];
+
+    for (int i = 0; i < _events.length; i++) {
+      final event = _events[i];
+      Position? position;
+      if (event.positionId != null) {
+        try {
+          position = _positions.firstWhere((p) => p.id == event.positionId);
+        } catch (e) {
+          position = null;
+        }
+      }
+
+      items.add(_EventItem(event, position));
+
+      // Check if there's a next event and calculate time gap
+      if (i < _events.length - 1) {
+        final nextEvent = _events[i + 1];
+        final gap = nextEvent.eventTime.difference(event.eventTime);
+
+        // If gap is more than 2 minutes, add a separator
+        if (gap.inMinutes >= 2) {
+          final (state, positions) = _determineStateAndPositions(event.eventTime, nextEvent.eventTime);
+          items.add(_StateSeparator(state, gap, positions, event, nextEvent));
+        }
+      }
+    }
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -185,30 +255,126 @@ class _DeviceRouteState extends State<DeviceRoute> {
               ),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(vertical: 10),
-              itemCount: _events.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 1),
-              itemBuilder: (context, index) {
-                final event = _events[index];
-                final position = event.positionId != null
-                    ? _positions.firstWhere(
-                        (p) => p.id == event.positionId,
-                        orElse: () => _positions.first,
-                      )
-                    : null;
-                return _EventCard(
-                  event: event,
-                  position: position,
-                  onTap: position != null
-                      ? () => widget.onEventTap?.call(position, event)
-                      : null,
+            Builder(
+              builder: (context) {
+                final items = _buildListItems();
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    if (item is _EventItem) {
+                      return _EventCard(
+                        event: item.event,
+                        position: item.position,
+                        onTap: item.position != null
+                            ? () => widget.onEventTap?.call(item.position!, item.event)
+                            : null,
+                      );
+                    } else if (item is _StateSeparator) {
+                      return _StateRow(
+                        state: item.state,
+                        duration: item.duration,
+                        onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
+                            ? () => widget.onStateSegmentTap?.call(item.positions, item.startEvent, item.endEvent)
+                            : null,
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
                 );
               },
             ),
 
+        ],
+      ),
+    );
+  }
+}
+
+class _StateRow extends StatelessWidget {
+  final String state;
+  final Duration duration;
+  final VoidCallback? onTap;
+
+  const _StateRow({
+    required this.state,
+    required this.duration,
+    this.onTap,
+  });
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isMoving = state.toLowerCase() == 'moving';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              color: colors.outlineVariant,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isMoving
+                      ? colors.primaryContainer.withValues(alpha: 0.5)
+                      : colors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
+                      size: 14,
+                      color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${state.toUpperCase()} - ${_formatDuration(duration)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: colors.outlineVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -257,10 +423,24 @@ class _EventCard extends StatelessWidget {
     return type.replaceAllMapped(regex, (match) => ' ').toUpperCase();
   }
 
+  Color _getEventColor(String type, ColorScheme colors) {
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+      case 'devicemoving':
+        return colors.tertiary; // Green for movement/ignition on
+      case 'ignitionoff':
+      case 'devicestopped':
+        return colors.error; // Red for stop/ignition off
+      default:
+        return colors.primary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final iconColor = _getEventColor(event.displayType, colors);
 
     return InkWell(
       onTap: onTap,
@@ -276,8 +456,8 @@ class _EventCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                _getEventIcon(event.type),
-                color: colors.primary,
+                _getEventIcon(event.displayType),
+                color: iconColor,
                 size: 24,
               ),
             ),
@@ -286,28 +466,38 @@ class _EventCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _formatEventType(event.type),
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _formatEventType(event.displayType),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        DateFormat.jm().format(event.eventTime.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    DateFormat.jm().format(event.eventTime.toLocal()),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                  if (position?.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      position!.address!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
-            if (onTap != null)
-              Icon(
-                Icons.location_on,
-                color: colors.primary,
-                size: 20,
-              ),
           ],
         ),
       ),
