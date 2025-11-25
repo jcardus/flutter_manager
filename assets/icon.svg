@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#25205f"/>
+
+  <!-- Location pin -->
+  <g transform="translate(512, 512) scale(2.5)">
+    <path d="M 0,-120
+             C -50,-120 -90,-80 -90,-30
+             C -90,20 -50,80 0,120
+             C 50,80 90,20 90,-30
+             C 90,-80 50,-120 0,-120 Z
+             M 0,-70
+             C 20,-70 35,-55 35,-35
+             C 35,-15 20,0 0,0
+             C -20,0 -35,-15 -35,-35
+             C -35,-55 -20,-70 0,-70 Z"
+          fill="#db4946"/>
+  </g>
+</svg>
