@@ -424,6 +424,49 @@ class MapStyles {
         }
       }
     }
+
+    // Set worldview filters on boundary layers
+    const worldview = 'MA';
+    if (style.containsKey('layers') && style['layers'] is List) {
+      final layers = style['layers'] as List;
+      for (final layer in layers) {
+        if (layer is Map<String, dynamic> && layer.containsKey('id')) {
+          final layerId = layer['id'] as String;
+
+          // Filter disputed boundaries
+          if (layerId == 'admin-0-boundary-disputed') {
+            layer['filter'] = [
+              'all',
+              ['==', ['get', 'disputed'], 'true'],
+              ['==', ['get', 'admin_level'], 0],
+              ['==', ['get', 'maritime'], 'false'],
+              ['match', ['get', 'worldview'], ['all', worldview], true, false]
+            ];
+          }
+
+          // Filter non-disputed boundaries
+          if (layerId == 'admin-0-boundary') {
+            layer['filter'] = [
+              'all',
+              ['==', ['get', 'admin_level'], 0],
+              ['==', ['get', 'disputed'], 'false'],
+              ['==', ['get', 'maritime'], 'false'],
+              ['match', ['get', 'worldview'], ['all', worldview], true, false]
+            ];
+          }
+
+          // Filter boundary background
+          if (layerId == 'admin-0-boundary-bg') {
+            layer['filter'] = [
+              'all',
+              ['==', ['get', 'admin_level'], 0],
+              ['==', ['get', 'maritime'], 'false'],
+              ['match', ['get', 'worldview'], ['all', worldview], true, false]
+            ];
+          }
+        }
+      }
+    }
   }
 
   /// Fetch a style from URL and add our devices layer
