@@ -31,6 +31,19 @@ class DeviceColors {
     }
   }
 
+  static Color getStatusColor(Device device, BuildContext context) {
+    switch (device.status?.toLowerCase()) {
+      case 'online':
+        return Theme.of(context).colorScheme.tertiary;
+      case 'offline':
+        return Theme.of(context).colorScheme.error;
+      case 'unknown':
+        return Theme.of(context).colorScheme.outline;
+      default:
+        return Theme.of(context).colorScheme.outline;
+    }
+  }
+
   /// Get color name as string (for map GeoJSON properties)
   /// Returns: 'green', 'yellow', 'red', or 'grey'
   static String getDeviceColorName(Device device, Position? position) {

@@ -31,10 +31,6 @@ class DeviceDetail extends StatelessWidget {
     this.onShowRoute,
   });
 
-  Color _getStatusColor(BuildContext context) {
-    return DeviceColors.getDeviceColor(device, position, context);
-  }
-
   IconData _getDeviceIcon() {
     switch (device.category?.toLowerCase()) {
       case 'car':
@@ -243,7 +239,8 @@ class DeviceDetail extends StatelessWidget {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final l10n = AppLocalizations.of(context)!;
-    final statusColor = _getStatusColor(context);
+    final deviceColor = DeviceColors.getDeviceColor(device, position, context);
+    final statusColor = DeviceColors.getStatusColor(device, context);
     final pos = position;
 
     return
@@ -291,10 +288,10 @@ class DeviceDetail extends StatelessWidget {
                               children: [
                                 CircleAvatar(
                                   radius: 24,
-                                  backgroundColor: statusColor.withValues(alpha: 0.9),
+                                  backgroundColor: deviceColor.withValues(alpha: 0.2),
                                   child: Icon(
                                     _getDeviceIcon(),
-                                    color: Colors.white,
+                                    color: deviceColor,
                                     size: 24,
                                   ),
                                 ),

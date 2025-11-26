@@ -3,6 +3,7 @@ import 'package:manager/l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../utils/device_colors.dart';
+import 'position_detail.dart';
 
 class DevicesListView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -291,10 +292,6 @@ class _DeviceListItem extends StatelessWidget {
     this.onTap,
   });
 
-  Color _getStatusColor(BuildContext context) {
-    return DeviceColors.getDeviceColor(device, position, context);
-  }
-
   IconData _getDeviceIcon() {
     switch (device.category?.toLowerCase()) {
       case 'car':
@@ -315,122 +312,76 @@ class _DeviceListItem extends StatelessWidget {
     }
   }
 
-  String _formatSpeed(BuildContext context, double? speed) {
-    final l10n = AppLocalizations.of(context)!;
-    if (speed == null) return l10n.speedNotAvailable;
-    // Convert from knots to km/h (Traccar uses knots)
-    final kmh = speed * 1.852;
-    return l10n.speedKmh(kmh.round());
-  }
-
-  String _formatLastUpdate(BuildContext context, DateTime? lastUpdate) {
-    final l10n = AppLocalizations.of(context)!;
-    if (lastUpdate == null) return l10n.never;
-
-    final now = DateTime.now();
-    final difference = now.difference(lastUpdate);
-
-    if (difference.inMinutes < 1) {
-      return l10n.justNow;
-    } else if (difference.inMinutes < 60) {
-      return l10n.minutesAgo(difference.inMinutes);
-    } else if (difference.inHours < 24) {
-      return l10n.hoursAgo(difference.inHours);
-    } else {
-      return l10n.daysAgo(difference.inDays);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final statusColor = _getStatusColor(context);
-    final subtitleColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    final deviceColor = DeviceColors.getDeviceColor(device, position, context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: statusColor.withValues(alpha: 0.2),
-          child: Icon(
-            _getDeviceIcon(),
-            color: statusColor,
-          ),
-        ),
-        title: Text(
-          device.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(
-                  Icons.circle,
-                  size: 8,
-                  color: statusColor,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  device.status?.toUpperCase() ?? l10n.statusUnknown,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.access_time, size: 12, color: subtitleColor),
-                const SizedBox(width: 4),
-                Text(
-                  _formatLastUpdate(context, device.lastUpdate),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: subtitleColor,
-                  ),
-                ),
-              ],
-            ),
-            if (position != null) ...[
-              const SizedBox(height: 4),
+      child: InkWell(
+        onTap: position != null ? () => onTap?.call(device.id) : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 children: [
-                  Icon(Icons.speed, size: 12, color: subtitleColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatSpeed(context, position?.speed),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subtitleColor,
+                  CircleAvatar(
+                    backgroundColor: deviceColor.withValues(alpha: 0.2),
+                    child: Icon(
+                      _getDeviceIcon(),
+                      color: deviceColor,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Icon(Icons.navigation, size: 12, color: subtitleColor),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${position?.course.toStringAsFixed(0)}°',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subtitleColor,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          device.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.circle,
+                              size: 8,
+                              color: DeviceColors.getStatusColor(device, context),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              device.status?.toUpperCase() ?? 'UNKNOWN',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: DeviceColors.getStatusColor(device, context),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
+                  if (device.disabled)
+                    Icon(Icons.block, color: Theme.of(context).colorScheme.error)
+                  else
+                    const Icon(Icons.chevron_right),
                 ],
               ),
+              if (position != null) ...[
+                const SizedBox(height: 12),
+                PositionDetail(pos: position!, device: device, compact: true),
+              ],
             ],
-          ],
+          ),
         ),
-        trailing: device.disabled
-            ? Icon(Icons.block, color: Theme.of(context).colorScheme.error)
-            : const Icon(Icons.chevron_right),
-        onTap: () {
-          if (position != null) {
-            onTap?.call(device.id);
-          }
-        },
       ),
     );
   }

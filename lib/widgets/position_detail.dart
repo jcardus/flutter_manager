@@ -5,9 +5,11 @@ import '../models/device.dart';
 import '../models/position.dart';
 
 class PositionDetail extends StatelessWidget {
-  const PositionDetail({super.key, required this.pos, required this.device});
+  const PositionDetail({super.key, required this.pos, required this.device, this.compact = false, this.showStatus = false});
   final Position pos;
   final Device device;
+  final bool compact;
+  final bool showStatus;
 
   String _formatSpeed(BuildContext context, double? speed) {
     final l10n = AppLocalizations.of(context)!;
@@ -35,7 +37,7 @@ class PositionDetail extends StatelessWidget {
 
   String _formatIgnition(bool? ignition) {
     if (ignition == null) return 'Unknown';
-    return ignition ? 'Ingition On' : 'Ignition Off';
+    return ignition ? 'Ignition On' : 'Ignition Off';
   }
 
   String _formatAddress(String? address) {
@@ -54,6 +56,52 @@ class PositionDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final ignition = pos.attributes?['ignition'] as bool?;
     final odometer = pos.attributes?['totalDistance'] as num?;
+
+    if (compact) {
+      return Column(
+        children: [
+          _InfoRow(
+            icon: PlatformIcons.location,
+            label: '',
+            value: _formatAddress(pos.address),
+            compact: true,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+
+              Expanded(
+                child: _InfoRow(
+                  icon: PlatformIcons.lastLocationTime,
+                  label: '',
+                  value: _formatLastUpdate(context, device.lastUpdate),
+                  compact: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _InfoRow(
+                  icon: pos.speed >= 90 ? PlatformIcons.speedFast : pos.speed > 0 ? PlatformIcons.speedMedium : PlatformIcons.speedSlow,
+                  label: '',
+                  value: _formatSpeed(context, pos.speed),
+                  compact: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _InfoRow(
+                  icon: PlatformIcons.odometer,
+                  label: '',
+                  value: _formatOdometer(odometer?.toDouble()),
+                  compact: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
 
     return Column(
       children: [
@@ -114,11 +162,13 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final bool compact;
 
   const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.compact = false,
   });
 
   @override
@@ -129,10 +179,10 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 20,
+          size: compact ? 14 : 20,
           color: theme.colorScheme.primary,
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: compact ? 6 : 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,12 +194,13 @@ class _InfoRow extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 2),
+              if (label.isNotEmpty) const SizedBox(height: 2),
               Text(
                 value,
-                style: theme.textTheme.bodyLarge?.copyWith(
+                style: (compact ? theme.textTheme.bodySmall : theme.textTheme.bodyLarge)?.copyWith(
                   fontWeight: FontWeight.w500,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
