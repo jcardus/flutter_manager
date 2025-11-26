@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../utils/device_colors.dart';
 
 class DevicesListView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -291,16 +292,7 @@ class _DeviceListItem extends StatelessWidget {
   });
 
   Color _getStatusColor(BuildContext context) {
-    switch (device.status?.toLowerCase()) {
-      case 'online':
-        return Theme.of(context).colorScheme.tertiary;
-      case 'offline':
-        return Theme.of(context).colorScheme.error;
-      case 'unknown':
-        return Theme.of(context).colorScheme.outline;
-      default:
-        return Theme.of(context).colorScheme.outline;
-    }
+    return DeviceColors.getDeviceColor(device, position, context);
   }
 
   IconData _getDeviceIcon() {

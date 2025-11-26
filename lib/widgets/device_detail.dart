@@ -13,6 +13,7 @@ import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../utils/constants.dart';
+import '../utils/device_colors.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
 
@@ -31,14 +32,7 @@ class DeviceDetail extends StatelessWidget {
   });
 
   Color _getStatusColor(BuildContext context) {
-    switch (device.status?.toLowerCase()) {
-      case 'online':
-        return Theme.of(context).colorScheme.tertiary;
-      case 'offline':
-        return Theme.of(context).colorScheme.error;
-      default:
-        return Theme.of(context).colorScheme.outline;
-    }
+    return DeviceColors.getDeviceColor(device, position, context);
   }
 
   IconData _getDeviceIcon() {
