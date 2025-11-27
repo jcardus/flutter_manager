@@ -283,5 +283,15 @@
   "eventDeviceOverspeed": "Device Overspeed",
   "@eventDeviceOverspeed": {
     "description": "Event type: device exceeded speed limit"
+  },
+
+  "stateMoving": "Moving",
+  "@stateMoving": {
+    "description": "State: device is moving"
+  },
+
+  "stateStopped": "Stopped",
+  "@stateStopped": {
+    "description": "State: device is stopped"
   }
 }
