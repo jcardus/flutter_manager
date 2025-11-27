@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - wuizy
 
 permissions:
   contents: read
@@ -54,7 +54,6 @@ jobs:
           export BUILD_NUMBER="${{ github.run_number }}"
           export GOOGLE_MAPS_CLIENT_ID="${{ secrets.GOOGLE_MAPS_CLIENT_ID }}"
           export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
-          export TRACCAR_BASE_URL="${{vars.TRACCAR_BASE_URL}}"
           ./build.sh appbundle
       - name: Upload to Play Store
         uses: r0adkll/upload-google-play@v1
