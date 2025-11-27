@@ -238,5 +238,50 @@
 
   "map": "Map",
 
-  "profile": "Profile"
+  "profile": "Profile",
+
+  "eventIgnitionOn": "Ignition On",
+  "@eventIgnitionOn": {
+    "description": "Event type: ignition turned on"
+  },
+
+  "eventIgnitionOff": "Ignition Off",
+  "@eventIgnitionOff": {
+    "description": "Event type: ignition turned off"
+  },
+
+  "eventGeofenceEnter": "Geofence Enter",
+  "@eventGeofenceEnter": {
+    "description": "Event type: entered geofence"
+  },
+
+  "eventGeofenceExit": "Geofence Exit",
+  "@eventGeofenceExit": {
+    "description": "Event type: exited geofence"
+  },
+
+  "eventAlarm": "Alarm",
+  "@eventAlarm": {
+    "description": "Event type: alarm triggered"
+  },
+
+  "eventCommandResult": "Command Result",
+  "@eventCommandResult": {
+    "description": "Event type: command result received"
+  },
+
+  "eventDeviceMoving": "Device Moving",
+  "@eventDeviceMoving": {
+    "description": "Event type: device started moving"
+  },
+
+  "eventDeviceStopped": "Device Stopped",
+  "@eventDeviceStopped": {
+    "description": "Event type: device stopped"
+  },
+
+  "eventDeviceOverspeed": "Device Overspeed",
+  "@eventDeviceOverspeed": {
+    "description": "Event type: device exceeded speed limit"
+  }
 }
