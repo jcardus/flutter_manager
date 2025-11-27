@@ -103,6 +103,16 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  void _clearMovingSegmentHighlight() {
+    if (_movingSegmentPositions.isNotEmpty) {
+      setState(() {
+        _movingSegmentPositions = [];
+        _segmentStartEvent = null;
+        _segmentEndEvent = null;
+      });
+    }
+  }
+
   void _onBottomSheetSizeChanged(double size) {
     setState(() {
       _bottomSheetSize = size;
@@ -113,6 +123,10 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _eventPositionToCenter = position;
       _selectedEvent = event;
+      // Clear moving segment highlight when tapping an event
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
     });
     // Reset after next frame to allow MapView to process it
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -152,6 +166,7 @@ class _MainPageState extends State<MainPage> {
                   onDeviceSelected: _onDeviceTap,
                   eventPositionToCenter: _eventPositionToCenter,
                   selectedEvent: _selectedEvent,
+                  onMapBackgroundTap: _clearMovingSegmentHighlight,
                 ),
               );
             },
@@ -284,6 +299,7 @@ class _MainPageState extends State<MainPage> {
             onSheetSizeChanged: _onBottomSheetSizeChanged,
             onEventTap: _onEventTap,
             onStateSegmentTap: _onStateSegmentTap,
+            highlightedSegmentPositions: _movingSegmentPositions,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -367,6 +383,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
+  final List<Position>? highlightedSegmentPositions;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -379,6 +396,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onSheetSizeChanged,
     this.onEventTap,
     this.onStateSegmentTap,
+    this.highlightedSegmentPositions,
   });
 
   @override
@@ -389,6 +407,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
   int? _lastDeviceId;
   int? _lastPositionId;
   bool? _lastShowingRoute;
+  int? _lastHighlightedSegmentFirstId;
   Widget? _cachedSheet;
 
   @override
@@ -399,17 +418,22 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       final device = widget.devices[selectedDeviceId];
       final position = widget.positions[selectedDeviceId];
       final currentPositionId = position?.id;
+      final currentHighlightedFirstId = widget.highlightedSegmentPositions?.isNotEmpty == true
+          ? widget.highlightedSegmentPositions!.first.id
+          : null;
 
       // Check if device, position, or route view changed
       final deviceChanged = selectedDeviceId != _lastDeviceId;
       final positionChanged = currentPositionId != _lastPositionId;
       final routeViewChanged = widget.showingRoute != _lastShowingRoute;
+      final highlightedSegmentChanged = currentHighlightedFirstId != _lastHighlightedSegmentFirstId;
 
       // Only rebuild if selected device's data or view actually changed
-      if (deviceChanged || positionChanged || routeViewChanged || _cachedSheet == null) {
+      if (deviceChanged || positionChanged || routeViewChanged || highlightedSegmentChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
         _lastShowingRoute = widget.showingRoute;
+        _lastHighlightedSegmentFirstId = currentHighlightedFirstId;
 
         _cachedSheet = AnimatedSwitcher(
           duration: const Duration(milliseconds: 100),
@@ -436,6 +460,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onSheetSizeChanged: widget.onSheetSizeChanged,
             onEventTap: widget.onEventTap,
             onStateSegmentTap: widget.onStateSegmentTap,
+            highlightedSegmentPositions: widget.highlightedSegmentPositions,
           ),
         );
       }
@@ -445,6 +470,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       _lastDeviceId = null;
       _lastPositionId = null;
       _lastShowingRoute = null;
+      _lastHighlightedSegmentFirstId = null;
       _cachedSheet = null;
       return const SizedBox.shrink();
     }

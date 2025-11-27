@@ -16,6 +16,7 @@ class DeviceRoute extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
+  final List<Position>? highlightedSegmentPositions;
 
   const DeviceRoute({
     super.key,
@@ -25,6 +26,7 @@ class DeviceRoute extends StatefulWidget {
     this.onRoutePositionsLoaded,
     this.onEventTap,
     this.onStateSegmentTap,
+    this.highlightedSegmentPositions,
   });
 
   @override
@@ -316,12 +318,26 @@ class _DeviceRouteState extends State<DeviceRoute> {
                             : null,
                       );
                     } else if (item is _StateSeparator) {
+                      // Check if this segment is currently highlighted
+                      final isHighlighted = widget.highlightedSegmentPositions != null &&
+                          item.positions.isNotEmpty &&
+                          widget.highlightedSegmentPositions!.isNotEmpty &&
+                          item.positions.first.id == widget.highlightedSegmentPositions!.first.id;
+
                       return _StateRow(
                         state: item.state,
                         duration: item.duration,
                         distance: item.distance,
+                        isHighlighted: isHighlighted,
                         onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
-                            ? () => widget.onStateSegmentTap?.call(item.positions, item.startEvent, item.endEvent)
+                            ? () {
+                                // Toggle off if already highlighted, otherwise highlight this segment
+                                if (isHighlighted) {
+                                  widget.onStateSegmentTap?.call([], item.startEvent, item.endEvent);
+                                } else {
+                                  widget.onStateSegmentTap?.call(item.positions, item.startEvent, item.endEvent);
+                                }
+                              }
                             : null,
                       );
                     }
@@ -341,12 +357,14 @@ class _StateRow extends StatelessWidget {
   final String state;
   final Duration duration;
   final double? distance; // Distance in kilometers
+  final bool isHighlighted;
   final VoidCallback? onTap;
 
   const _StateRow({
     required this.state,
     required this.duration,
     this.distance,
+    this.isHighlighted = false,
     this.onTap,
   });
 
@@ -364,6 +382,7 @@ class _StateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final localizations = AppLocalizations.of(context)!;
     final isMoving = state.toLowerCase() == 'moving';
 
     return Padding(
@@ -384,14 +403,27 @@ class _StateRow extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isMoving
-                      ? colors.primaryContainer.withValues(alpha: 0.5)
-                      : colors.surfaceContainerHighest,
+                  color: isHighlighted
+                      ? colors.primary.withValues(alpha: 0.2)
+                      : isMoving
+                          ? colors.primaryContainer.withValues(alpha: 0.5)
+                          : colors.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
-                    width: 1,
+                    color: isHighlighted
+                        ? colors.primary
+                        : isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
+                    width: isHighlighted ? 2 : 1,
                   ),
+                  boxShadow: isHighlighted
+                      ? [
+                          BoxShadow(
+                            color: colors.primary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -403,7 +435,7 @@ class _StateRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '${state.toUpperCase()} - ${_formatDuration(duration)}${distance != null ? ' · ${distance!.toStringAsFixed(1)} km' : ''}',
+                      '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}${distance != null ? ' · ${distance!.toStringAsFixed(1)} km' : ''}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: isMoving ? colors.primary : colors.onSurfaceVariant,
                         fontWeight: FontWeight.w600,

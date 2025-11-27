@@ -107,5 +107,9 @@
 
   "eventDeviceStopped": "Appareil Arrêté",
 
-  "eventDeviceOverspeed": "Excès de Vitesse"
+  "eventDeviceOverspeed": "Excès de Vitesse",
+
+  "stateMoving": "En Mouvement",
+
+  "stateStopped": "Arrêté"
 }
