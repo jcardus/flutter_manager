@@ -13,6 +13,7 @@ import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../utils/constants.dart';
+import '../utils/device_colors.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
 
@@ -29,17 +30,6 @@ class DeviceDetail extends StatelessWidget {
     required this.onClose,
     this.onShowRoute,
   });
-
-  Color _getStatusColor(BuildContext context) {
-    switch (device.status?.toLowerCase()) {
-      case 'online':
-        return Theme.of(context).colorScheme.tertiary;
-      case 'offline':
-        return Theme.of(context).colorScheme.error;
-      default:
-        return Theme.of(context).colorScheme.outline;
-    }
-  }
 
   IconData _getDeviceIcon() {
     switch (device.category?.toLowerCase()) {
@@ -249,7 +239,8 @@ class DeviceDetail extends StatelessWidget {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final l10n = AppLocalizations.of(context)!;
-    final statusColor = _getStatusColor(context);
+    final deviceColor = DeviceColors.getDeviceColor(device, position, context);
+    final statusColor = DeviceColors.getStatusColor(device, context);
     final pos = position;
 
     return
@@ -297,7 +288,7 @@ class DeviceDetail extends StatelessWidget {
                               children: [
                                 CircleAvatar(
                                   radius: 24,
-                                  backgroundColor: statusColor.withValues(alpha: 0.9),
+                                  backgroundColor: deviceColor.withValues(alpha: 0.9),
                                   child: Icon(
                                     _getDeviceIcon(),
                                     color: Colors.white,

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
@@ -110,7 +111,83 @@ class ApiService {
     return headers;
   }
 
-  Future<String?> shareDevice(int deviceId, DateTime expiration) async {
+  String _generateRandomString(int length) {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random();
+    return List.generate(length, (index) => chars[random.nextInt(chars.length)]).join();
+  }
+
+  Future<String> shareDevice(int deviceId, DateTime expirationTime) async {
+    final baseUrl = AuthService.baseUrl;
+
+    try {
+      // Generate random credentials
+      final randomString = _generateRandomString(22);
+      final email = 'temp_$randomString';
+      final password = randomString;
+      final token = randomString;
+
+      // First, create the user
+      final createUserUri = Uri.parse('$baseUrl/api/users');
+      final createUserHeaders = await _getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+
+      final userBody = jsonEncode({
+        'name': email,
+        'email': email,
+        'readonly': true,
+        'administrator': false,
+        'password': password,
+        'token': token,
+        'expirationTime': expirationTime.toUtc().toIso8601String(),
+        'attributes': {
+          'linkVersion': null,
+          'endAddress': '',
+        },
+      });
+
+      final createUserResponse = await http.post(
+        createUserUri,
+        headers: createUserHeaders,
+        body: userBody,
+      );
+
+      if (createUserResponse.statusCode != 200 && createUserResponse.statusCode != 201) {
+        dev.log('Failed to create user: ${createUserResponse.statusCode}', name: 'API');
+        return '';
+      }
+
+      // Extract the userId from the response
+      final userData = jsonDecode(createUserResponse.body) as Map<String, dynamic>;
+      final userId = userData['id'] as int;
+
+      // Create permission to link the device with the user
+      final permissionUri = Uri.parse('$baseUrl/api/permissions');
+      final permissionHeaders = await _getAuthHeaders({
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      });
+
+      final permissionBody = jsonEncode({
+        'userId': userId,
+        'deviceId': deviceId
+      });
+
+      await http.post(
+        permissionUri,
+        headers: permissionHeaders,
+        body: permissionBody,
+      );
+      return 'https://eta.fleetmap.io/?token=$token';
+    } catch (e, stack) {
+      dev.log('Error in shareDevice: $e', name: 'API', error: e, stackTrace: stack);
+      return '';
+    }
+  }
+
+  Future<String?> shareDeviceV2(int deviceId, DateTime expiration) async {
     final baseUrl = AuthService.baseUrl;
     final uri = Uri.parse('$baseUrl/api/devices/share');
 
