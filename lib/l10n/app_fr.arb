@@ -89,5 +89,23 @@
 
   "map": "Carte",
 
-  "profile": "Profil"
+  "profile": "Profil",
+
+  "eventIgnitionOn": "Allumage Activé",
+
+  "eventIgnitionOff": "Allumage Désactivé",
+
+  "eventGeofenceEnter": "Entrée Géo-barrière",
+
+  "eventGeofenceExit": "Sortie Géo-barrière",
+
+  "eventAlarm": "Alarme",
+
+  "eventCommandResult": "Résultat de Commande",
+
+  "eventDeviceMoving": "Appareil en Mouvement",
+
+  "eventDeviceStopped": "Appareil Arrêté",
+
+  "eventDeviceOverspeed": "Excès de Vitesse"
 }

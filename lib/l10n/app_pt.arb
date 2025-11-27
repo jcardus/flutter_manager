@@ -89,5 +89,23 @@
 
   "map": "Mapa",
 
-  "profile": "Perfil"
+  "profile": "Perfil",
+
+  "eventIgnitionOn": "Ignição Ligada",
+
+  "eventIgnitionOff": "Ignição Desligada",
+
+  "eventGeofenceEnter": "Entrada em Geocerca",
+
+  "eventGeofenceExit": "Saída de Geocerca",
+
+  "eventAlarm": "Alarme",
+
+  "eventCommandResult": "Resultado do Comando",
+
+  "eventDeviceMoving": "Dispositivo em Movimento",
+
+  "eventDeviceStopped": "Dispositivo Parado",
+
+  "eventDeviceOverspeed": "Excesso de Velocidade"
 }
