@@ -6,6 +6,7 @@ import '../models/event.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
 import '../icons/Icons.dart' as platform_icons;
+import '../l10n/app_localizations.dart';
 
 class DeviceRoute extends StatefulWidget {
   final Device device;
@@ -417,10 +418,32 @@ class _EventCard extends StatelessWidget {
     }
   }
 
-  String _formatEventType(String type) {
-    // Convert camelCase to Title Case with spaces
-    final regex = RegExp(r'(?<=[a-z])(?=[A-Z])');
-    return type.replaceAllMapped(regex, (match) => ' ').toUpperCase();
+  String _formatEventType(String type, BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    switch (type.toLowerCase()) {
+      case 'ignitionon':
+        return localizations.eventIgnitionOn;
+      case 'ignitionoff':
+        return localizations.eventIgnitionOff;
+      case 'geofenceenter':
+        return localizations.eventGeofenceEnter;
+      case 'geofenceexit':
+        return localizations.eventGeofenceExit;
+      case 'alarm':
+        return localizations.eventAlarm;
+      case 'commandresult':
+        return localizations.eventCommandResult;
+      case 'devicemoving':
+        return localizations.eventDeviceMoving;
+      case 'devicestopped':
+        return localizations.eventDeviceStopped;
+      case 'deviceoverspeed':
+        return localizations.eventDeviceOverspeed;
+      default:
+        // Fallback: Convert camelCase to Title Case with spaces
+        final regex = RegExp(r'(?<=[a-z])(?=[A-Z])');
+        return type.replaceAllMapped(regex, (match) => ' ').toUpperCase();
+    }
   }
 
   Color _getEventColor(String type, ColorScheme colors) {
@@ -450,11 +473,7 @@ class _EventCard extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(8),
-              ),
+              // padding: const EdgeInsets.all(8),
               child: Icon(
                 _getEventIcon(event.displayType),
                 color: iconColor,
@@ -470,7 +489,7 @@ class _EventCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          _formatEventType(event.displayType),
+                          _formatEventType(event.displayType, context),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
