@@ -10,6 +10,7 @@ import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../utils/constants.dart';
+import '../utils/device_colors.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
 import '../icons/Icons.dart' as platform_icons;
@@ -309,7 +310,7 @@ class _MapViewState extends State<MapView> {
           'deviceId': deviceId,
           'category': getMapIcon(device.category),
           'name': device.name,
-          'color': device.status == 'online' ? 'green' : 'red',
+          'color': DeviceColors.getDeviceColorName(device, position),
           'baseRotation': baseRotation.toStringAsFixed(1).padLeft(5, '0'),
           'rotate': position.course - baseRotation,
         },

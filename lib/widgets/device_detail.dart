@@ -12,7 +12,7 @@ import '../icons/Icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
-import '../utils/constants.dart';
+import '../utils/device_colors.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
 
@@ -29,17 +29,6 @@ class DeviceDetail extends StatelessWidget {
     required this.onClose,
     this.onShowRoute,
   });
-
-  Color _getStatusColor(BuildContext context) {
-    switch (device.status?.toLowerCase()) {
-      case 'online':
-        return Theme.of(context).colorScheme.tertiary;
-      case 'offline':
-        return Theme.of(context).colorScheme.error;
-      default:
-        return Theme.of(context).colorScheme.outline;
-    }
-  }
 
   IconData _getDeviceIcon() {
     switch (device.category?.toLowerCase()) {
@@ -174,29 +163,10 @@ class DeviceDetail extends StatelessWidget {
     final apiService = ApiService();
 
     try {
-      // Calculate expiration date (24 hours from now)
       final expiration = DateTime.now().add(const Duration(hours: 24));
-
-      // Call API service to share device
-      final shareToken = await apiService.shareDevice(device.id, expiration);
-
-      if (shareToken != null) {
-        final shareUrl = '$traccarBaseUrl?token=$shareToken';
-        // Use native share dialog
-        await SharePlus.instance.share(
-            ShareParams(uri: Uri.parse(shareUrl))
-          // subject: '${device.name} location',
-        );
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to create share link'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
+      await SharePlus.instance.share(
+          ShareParams(uri: Uri.parse(await apiService.shareDevice(device.id, expiration)))
+      );
     } catch (e) {
       dev.log('Error sharing location: $e');
       if (context.mounted) {
@@ -249,7 +219,8 @@ class DeviceDetail extends StatelessWidget {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
     final l10n = AppLocalizations.of(context)!;
-    final statusColor = _getStatusColor(context);
+    final deviceColor = DeviceColors.getDeviceColor(device, position, context);
+    final statusColor = DeviceColors.getStatusColor(device, context);
     final pos = position;
 
     return
