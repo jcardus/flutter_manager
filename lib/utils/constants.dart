@@ -3,7 +3,7 @@ const categoryIcons = [
 ];
 
 const colors = [
-  'green', 'red', 'yellow'
+  'green', 'red', 'yellow', 'grey'
 ];
 
 const rotationFrames = 16;

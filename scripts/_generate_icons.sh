@@ -2,7 +2,7 @@
 
 BASE_URL="${1}"
 ICON_OUTPUT_NAME="${2:-truck}"
-COLORS="${3:-green:34C759,yellow:FFA500,red:FF3B30,gray:8E8E93}"
+COLORS="${3:-green:34C759,yellow:FFA500,red:FF3B30,grey:8E8E93}"
 START_ANGLE="${4:-0}"
 END_ANGLE="${5:-360}"
 STEP="${6:-22.5}"
