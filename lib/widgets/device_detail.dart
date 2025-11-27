@@ -12,7 +12,6 @@ import '../icons/Icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
-import '../utils/constants.dart';
 import '../utils/device_colors.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
@@ -164,29 +163,10 @@ class DeviceDetail extends StatelessWidget {
     final apiService = ApiService();
 
     try {
-      // Calculate expiration date (24 hours from now)
       final expiration = DateTime.now().add(const Duration(hours: 24));
-
-      // Call API service to share device
-      final shareToken = await apiService.shareDevice(device.id, expiration);
-
-      if (shareToken != null) {
-        final shareUrl = '$traccarBaseUrl?token=$shareToken';
-        // Use native share dialog
-        await SharePlus.instance.share(
-            ShareParams(uri: Uri.parse(shareUrl))
-          // subject: '${device.name} location',
-        );
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to create share link'),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
+      await SharePlus.instance.share(
+          ShareParams(uri: Uri.parse(await apiService.shareDevice(device.id, expiration)))
+      );
     } catch (e) {
       dev.log('Error sharing location: $e');
       if (context.mounted) {
