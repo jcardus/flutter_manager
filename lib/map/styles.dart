@@ -464,6 +464,13 @@ class MapStyles {
               ['match', ['get', 'worldview'], ['all', worldview], true, false]
             ];
           }
+
+          if (layerId == 'country-label') {
+            layer['filter'] = [
+              'all',
+              ['match', ['get', 'worldview'], ['all', worldview], true, false]
+            ];
+          }
         }
       }
     }
