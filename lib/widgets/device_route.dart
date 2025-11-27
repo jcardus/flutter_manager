@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/device.dart';
@@ -15,6 +16,7 @@ class DeviceRoute extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
+  final List<Position>? highlightedSegmentPositions;
 
   const DeviceRoute({
     super.key,
@@ -24,6 +26,7 @@ class DeviceRoute extends StatefulWidget {
     this.onRoutePositionsLoaded,
     this.onEventTap,
     this.onStateSegmentTap,
+    this.highlightedSegmentPositions,
   });
 
   @override
@@ -43,11 +46,12 @@ class _EventItem extends _ListItem {
 class _StateSeparator extends _ListItem {
   final String state;
   final Duration duration;
+  final double? distance; // Distance in kilometers
   final List<Position> positions;
   final Event startEvent;
   final Event endEvent;
 
-  _StateSeparator(this.state, this.duration, this.positions, this.startEvent, this.endEvent);
+  _StateSeparator(this.state, this.duration, this.distance, this.positions, this.startEvent, this.endEvent);
 }
 
 class _DeviceRouteState extends State<DeviceRoute> {
@@ -136,6 +140,44 @@ class _DeviceRouteState extends State<DeviceRoute> {
     }
   }
 
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    // Haversine formula to calculate distance between two GPS coordinates
+    const earthRadius = 6371.0; // Earth's radius in kilometers
+
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_toRadians(lat1)) * math.cos(_toRadians(lat2)) *
+        math.sin(dLon / 2) * math.sin(dLon / 2);
+
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  double _toRadians(double degrees) {
+    return degrees * math.pi / 180;
+  }
+
+  double? _calculateTotalDistance(List<Position> positions) {
+    if (positions.length < 2) {
+      return null;
+    }
+
+    double totalDistance = 0.0;
+    for (int i = 0; i < positions.length - 1; i++) {
+      totalDistance += _calculateDistance(
+        positions[i].latitude,
+        positions[i].longitude,
+        positions[i + 1].latitude,
+        positions[i + 1].longitude,
+      );
+    }
+
+    return totalDistance;
+  }
+
   (String, List<Position>) _determineStateAndPositions(DateTime startTime, DateTime endTime) {
     // Find positions between the two events
     final positionsBetween = _positions.where((p) {
@@ -176,7 +218,8 @@ class _DeviceRouteState extends State<DeviceRoute> {
         // If gap is more than 2 minutes, add a separator
         if (gap.inMinutes >= 2) {
           final (state, positions) = _determineStateAndPositions(event.eventTime, nextEvent.eventTime);
-          items.add(_StateSeparator(state, gap, positions, event, nextEvent));
+          final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
+          items.add(_StateSeparator(state, gap, distance, positions, event, nextEvent));
         }
       }
     }
@@ -275,11 +318,26 @@ class _DeviceRouteState extends State<DeviceRoute> {
                             : null,
                       );
                     } else if (item is _StateSeparator) {
+                      // Check if this segment is currently highlighted
+                      final isHighlighted = widget.highlightedSegmentPositions != null &&
+                          item.positions.isNotEmpty &&
+                          widget.highlightedSegmentPositions!.isNotEmpty &&
+                          item.positions.first.id == widget.highlightedSegmentPositions!.first.id;
+
                       return _StateRow(
                         state: item.state,
                         duration: item.duration,
+                        distance: item.distance,
+                        isHighlighted: isHighlighted,
                         onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
-                            ? () => widget.onStateSegmentTap?.call(item.positions, item.startEvent, item.endEvent)
+                            ? () {
+                                // Toggle off if already highlighted, otherwise highlight this segment
+                                if (isHighlighted) {
+                                  widget.onStateSegmentTap?.call([], item.startEvent, item.endEvent);
+                                } else {
+                                  widget.onStateSegmentTap?.call(item.positions, item.startEvent, item.endEvent);
+                                }
+                              }
                             : null,
                       );
                     }
@@ -298,11 +356,15 @@ class _DeviceRouteState extends State<DeviceRoute> {
 class _StateRow extends StatelessWidget {
   final String state;
   final Duration duration;
+  final double? distance; // Distance in kilometers
+  final bool isHighlighted;
   final VoidCallback? onTap;
 
   const _StateRow({
     required this.state,
     required this.duration,
+    this.distance,
+    this.isHighlighted = false,
     this.onTap,
   });
 
@@ -320,6 +382,7 @@ class _StateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final localizations = AppLocalizations.of(context)!;
     final isMoving = state.toLowerCase() == 'moving';
 
     return Padding(
@@ -340,14 +403,27 @@ class _StateRow extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: isMoving
-                      ? colors.primaryContainer.withValues(alpha: 0.5)
-                      : colors.surfaceContainerHighest,
+                  color: isHighlighted
+                      ? colors.primary.withValues(alpha: 0.2)
+                      : isMoving
+                          ? colors.primaryContainer.withValues(alpha: 0.5)
+                          : colors.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
-                    width: 1,
+                    color: isHighlighted
+                        ? colors.primary
+                        : isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
+                    width: isHighlighted ? 2 : 1,
                   ),
+                  boxShadow: isHighlighted
+                      ? [
+                          BoxShadow(
+                            color: colors.primary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -359,7 +435,7 @@ class _StateRow extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '${state.toUpperCase()} - ${_formatDuration(duration)}',
+                      '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}${distance != null ? ' · ${distance!.toStringAsFixed(1)} km' : ''}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: isMoving ? colors.primary : colors.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
