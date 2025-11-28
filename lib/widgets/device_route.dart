@@ -231,6 +231,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
@@ -252,20 +253,21 @@ class _DeviceRouteState extends State<DeviceRoute> {
                     onTap: _openDatePicker,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.calendar_today, color: colors.primary, size: 20),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Text(
-                            DateFormat.yMMMMd().format(_selectedDate),
+                            DateFormat.yMMMMd(locale).format(_selectedDate),
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w500,
+                              fontSize: 14
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.arrow_drop_down, color: colors.onSurfaceVariant, size: 20),
+                          Icon(Icons.arrow_drop_down, color: colors.onSurfaceVariant, size: 18),
                         ],
                       ),
                     ),
@@ -540,7 +542,7 @@ class _EventCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final iconColor = _getEventColor(event.displayType, colors);
-
+    final locale = Localizations.localeOf(context).toString();
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -572,7 +574,7 @@ class _EventCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        DateFormat.jm().format(event.eventTime.toLocal()),
+                        DateFormat.jm(locale).format(event.eventTime.toLocal()),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
