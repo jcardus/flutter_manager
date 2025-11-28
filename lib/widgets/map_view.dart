@@ -27,6 +27,7 @@ class MapView extends StatefulWidget {
   final Function(int deviceId)? onDeviceSelected;
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
+  final VoidCallback? onMapBackgroundTap;
 
   const MapView({
     super.key,
@@ -41,6 +42,7 @@ class MapView extends StatefulWidget {
     this.onDeviceSelected,
     this.eventPositionToCenter,
     this.selectedEvent,
+    this.onMapBackgroundTap,
   });
 
   @override
@@ -251,6 +253,9 @@ class _MapViewState extends State<MapView> {
           }
         }
       }
+
+      // If we didn't click on a device or cluster, trigger background tap
+      widget.onMapBackgroundTap?.call();
     } catch (e, stack) {
       dev.log('_onMapClick', error: e, stackTrace: stack);
     }
