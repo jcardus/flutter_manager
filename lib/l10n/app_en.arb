@@ -61,6 +61,11 @@
     "description": "Offline devices stat label"
   },
 
+  "unknown": "Unknown",
+  "@unknown": {
+    "description": "Unknown devices stat label"
+  },
+
   "searchDevices": "Search devices...",
   "@searchDevices": {
     "description": "Search field hint text"
