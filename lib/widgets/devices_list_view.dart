@@ -91,8 +91,8 @@ class _DevicesListViewState extends State<DevicesListView> {
         Container(
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            right: 16,
+            left: 10,
+            right: 10,
             bottom: 16,
           ),
           decoration: BoxDecoration(
@@ -300,6 +300,7 @@ class _StatCard extends StatelessWidget {
             fontSize: 12,
             color: color,
           ),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
