@@ -298,5 +298,15 @@
   "stateStopped": "Stopped",
   "@stateStopped": {
     "description": "State: device is stopped"
+  },
+
+  "positionStart": "Start Position",
+  "@positionStart": {
+    "description": "Label for the first position in route"
+  },
+
+  "positionEnd": "End Position",
+  "@positionEnd": {
+    "description": "Label for the last position in route"
   }
 }

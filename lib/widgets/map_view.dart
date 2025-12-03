@@ -29,6 +29,7 @@ class MapView extends StatefulWidget {
   final Function(int deviceId)? onDeviceSelected;
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
+  final bool? isFirstPosition;
   final VoidCallback? onMapBackgroundTap;
 
   const MapView({
@@ -45,6 +46,7 @@ class MapView extends StatefulWidget {
     this.onDeviceSelected,
     this.eventPositionToCenter,
     this.selectedEvent,
+    this.isFirstPosition,
     this.onMapBackgroundTap,
   });
 
@@ -186,41 +188,76 @@ class _MapViewState extends State<MapView> {
   }
 
   void _centerOnEventPosition(Position position) async {
-    if (mapController == null || widget.selectedEvent == null) { return; }
+    if (mapController == null) { return; }
 
-    // Generate icon name based on event type
-    final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
+    // If there's an event, show event marker
+    if (widget.selectedEvent != null) {
+      // Generate icon name based on event type
+      final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
 
-    // Check if icon already exists, if not add it
-    try {
-      final icon = _getEventIcon(widget.selectedEvent!.displayType);
-      await addImageFromIcon(
-        iconName,
-        icon,
-        const Color(0xFFFF5722),
-        size: 48,
+      // Check if icon already exists, if not add it
+      try {
+        final icon = _getEventIcon(widget.selectedEvent!.displayType);
+        await addImageFromIcon(
+          iconName,
+          icon,
+          const Color(0xFFFF5722),
+          size: 48,
+        );
+      } catch (e) {
+        dev.log('Error adding event icon: $e');
+      }
+
+      // Update event marker source with the specific icon
+      final markerFeature = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'icon': iconName,
+        },
+      };
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': [markerFeature]},
       );
-    } catch (e) {
-      dev.log('Error adding event icon: $e');
+    } else {
+      // No event, show a position marker (flag icon)
+      final isFirst = widget.isFirstPosition ?? true;
+      final iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+
+      try {
+        await addImageFromIcon(
+          iconName,
+          isFirst ? Icons.flag : Icons.flag_outlined,
+          isFirst ? const Color(0xFF4CAF50) : const Color(0xFFF44336), // Green for start, red for end
+          size: 48,
+        );
+      } catch (e) {
+        dev.log('Error adding position icon: $e');
+      }
+
+      final markerFeature = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'icon': iconName,
+        },
+      };
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': [markerFeature]},
+      );
     }
 
-    // Update event marker source with the specific icon
-    final markerFeature = {
-      'type': 'Feature',
-      'geometry': {
-        'type': 'Point',
-        'coordinates': [position.longitude, position.latitude],
-      },
-      'properties': {
-        'icon': iconName,
-      },
-    };
-
-    await mapController!.setGeoJsonSource(
-      MapStyles.eventMarkerSourceId,
-      {'type': 'FeatureCollection', 'features': [markerFeature]},
-    );
-
+    // Center camera on position
     final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel ?
         selectedZoomLevel : mapController!.cameraPosition!.zoom;
     await mapController!.animateCamera(

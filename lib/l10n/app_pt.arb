@@ -113,5 +113,9 @@
 
   "stateMoving": "Em Movimento",
 
-  "stateStopped": "Parado"
+  "stateStopped": "Parado",
+
+  "positionStart": "Posição Inicial",
+
+  "positionEnd": "Posição Final"
 }

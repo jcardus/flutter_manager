@@ -15,6 +15,7 @@ class DeviceRoute extends StatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
+  final Function(Position position, bool isFirst)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
@@ -25,6 +26,7 @@ class DeviceRoute extends StatefulWidget {
     this.onBack,
     this.onRoutePositionsLoaded,
     this.onEventTap,
+    this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
   });
@@ -52,6 +54,13 @@ class _StateSeparator extends _ListItem {
   final Event endEvent;
 
   _StateSeparator(this.state, this.duration, this.distance, this.positions, this.startEvent, this.endEvent);
+}
+
+class _PositionItem extends _ListItem {
+  final Position position;
+  final bool isFirst;
+
+  _PositionItem(this.position, {this.isFirst = false});
 }
 
 class _DeviceRouteState extends State<DeviceRoute> {
@@ -197,6 +206,11 @@ class _DeviceRouteState extends State<DeviceRoute> {
   List<_ListItem> _buildListItems() {
     final items = <_ListItem>[];
 
+    // Add first position if available
+    if (_positions.isNotEmpty) {
+      items.add(_PositionItem(_positions.first, isFirst: true));
+    }
+
     for (int i = 0; i < _events.length; i++) {
       final event = _events[i];
       Position? position;
@@ -222,6 +236,11 @@ class _DeviceRouteState extends State<DeviceRoute> {
           items.add(_StateSeparator(state, gap, distance, positions, event, nextEvent));
         }
       }
+    }
+
+    // Add last position if available
+    if (_positions.isNotEmpty) {
+      items.add(_PositionItem(_positions.last, isFirst: false));
     }
 
     return items;
@@ -342,6 +361,12 @@ class _DeviceRouteState extends State<DeviceRoute> {
                               }
                             : null,
                       );
+                    } else if (item is _PositionItem) {
+                      return _PositionCard(
+                        position: item.position,
+                        isFirst: item.isFirst,
+                        onTap: () => widget.onPositionTap?.call(item.position, item.isFirst),
+                      );
                     }
                     return const SizedBox.shrink();
                   },
@@ -455,6 +480,80 @@ class _StateRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PositionCard extends StatelessWidget {
+  final Position position;
+  final bool isFirst;
+  final VoidCallback? onTap;
+
+  const _PositionCard({
+    required this.position,
+    required this.isFirst,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
+    final localizations = AppLocalizations.of(context)!;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Icon(
+              isFirst ? Icons.flag : Icons.flag_outlined,
+              color: isFirst ? colors.tertiary : colors.error,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isFirst ? localizations.positionStart : localizations.positionEnd,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        DateFormat.jm(locale).format(position.deviceTime.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (position.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      position.address!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
