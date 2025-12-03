@@ -307,22 +307,23 @@ class _DeviceRouteState extends State<DeviceRoute> {
                 child: CircularProgressIndicator(),
               ),
             )
-          else if (_events.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Center(
-                child: Text(
-                  'No events for ${DateFormat.yMd().format(_selectedDate)}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            )
           else
             Builder(
               builder: (context) {
                 final items = _buildListItems();
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Text(
+                        'No events for ${DateFormat.yMd().format(_selectedDate)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
