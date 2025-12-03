@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import '../models/geofence.dart';
 import 'auth_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
@@ -55,6 +56,13 @@ class ApiService {
     return _fetchList(
       endpoint: '/api/positions',
       fromJson: Position.fromJson
+    );
+  }
+
+  Future<List<Geofence>> fetchGeofences() async {
+    return _fetchList(
+        endpoint: '/api/geofences',
+        fromJson: Geofence.fromJson
     );
   }
 

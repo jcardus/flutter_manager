@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../models/geofence.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
@@ -27,6 +28,7 @@ class _MainPageState extends State<MainPage> {
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
+  final Map<int, Geofence> _geofences = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
   List<Position> _routePositions = [];
@@ -50,9 +52,13 @@ class _MainPageState extends State<MainPage> {
     final positions = await _apiService.fetchPositions();
     final positionsMap = <int, Position>{};
     for (var position in positions) { positionsMap[position.deviceId] = position; }
+    final geofences = await _apiService.fetchGeofences();
+    final geofenceMap = <int, Geofence>{};
+    for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
+      _geofences.addAll(geofenceMap);
     });
     if (!mounted) return;
     await _connectSocket();
@@ -157,6 +163,7 @@ class _MainPageState extends State<MainPage> {
                 child: MapView(
                   devices: _devices,
                   positions: _positions,
+                  geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
                   showingRoute: _showingRoute,
                   routePositions: _routePositions,

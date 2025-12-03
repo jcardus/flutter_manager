@@ -6,12 +6,16 @@ class MapStyleSelector extends StatefulWidget {
   final int selectedStyleIndex;
   final bool mapReady;
   final Function(int) onStyleSelected;
+  final bool geofencesLayer;
+  final Function() onLayerSelected;
 
   const MapStyleSelector({
     super.key,
     required this.selectedStyleIndex,
     required this.mapReady,
     required this.onStyleSelected,
+    required this.geofencesLayer,
+    required this.onLayerSelected,
   });
 
   @override
@@ -23,6 +27,8 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Positioned(
       top: 60,
       right: 0,
@@ -62,7 +68,6 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                       ...List.generate(MapStyles.configs.length, (index) {
                         final config = MapStyles.configs[index];
                         final isSelected = widget.selectedStyleIndex == index;
-                        final l10n = AppLocalizations.of(context)!;
                         return InkWell(
                           onTap: () => widget.onStyleSelected(index),
                           child: Padding(
@@ -96,6 +101,41 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                           ),
                         );
                       }),
+
+                      const Divider(height: 1),
+
+                      InkWell(
+                        onTap: () => widget.onLayerSelected(),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                widget.geofencesLayer ? Icons.check_box_outlined : Icons.check_box_outline_blank,
+                                size: 20,
+                                color: widget.geofencesLayer
+                                    ? Theme.of(context).colorScheme.primary
+                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  "Geofences",
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: widget.geofencesLayer
+                                        ? Theme.of(context).colorScheme.primary
+                                        : null,
+                                    fontWeight: widget.geofencesLayer ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
                     ],
                   ],
                 ),
