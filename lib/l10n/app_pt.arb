@@ -25,6 +25,8 @@
 
   "offline": "Desligados",
 
+  "unknown": "Desconhecidos",
+
   "searchDevices": "Pesquisar dispositivos...",
 
   "tryDifferentSearch": "Tente um termo de pesquisa diferente",
@@ -111,5 +113,9 @@
 
   "stateMoving": "Em Movimento",
 
-  "stateStopped": "Parado"
+  "stateStopped": "Parado",
+
+  "positionStart": "Posição Inicial",
+
+  "positionEnd": "Posição Final"
 }

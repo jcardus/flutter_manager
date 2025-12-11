@@ -15,6 +15,7 @@ class DeviceRoute extends StatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
+  final Function(Position position, bool isFirst)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
@@ -25,6 +26,7 @@ class DeviceRoute extends StatefulWidget {
     this.onBack,
     this.onRoutePositionsLoaded,
     this.onEventTap,
+    this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
   });
@@ -52,6 +54,13 @@ class _StateSeparator extends _ListItem {
   final Event endEvent;
 
   _StateSeparator(this.state, this.duration, this.distance, this.positions, this.startEvent, this.endEvent);
+}
+
+class _PositionItem extends _ListItem {
+  final Position position;
+  final bool isFirst;
+
+  _PositionItem(this.position, {this.isFirst = false});
 }
 
 class _DeviceRouteState extends State<DeviceRoute> {
@@ -197,6 +206,11 @@ class _DeviceRouteState extends State<DeviceRoute> {
   List<_ListItem> _buildListItems() {
     final items = <_ListItem>[];
 
+    // Add first position if available
+    if (_positions.isNotEmpty) {
+      items.add(_PositionItem(_positions.first, isFirst: true));
+    }
+
     for (int i = 0; i < _events.length; i++) {
       final event = _events[i];
       Position? position;
@@ -224,6 +238,11 @@ class _DeviceRouteState extends State<DeviceRoute> {
       }
     }
 
+    // Add last position if available
+    if (_positions.isNotEmpty) {
+      items.add(_PositionItem(_positions.last, isFirst: false));
+    }
+
     return items;
   }
 
@@ -231,6 +250,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
@@ -252,20 +272,21 @@ class _DeviceRouteState extends State<DeviceRoute> {
                     onTap: _openDatePicker,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.calendar_today, color: colors.primary, size: 20),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Text(
-                            DateFormat.yMMMMd().format(_selectedDate),
+                            DateFormat.yMMMMd(locale).format(_selectedDate),
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w500,
+                              fontSize: 14
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.arrow_drop_down, color: colors.onSurfaceVariant, size: 20),
+                          Icon(Icons.arrow_drop_down, color: colors.onSurfaceVariant, size: 18),
                         ],
                       ),
                     ),
@@ -286,22 +307,23 @@ class _DeviceRouteState extends State<DeviceRoute> {
                 child: CircularProgressIndicator(),
               ),
             )
-          else if (_events.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Center(
-                child: Text(
-                  'No events for ${DateFormat.yMd().format(_selectedDate)}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            )
           else
             Builder(
               builder: (context) {
                 final items = _buildListItems();
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Text(
+                        'No events for ${DateFormat.yMd().format(_selectedDate)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -339,6 +361,12 @@ class _DeviceRouteState extends State<DeviceRoute> {
                                 }
                               }
                             : null,
+                      );
+                    } else if (item is _PositionItem) {
+                      return _PositionCard(
+                        position: item.position,
+                        isFirst: item.isFirst,
+                        onTap: () => widget.onPositionTap?.call(item.position, item.isFirst),
                       );
                     }
                     return const SizedBox.shrink();
@@ -458,6 +486,80 @@ class _StateRow extends StatelessWidget {
   }
 }
 
+class _PositionCard extends StatelessWidget {
+  final Position position;
+  final bool isFirst;
+  final VoidCallback? onTap;
+
+  const _PositionCard({
+    required this.position,
+    required this.isFirst,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
+    final localizations = AppLocalizations.of(context)!;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Icon(
+              isFirst ? Icons.flag : Icons.flag_outlined,
+              color: isFirst ? colors.tertiary : colors.error,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isFirst ? localizations.positionStart : localizations.positionEnd,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        DateFormat.jm(locale).format(position.deviceTime.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (position.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      position.address!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EventCard extends StatelessWidget {
   final Event event;
   final Position? position;
@@ -540,7 +642,7 @@ class _EventCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final iconColor = _getEventColor(event.displayType, colors);
-
+    final locale = Localizations.localeOf(context).toString();
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -572,7 +674,7 @@ class _EventCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        DateFormat.jm().format(event.eventTime.toLocal()),
+                        DateFormat.jm(locale).format(event.eventTime.toLocal()),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),

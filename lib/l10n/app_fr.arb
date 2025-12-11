@@ -25,6 +25,8 @@
 
   "offline": "Hors ligne",
 
+  "unknown": "Inconnu",
+
   "searchDevices": "Rechercher des appareils...",
 
   "tryDifferentSearch": "Essayez un autre terme de recherche",
@@ -111,5 +113,9 @@
 
   "stateMoving": "En Mouvement",
 
-  "stateStopped": "Arrêté"
+  "stateStopped": "Arrêté",
+
+  "positionStart": "Position de Départ",
+
+  "positionEnd": "Position Finale"
 }

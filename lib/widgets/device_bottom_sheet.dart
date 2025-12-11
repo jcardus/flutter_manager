@@ -53,6 +53,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
+  final Function(Position position, bool isFirst)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
@@ -66,6 +67,7 @@ class DeviceBottomSheet extends StatefulWidget {
     this.onRoutePositionsLoaded,
     this.onSheetSizeChanged,
     this.onEventTap,
+    this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
   });
@@ -168,6 +170,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                           onBack: _toggleRoute,
                           onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
                           onEventTap: widget.onEventTap,
+                          onPositionTap: widget.onPositionTap,
                           onStateSegmentTap: widget.onStateSegmentTap,
                           highlightedSegmentPositions: widget.highlightedSegmentPositions,
                         )

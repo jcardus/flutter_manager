@@ -49,6 +49,9 @@ class _DevicesListViewState extends State<DevicesListView> {
     final offlineDevices = devicesList
         .where((d) => d.status?.toLowerCase() == 'offline')
         .length;
+    final unknownDevices = devicesList
+        .where((d) => d.status?.toLowerCase() == 'unknown')
+        .length;
 
     if (devicesList.isEmpty) {
       final l10n = AppLocalizations.of(context)!;
@@ -88,8 +91,8 @@ class _DevicesListViewState extends State<DevicesListView> {
         Container(
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            right: 16,
+            left: 10,
+            right: 10,
             bottom: 16,
           ),
           decoration: BoxDecoration(
@@ -104,28 +107,31 @@ class _DevicesListViewState extends State<DevicesListView> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _searchStatusQuery = '';
-                      });
-                    },
-                    child:
-                    _StatCard(
-                      icon: Icons.list_alt,
-                      label: l10n.total,
-                      value: totalDevices.toString(),
-                      color: _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.primary.withAlpha(75),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _searchStatusQuery = '';
+                        });
+                      },
+                      child:
+                      _StatCard(
+                        icon: Icons.list_alt,
+                        label: l10n.total,
+                        value: totalDevices.toString(),
+                        color: _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.primary.withAlpha(75),
+                      )
                     )
                   ),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _searchStatusQuery = 'online';
-                      });
-                    },
-                    child:
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _searchStatusQuery = 'online';
+                        });
+                      },
+                      child:
                       _StatCard(
                         icon: Icons.check_circle,
                         label: l10n.online,
@@ -133,20 +139,40 @@ class _DevicesListViewState extends State<DevicesListView> {
                         color: _searchStatusQuery == 'online' || _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.tertiary
                             : Theme.of(context).colorScheme.tertiary.withAlpha(75),
                       )
+                    )
                   ),
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        _searchStatusQuery = 'offline';
-                      });
-                    },
-                    child:
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _searchStatusQuery = 'offline';
+                        });
+                      },
+                      child:
                       _StatCard(
-                      icon: Icons.cancel,
-                      label: l10n.offline,
-                      value: offlineDevices.toString(),
-                      color: _searchStatusQuery == 'offline' || _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.error
-                          : Theme.of(context).colorScheme.error.withAlpha(75),
+                        icon: Icons.cancel,
+                        label: l10n.offline,
+                        value: offlineDevices.toString(),
+                        color: _searchStatusQuery == 'offline' || _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.error.withAlpha(75),
+                      )
+                    )
+                  ),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _searchStatusQuery = 'Unknown';
+                        });
+                      },
+                      child:
+                      _StatCard(
+                        icon: Icons.blur_circular,
+                        label: l10n.unknown,
+                        value: unknownDevices.toString(),
+                        color: _searchStatusQuery == 'Unknown' || _searchStatusQuery.isEmpty ? Theme.of(context).colorScheme.outline
+                            : Theme.of(context).colorScheme.outline.withAlpha(75),
+                      )
                     )
                   ),
                 ],
@@ -274,6 +300,7 @@ class _StatCard extends StatelessWidget {
             fontSize: 12,
             color: color,
           ),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

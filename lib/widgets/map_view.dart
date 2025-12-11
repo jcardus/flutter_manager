@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
+import '../models/geofence.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../utils/constants.dart';
@@ -18,6 +19,7 @@ import '../icons/Icons.dart' as platform_icons;
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
+  final Map<int, Geofence> geofences;
   final int? selectedDevice;
   final bool showingRoute;
   final List<Position> routePositions;
@@ -27,12 +29,14 @@ class MapView extends StatefulWidget {
   final Function(int deviceId)? onDeviceSelected;
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
+  final bool? isFirstPosition;
   final VoidCallback? onMapBackgroundTap;
 
   const MapView({
     super.key,
     required this.devices,
     required this.positions,
+    required this.geofences,
     this.selectedDevice,
     this.showingRoute = false,
     this.routePositions = const [],
@@ -42,6 +46,7 @@ class MapView extends StatefulWidget {
     this.onDeviceSelected,
     this.eventPositionToCenter,
     this.selectedEvent,
+    this.isFirstPosition,
     this.onMapBackgroundTap,
   });
 
@@ -54,6 +59,7 @@ class _MapViewState extends State<MapView> {
   bool _initialFitDone = false;
   bool _mapReady = false;
   int _styleIndex = 0;
+  bool _geofencesSelected = true;
   Future<String>? _initialStyleFuture;
   double scrollOffset = 0;
   bool? _lastShowingRoute;
@@ -78,6 +84,15 @@ class _MapViewState extends State<MapView> {
     final styleString = await MapStyles.getStyleString(MapStyles.configs[index], pixelRatio);
     await mapController!.setStyle(styleString);
     setState(() { _styleIndex = index; });
+  }
+
+  Future<void> _layerSelected() async {
+    if (mapController == null) return;
+    setState(() => _geofencesSelected = !_geofencesSelected);
+
+    await mapController!.setLayerVisibility(MapStyles.geofencePolygonLayerId, _geofencesSelected);
+    await mapController!.setLayerVisibility(MapStyles.geofenceLineLayerId, _geofencesSelected);
+    await mapController!.setLayerVisibility(MapStyles.geofenceLabelLayerId, _geofencesSelected);
   }
 
   @override
@@ -114,6 +129,7 @@ class _MapViewState extends State<MapView> {
       await _updateMapSource();
       await _updateRouteSource();
       await _updateMovingSegmentSource();
+      await _updateGeofencesSource();
       if (!_initialFitDone) {
         _fitMapToDevices();
         _initialFitDone = true;
@@ -172,41 +188,76 @@ class _MapViewState extends State<MapView> {
   }
 
   void _centerOnEventPosition(Position position) async {
-    if (mapController == null || widget.selectedEvent == null) { return; }
+    if (mapController == null) { return; }
 
-    // Generate icon name based on event type
-    final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
+    // If there's an event, show event marker
+    if (widget.selectedEvent != null) {
+      // Generate icon name based on event type
+      final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
 
-    // Check if icon already exists, if not add it
-    try {
-      final icon = _getEventIcon(widget.selectedEvent!.displayType);
-      await addImageFromIcon(
-        iconName,
-        icon,
-        const Color(0xFFFF5722),
-        size: 48,
+      // Check if icon already exists, if not add it
+      try {
+        final icon = _getEventIcon(widget.selectedEvent!.displayType);
+        await addImageFromIcon(
+          iconName,
+          icon,
+          const Color(0xFFFF5722),
+          size: 48,
+        );
+      } catch (e) {
+        dev.log('Error adding event icon: $e');
+      }
+
+      // Update event marker source with the specific icon
+      final markerFeature = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'icon': iconName,
+        },
+      };
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': [markerFeature]},
       );
-    } catch (e) {
-      dev.log('Error adding event icon: $e');
+    } else {
+      // No event, show a position marker (flag icon)
+      final isFirst = widget.isFirstPosition ?? true;
+      final iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+
+      try {
+        await addImageFromIcon(
+          iconName,
+          isFirst ? Icons.flag : Icons.flag_outlined,
+          isFirst ? const Color(0xFF4CAF50) : const Color(0xFFF44336), // Green for start, red for end
+          size: 48,
+        );
+      } catch (e) {
+        dev.log('Error adding position icon: $e');
+      }
+
+      final markerFeature = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'icon': iconName,
+        },
+      };
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': [markerFeature]},
+      );
     }
 
-    // Update event marker source with the specific icon
-    final markerFeature = {
-      'type': 'Feature',
-      'geometry': {
-        'type': 'Point',
-        'coordinates': [position.longitude, position.latitude],
-      },
-      'properties': {
-        'icon': iconName,
-      },
-    };
-
-    await mapController!.setGeoJsonSource(
-      MapStyles.eventMarkerSourceId,
-      {'type': 'FeatureCollection', 'features': [markerFeature]},
-    );
-
+    // Center camera on position
     final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel ?
         selectedZoomLevel : mapController!.cameraPosition!.zoom;
     await mapController!.animateCamera(
@@ -645,6 +696,8 @@ class _MapViewState extends State<MapView> {
                   selectedStyleIndex: _styleIndex,
                   mapReady: _mapReady,
                   onStyleSelected: _applyStyle,
+                  geofencesLayer: _geofencesSelected,
+                  onLayerSelected: _layerSelected,
                 )
             ],
           );
@@ -658,5 +711,37 @@ class _MapViewState extends State<MapView> {
       return category;
     }
     return 'truck';
+  }
+
+  Future<void> _updateGeofencesSource() async {
+    final List<Map<String, dynamic>> geofenceFeatures = [];
+    for (var entry in widget.geofences.entries) {
+      final geofence = entry.value;
+      final geometry = geofence.areaToGeometry();
+      final feature = {
+        'type': 'Feature',
+        'id': geofence.id,
+        "geometry": geometry,
+        "properties": {
+          "name": geofence.name
+        },
+      };
+      geofenceFeatures.add(feature);
+
+      final centroid = geometry["type"] == "Polygon" ? geofence.polygonCentroid(geometry["coordinates"][0]) : geometry["coordinates"][0];
+      final labelFeature = {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": centroid,
+        },
+        "properties": {
+          "name": geofence.name
+        },
+      };
+      geofenceFeatures.add(labelFeature);
+
+    }
+    await mapController!.setGeoJsonSource(MapStyles.geofencesSourceId, {'type': 'FeatureCollection', 'features': geofenceFeatures});
   }
 }

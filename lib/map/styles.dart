@@ -9,7 +9,11 @@ class MapStyles {
   static const String deviceRouteSourceId = 'device-route';
   static const String movingSegmentSourceId = 'moving-segment';
   static const String eventMarkerSourceId = 'event-marker-source';
+  static const String geofencesSourceId = 'geofences-source';
   static const String layerId = 'devices-layer';
+  static const String geofencePolygonLayerId = 'geofences-polygon-layer';
+  static const String geofenceLineLayerId = 'geofences-line-layer';
+  static const String geofenceLabelLayerId = 'geofences-label-layer';
   static const String routeLayerId = 'route-layer';
   static const String routeCasingLayerId = 'route-layer-casing';
   static const String movingSegmentLayerId = 'moving-segment-layer';
@@ -99,6 +103,14 @@ class MapStyles {
     }
   };
 
+  static Map<String, dynamic> get _geofencesSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
   /// Generate the cluster circles layer
   static Map<String, dynamic> _clusterLayer(MapStyleConfig config) => {
     'id': clusterLayerId,
@@ -167,6 +179,48 @@ class MapStyles {
       'text-halo-color': config.textHaloColor,
       'text-halo-width': 2,
     },
+  };
+
+  static Map<String, dynamic> _geofencesPolygonLayer(MapStyleConfig config) => {
+    'id': geofencePolygonLayerId,
+    'type': 'fill',
+    'source': geofencesSourceId,
+    'paint': {
+      'fill-color': '#3FABC9',
+      'fill-opacity': 0.3,
+    },
+    'filter': ['==', ['geometry-type'], 'Polygon'],
+  };
+
+  static Map<String, dynamic> _geofencesLineLayer(MapStyleConfig config) => {
+    'id': geofenceLineLayerId,
+    'type': 'line',
+    'source': geofencesSourceId,
+    'paint': {
+      'line-color': '#3FABC9',
+      'line-width': 2,
+      'line-opacity': 0.6,
+    },
+    'filter': ['==', ['geometry-type'], 'LineString'],
+  };
+
+  static Map<String, dynamic> _geofencesLabelLayer(MapStyleConfig config) => {
+    'id': geofenceLabelLayerId,
+    'type': 'symbol',
+    'source': geofencesSourceId,
+    'layout': {
+      'text-field': '{name}',
+      'text-font': ['Noto Sans Regular', 'Arial Unicode MS Regular'],
+      'text-size': 12,
+      'text-anchor': 'top',
+      'text-justify': 'center',
+    },
+    'paint': {
+      'text-color': '#000000',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 2,
+    },
+    'filter': ['==', ['geometry-type'], 'Point'],
   };
 
   static Map<String, dynamic> _routeLayer(MapStyleConfig config, double devicePixelRatio) => {
@@ -254,6 +308,7 @@ class MapStyles {
         deviceRouteSourceId: _routeSource,
         movingSegmentSourceId: _movingSegmentSource,
         eventMarkerSourceId: _eventMarkerSource,
+        geofencesSourceId: _geofencesSource
       },
       'layers': [
         {
@@ -263,6 +318,9 @@ class MapStyles {
           'minzoom': 0,
           'maxzoom': 22,
         },
+        _geofencesPolygonLayer(config),
+        _geofencesLineLayer(config),
+        _geofencesLabelLayer(config),
         _routeLayer(config, devicePixelRatio),
         _routeLayerCasing(config, devicePixelRatio),
         _movingSegmentLayer(config, devicePixelRatio),
@@ -492,9 +550,13 @@ class MapStyles {
       sources[deviceRouteSourceId] = _routeSource;
       sources[movingSegmentSourceId] = _movingSegmentSource;
       sources[eventMarkerSourceId] = _eventMarkerSource;
+      sources[geofencesSourceId] = _geofencesSource;
 
       // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
+      layers.add(_geofencesPolygonLayer(config));
+      layers.add(_geofencesLineLayer(config));
+      layers.add(_geofencesLabelLayer(config));
       layers.add(_routeLayer(config, devicePixelRatio));
       layers.add(_routeLayerCasing(config, devicePixelRatio));
       layers.add(_movingSegmentLayer(config, devicePixelRatio));
