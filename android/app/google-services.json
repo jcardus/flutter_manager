@@ -7,6 +7,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:218052201497:android:edec3d546b747e82766e88",
+        "android_client_info": {
+          "package_name": "com.fleetmap.fleetmanager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "218052201497-73igrj6hlp8jkrso1sim49q4kodp61m0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVLNLhmrau9rbXv-e9yKC8qftQrR1MJ9Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "218052201497-73igrj6hlp8jkrso1sim49q4kodp61m0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "218052201497-27fuda922siafb8uql7m1rirk9jrhtu3.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.fleetmap.manager"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:218052201497:android:b0bb75e0db91af1e766e88",
         "android_client_info": {
           "package_name": "com.fleetmap.localizalia"
