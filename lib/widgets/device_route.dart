@@ -118,13 +118,12 @@ class _DeviceRouteState extends State<DeviceRoute> {
   }
 
   void _nextDay() {
-    final tomorrow = _selectedDate.add(const Duration(days: 1));
+    final nextDay = _selectedDate.add(const Duration(days: 1));
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
-
-    if (!tomorrow.isAfter(todayMidnight)) {
+    if (nextDay.difference(todayMidnight).inDays < 1) {
       setState(() {
-        _selectedDate = tomorrow;
+        _selectedDate = nextDay;
       });
       _loadEvents();
     }
