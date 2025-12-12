@@ -22,6 +22,7 @@ class MapView extends StatefulWidget {
   final Map<int, Position> positions;
   final Map<int, Geofence> geofences;
   final int? selectedDevice;
+  final int? selectedIndex;
   final bool showingRoute;
   final List<Position> routePositions;
   final List<Position> movingSegmentPositions;
@@ -39,6 +40,7 @@ class MapView extends StatefulWidget {
     required this.positions,
     required this.geofences,
     this.selectedDevice,
+    this.selectedIndex,
     this.showingRoute = false,
     this.routePositions = const [],
     this.movingSegmentPositions = const [],
@@ -126,7 +128,7 @@ class _MapViewState extends State<MapView> {
   }
 
   Future<void> _update() async {
-    if (widget.positions.isNotEmpty && mapController != null && _mapReady) {
+    if (widget.positions.isNotEmpty && mapController != null && _mapReady && widget.selectedIndex == 0) {
       await _updateMapSource();
       await _updateRouteSource();
       await _updateMovingSegmentSource();
