@@ -194,6 +194,7 @@ class _MainPageState extends State<MainPage> {
                   positions: _positions,
                   geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
+                  selectedIndex: _selectedIndex,
                   showingRoute: _showingRoute,
                   routePositions: _routePositions,
                   movingSegmentPositions: _movingSegmentPositions,
