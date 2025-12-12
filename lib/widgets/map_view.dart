@@ -490,6 +490,9 @@ class _MapViewState extends State<MapView> {
     }
 
     if (widget.movingSegmentPositions.length < 2 ) {
+      // If we're clearing a previously highlighted segment, fit back to full route
+      final wasHighlighted = _lastMovingSegmentPositions.isNotEmpty;
+
       await mapController!.setGeoJsonSource(
         MapStyles.movingSegmentSourceId,
         {'type': 'FeatureCollection', 'features': []},
@@ -499,6 +502,11 @@ class _MapViewState extends State<MapView> {
         {'type': 'FeatureCollection', 'features': []},
       );
       _lastMovingSegmentPositions = [];
+
+      // Fit map back to route if we were viewing a segment
+      if (wasHighlighted && widget.routePositions.isNotEmpty) {
+        _fitMapToRoute();
+      }
       return;
     }
 
@@ -516,7 +524,6 @@ class _MapViewState extends State<MapView> {
       'properties': {},
     };
 
-    dev.log('updating moving segment ${coordinates.length}');
     await mapController!.setGeoJsonSource(
       MapStyles.movingSegmentSourceId,
       {'type': 'FeatureCollection', 'features': [lineString]},
