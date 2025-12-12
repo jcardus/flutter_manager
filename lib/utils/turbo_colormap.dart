@@ -63,12 +63,19 @@ class TurboColormap {
   /// Get color as hex string (e.g., "#FF5722")
   static String getSpeedColorHex(double speed, double minSpeed, double maxSpeed) {
     final color = getSpeedColor(speed, minSpeed, maxSpeed);
-    return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
+    final r = (color.r * 255.0).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    final g = (color.g * 255.0).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    final b = (color.b * 255.0).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+    return '#$r$g$b'.toUpperCase();
   }
 
   /// Get color as RGB array [r, g, b] for MapLibre
   static List<int> getSpeedColorRgb(double speed, double minSpeed, double maxSpeed) {
     final color = getSpeedColor(speed, minSpeed, maxSpeed);
-    return [color.red, color.green, color.blue];
+    return [
+      (color.r * 255.0).round().clamp(0, 255),
+      (color.g * 255.0).round().clamp(0, 255),
+      (color.b * 255.0).round().clamp(0, 255),
+    ];
   }
 }
