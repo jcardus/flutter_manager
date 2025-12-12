@@ -15,7 +15,7 @@ import '../utils/device_colors.dart';
 import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
-import '../icons/Icons.dart' as platform_icons;
+import '../icons/icons.dart' as platform_icons;
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -259,10 +259,8 @@ class _MapViewState extends State<MapView> {
     }
 
     // Center camera on position
-    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel ?
-        selectedZoomLevel : mapController!.cameraPosition!.zoom;
     await mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
+        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
         duration: const Duration(milliseconds: 500)
     );
   }
@@ -466,11 +464,73 @@ class _MapViewState extends State<MapView> {
       {'type': 'FeatureCollection', 'features': routePoints},
     );
 
+    // Add start and end position markers
+    await _addRouteStartEndMarkers();
+
     // Store current positions for next comparison
     _lastRoutePositions = List.from(widget.routePositions);
 
     // Fit map to route
     _fitMapToRoute();
+  }
+
+  Future<void> _addRouteStartEndMarkers() async {
+    if (mapController == null || widget.routePositions.isEmpty) return;
+
+    // Only show start/end markers when no other markers are active
+    if (widget.movingSegmentPositions.isNotEmpty ||
+        widget.eventPositionToCenter != null) {
+      return;
+    }
+
+    final startPos = widget.routePositions.first;
+    final endPos = widget.routePositions.last;
+
+    // Add icons for start and end positions
+    try {
+      await addImageFromIcon(
+        'route-start-marker',
+        Icons.flag,
+        const Color(0xFF4CAF50), // Green
+        size: 48,
+      );
+      await addImageFromIcon(
+        'route-end-marker',
+        Icons.flag_outlined,
+        const Color(0xFFF44336), // Red
+        size: 48,
+      );
+    } catch (e) {
+      dev.log('Error adding route start/end icons: $e');
+    }
+
+    final markers = [
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [startPos.longitude, startPos.latitude],
+        },
+        'properties': {
+          'icon': 'route-start-marker',
+        },
+      },
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [endPos.longitude, endPos.latitude],
+        },
+        'properties': {
+          'icon': 'route-end-marker',
+        },
+      },
+    ];
+
+    await mapController!.setGeoJsonSource(
+      MapStyles.eventMarkerSourceId,
+      {'type': 'FeatureCollection', 'features': markers},
+    );
   }
 
   bool _routePositionsEqual(List<Position> a, List<Position> b) {
@@ -497,14 +557,11 @@ class _MapViewState extends State<MapView> {
         MapStyles.movingSegmentSourceId,
         {'type': 'FeatureCollection', 'features': []},
       );
-      await mapController!.setGeoJsonSource(
-        MapStyles.eventMarkerSourceId,
-        {'type': 'FeatureCollection', 'features': []},
-      );
       _lastMovingSegmentPositions = [];
 
-      // Fit map back to route if we were viewing a segment
+      // Restore start/end markers and fit map back to route
       if (wasHighlighted && widget.routePositions.isNotEmpty) {
+        await _addRouteStartEndMarkers();
         _fitMapToRoute();
       }
       return;

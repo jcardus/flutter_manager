@@ -6,7 +6,7 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
-import '../icons/Icons.dart' as platform_icons;
+import '../icons/icons.dart' as platform_icons;
 import '../l10n/app_localizations.dart';
 
 class DeviceRoute extends StatefulWidget {
@@ -188,10 +188,11 @@ class _DeviceRouteState extends State<DeviceRoute> {
   }
 
   (String, List<Position>) _determineStateAndPositions(DateTime startTime, DateTime endTime) {
-    // Find positions between the two events
+    // Find positions between the two events (inclusive)
     final positionsBetween = _positions.where((p) {
-      final posTime = p.deviceTime;
-      return posTime.isAfter(startTime) && posTime.isBefore(endTime);
+      final posTime = p.fixTime;
+      return (posTime.isAfter(startTime) || posTime.isAtSameMomentAs(startTime)) &&
+             (posTime.isBefore(endTime) || posTime.isAtSameMomentAs(endTime));
     }).toList();
 
     if (positionsBetween.isEmpty) {
@@ -209,6 +210,31 @@ class _DeviceRouteState extends State<DeviceRoute> {
     // Add first position if available
     if (_positions.isNotEmpty) {
       items.add(_PositionItem(_positions.first, isFirst: true));
+
+      // Add segment from first position to first event
+      if (_events.isNotEmpty) {
+        final firstEvent = _events.first;
+        final firstPosition = _positions.first;
+        final gap = firstEvent.eventTime.difference(firstPosition.fixTime);
+
+        if (gap.inMinutes >= 2) {
+          final (state, positions) = _determineStateAndPositions(firstPosition.fixTime, firstEvent.eventTime);
+          final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
+          final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
+              ? positions.map((p) => p.speed * 1.852).reduce((a, b) => a > b ? a : b)
+              : null;
+          // Create a dummy event for the first position to use in the separator
+          final startEvent = Event(
+            id: -1,
+            type: 'start',
+            deviceId: firstPosition.deviceId,
+            eventTime: firstPosition.fixTime,
+            positionId: firstPosition.id,
+            attributes: {},
+          );
+          items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, startEvent, firstEvent));
+        }
+      }
     }
 
     for (int i = 0; i < _events.length; i++) {
@@ -234,10 +260,35 @@ class _DeviceRouteState extends State<DeviceRoute> {
           final (state, positions) = _determineStateAndPositions(event.eventTime, nextEvent.eventTime);
           final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
           final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
-              ? positions.map((p) => p.speed).reduce((a, b) => a > b ? a : b)
+              ? positions.map((p) => p.speed * 1.852).reduce((a, b) => a > b ? a : b)
               : null;
           items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, event, nextEvent));
         }
+      }
+    }
+
+    // Add segment from last event to last position
+    if (_positions.isNotEmpty && _events.isNotEmpty) {
+      final lastEvent = _events.last;
+      final lastPosition = _positions.last;
+      final gap = lastPosition.fixTime.difference(lastEvent.eventTime);
+
+      if (gap.inMinutes >= 2) {
+        final (state, positions) = _determineStateAndPositions(lastEvent.eventTime, lastPosition.fixTime);
+        final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
+        final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
+            ? positions.map((p) => p.speed * 1.852).reduce((a, b) => a > b ? a : b)
+            : null;
+        // Create a dummy event for the last position to use in the separator
+        final endEvent = Event(
+          id: -2,
+          type: 'end',
+          deviceId: lastPosition.deviceId,
+          eventTime: lastPosition.fixTime,
+          positionId: lastPosition.id,
+          attributes: {},
+        );
+        items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, lastEvent, endEvent));
       }
     }
 
@@ -552,7 +603,7 @@ class _PositionCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        DateFormat.jm(locale).format(position.deviceTime.toLocal()),
+                        DateFormat.jm(locale).format(position.fixTime.toLocal()),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
