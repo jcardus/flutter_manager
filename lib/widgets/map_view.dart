@@ -817,6 +817,10 @@ class _MapViewState extends State<MapView> {
     for (var entry in widget.geofences.entries) {
       final geofence = entry.value;
       final geometry = geofence.areaToGeometry();
+
+      // Skip geofences without valid geometry (null area)
+      if (geometry == null) continue;
+
       final feature = {
         'type': 'Feature',
         'id': geofence.id,

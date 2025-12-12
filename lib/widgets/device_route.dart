@@ -405,6 +405,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
                         duration: item.duration,
                         distance: item.distance,
                         maxSpeed: item.maxSpeed,
+                        positions: item.positions,
                         isHighlighted: isHighlighted,
                         onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
                             ? () {
@@ -441,6 +442,7 @@ class _StateRow extends StatelessWidget {
   final Duration duration;
   final double? distance; // Distance in kilometers
   final double? maxSpeed; // Maximum speed in km/h
+  final List<Position> positions; // Positions for speed graph
   final bool isHighlighted;
   final VoidCallback? onTap;
 
@@ -449,6 +451,7 @@ class _StateRow extends StatelessWidget {
     required this.duration,
     this.distance,
     this.maxSpeed,
+    this.positions = const [],
     this.isHighlighted = false,
     this.onTap,
   });
@@ -485,62 +488,97 @@ class _StateRow extends StatelessWidget {
             child: InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isHighlighted
-                      ? colors.primary.withValues(alpha: 0.2)
-                      : isMoving
-                          ? colors.primaryContainer.withValues(alpha: 0.5)
-                          : colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isHighlighted
-                        ? colors.primary
-                        : isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
-                    width: isHighlighted ? 2 : 1,
-                  ),
-                  boxShadow: isHighlighted
-                      ? [
-                          BoxShadow(
-                            color: colors.primary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                          ),
-                        ]
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CustomPaint(
+                  painter: isMoving && positions.length > 1
+                      ? SpeedGraphPainter(
+                          positions: positions,
+                          maxSpeed: maxSpeed ?? 0,
+                          color: colors.tertiary.withValues(alpha: 0.5),
+                        )
                       : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
-                      size: 14,
-                      color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isHighlighted
+                          ? colors.primary.withValues(alpha: 0.3)
+                          : isMoving
+                              ? colors.primaryContainer.withValues(alpha: 0.5)
+                              : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isHighlighted
+                            ? colors.primary
+                            : isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
+                        width: isHighlighted ? 2 : 1,
+                      ),
+                      boxShadow: isHighlighted
+                          ? [
+                              BoxShadow(
+                                color: colors.primary.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                spreadRadius: 0,
+                              ),
+                            ]
+                          : null,
                     ),
-                    const SizedBox(width: 6),
-                    Column(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isMoving ? colors.primary : colors.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Icon(
+                          isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
+                          size: 14,
+                          color: isHighlighted
+                              ? Colors.white
+                              : isMoving ? colors.primary : colors.onSurfaceVariant,
                         ),
-                        if (distance != null || maxSpeed != null)
-                          Text(
-                            '${distance != null ? '${distance!.toStringAsFixed(1)} km' : ''}${distance != null && maxSpeed != null ? ' · ' : ''}${maxSpeed != null ? 'max: ${maxSpeed!.toStringAsFixed(0)} km/h' : ''}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: isMoving ? colors.primary : colors.onSurfaceVariant,
-                              fontSize: 11,
+                        const SizedBox(width: 6),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isHighlighted
+                                    ? Colors.white
+                                    : isMoving ? colors.primary : colors.onSurfaceVariant,
+                                fontWeight: FontWeight.bold,
+                                shadows: isMoving && !isHighlighted ? [
+                                  const Shadow(color: Colors.white, blurRadius: 3),
+                                  const Shadow(color: Colors.white, blurRadius: 3),
+                                  const Shadow(color: Colors.white, blurRadius: 3),
+                                ] : isHighlighted ? [
+                                  Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                  Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                ] : null,
+                              ),
                             ),
-                          ),
+                            if (distance != null || maxSpeed != null)
+                              Text(
+                                '${distance != null ? '${distance!.toStringAsFixed(1)} km' : ''}${distance != null && maxSpeed != null ? ' · ' : ''}${maxSpeed != null ? 'max: ${maxSpeed!.toStringAsFixed(0)} km/h' : ''}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: isHighlighted
+                                      ? Colors.white
+                                      : isMoving ? colors.primary : colors.onSurfaceVariant,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: isMoving && !isHighlighted ? [
+                                    const Shadow(color: Colors.white, blurRadius: 3),
+                                    const Shadow(color: Colors.white, blurRadius: 3),
+                                    const Shadow(color: Colors.white, blurRadius: 3),
+                                  ] : isHighlighted ? [
+                                    Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                    Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                  ] : null,
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -770,6 +808,75 @@ class _EventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class SpeedGraphPainter extends CustomPainter {
+  final List<Position> positions;
+  final double maxSpeed;
+  final Color color;
+
+  SpeedGraphPainter({
+    required this.positions,
+    required this.maxSpeed,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (positions.length < 2 || maxSpeed <= 0) return;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+
+    // Convert speeds from knots to km/h
+    final speeds = positions.map((p) => p.speed * 1.852).toList();
+
+    // Find the actual max speed from the data
+    final actualMaxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+
+    // Use the actual max if it's greater than 0, otherwise use the provided maxSpeed
+    final normalizer = actualMaxSpeed > 0 ? actualMaxSpeed : maxSpeed;
+
+    if (normalizer <= 0) return;
+
+    // Start path from bottom-left
+    path.moveTo(0, size.height);
+
+    // Draw the speed graph
+    for (int i = 0; i < speeds.length; i++) {
+      final x = (i / (speeds.length - 1)) * size.width;
+      final normalizedSpeed = speeds[i] / normalizer;
+      final y = size.height - (normalizedSpeed * size.height);
+
+      if (i == 0) {
+        path.lineTo(x, y);
+      } else {
+        // Use quadratic bezier curves for smooth transitions
+        final prevX = ((i - 1) / (speeds.length - 1)) * size.width;
+        final prevNormalizedSpeed = speeds[i - 1] / normalizer;
+        final prevY = size.height - (prevNormalizedSpeed * size.height);
+
+        final controlX = (prevX + x) / 2;
+        path.quadraticBezierTo(controlX, prevY, x, y);
+      }
+    }
+
+    // Close the path along the bottom
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(SpeedGraphPainter oldDelegate) {
+    return oldDelegate.positions != positions ||
+        oldDelegate.maxSpeed != maxSpeed ||
+        oldDelegate.color != color;
   }
 }
 
