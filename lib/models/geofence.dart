@@ -4,14 +4,14 @@ class Geofence {
   final int id;
   final String name;
   final String? description;
-  final String area;
+  final String? area;
   final Map<String, dynamic>? attributes;
 
   Geofence({
     required this.id,
     required this.name,
     this.description,
-    required this.area,
+    this.area,
     this.attributes,
   });
 
@@ -20,7 +20,7 @@ class Geofence {
       id: json['id'] as int,
       name: json['name'] as String,
       description: json['description'] as String?,
-      area: json['area'] as String,
+      area: json['area'] as String?,
       attributes: json['attributes'] as Map<String, dynamic>?,
     );
   }
@@ -56,12 +56,14 @@ class Geofence {
     return [cx / (6 * area), cy / (6 * area)];
   }
 
-  Map<String, dynamic> areaToGeometry() {
-    String _area = area.trim();
+  Map<String, dynamic>? areaToGeometry() {
+    if (area == null) return null;
 
-    if (_area.startsWith("POLYGON")) {
+    final areaValue = area!.trim();
+
+    if (areaValue.startsWith("POLYGON")) {
       final coordsStr =
-      _area.substring(_area.indexOf("((") + 2, _area.lastIndexOf("))"));
+      areaValue.substring(areaValue.indexOf("((") + 2, areaValue.lastIndexOf("))"));
       final coords = coordsStr
           .split(",")
           .map((p) => p.trim().split(" ").map(double.parse).toList())
@@ -73,9 +75,9 @@ class Geofence {
       };
     }
 
-    if (_area.startsWith("LINESTRING")) {
+    if (areaValue.startsWith("LINESTRING")) {
       final coordsStr =
-      _area.substring(_area.indexOf("(") + 1, _area.lastIndexOf(")"));
+      areaValue.substring(areaValue.indexOf("(") + 1, areaValue.lastIndexOf(")"));
       final coords = coordsStr
           .split(",")
           .map((p) => p.trim().split(" ").map(double.parse).toList())
@@ -88,8 +90,8 @@ class Geofence {
       };
     }
 
-    if (_area.startsWith("CIRCLE")) {
-      final inside = _area.substring(_area.indexOf("(") + 1, _area.lastIndexOf(")"));
+    if (areaValue.startsWith("CIRCLE")) {
+      final inside = areaValue.substring(areaValue.indexOf("(") + 1, areaValue.lastIndexOf(")"));
       final parts = inside.split(",");
       final center = parts[0].trim().split(" ").map(double.parse).toList();
       final radius = double.parse(parts[1].trim());
@@ -105,7 +107,7 @@ class Geofence {
       };
     }
 
-    throw Exception("Unsupported geometry type: $_area");
+    throw Exception("Unsupported geometry type: $areaValue");
   }
 
   List<List<double>> generateCirclePolygon(double lon, double lat, double radiusMeters) {

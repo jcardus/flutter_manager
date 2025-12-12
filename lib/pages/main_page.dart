@@ -99,6 +99,13 @@ class _MainPageState extends State<MainPage> {
   void _onRoutePositionsLoaded(List<Position> positions) {
     setState(() {
       _routePositions = positions;
+      // Clear map icons when new route data is loaded (e.g., date change)
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
+      _eventPositionToCenter = null;
+      _selectedEvent = null;
+      _isFirstPosition = null;
     });
   }
 

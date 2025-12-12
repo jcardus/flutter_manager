@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../icons/Icons.dart';
+import '../icons/icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
