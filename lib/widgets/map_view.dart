@@ -12,6 +12,7 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../utils/constants.dart';
 import '../utils/device_colors.dart';
+import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
 import '../icons/Icons.dart' as platform_icons;
@@ -403,7 +404,11 @@ class _MapViewState extends State<MapView> {
 
     if (widget.routePositions.length < 2 ) {
       await mapController!.setGeoJsonSource(
-        MapStyles.deviceRouteSourceId,
+        MapStyles.routeLineSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      await mapController!.setGeoJsonSource(
+        MapStyles.routePointsSourceId,
         {'type': 'FeatureCollection', 'features': []},
       );
       _lastRoutePositions = [];
@@ -427,8 +432,38 @@ class _MapViewState extends State<MapView> {
 
     dev.log('updating route ${coordinates.length}');
     await mapController!.setGeoJsonSource(
-      MapStyles.deviceRouteSourceId,
+      MapStyles.routeLineSourceId,
       {'type': 'FeatureCollection', 'features': [lineString]},
+    );
+
+    // Calculate min and max speeds for color normalization
+    final speeds = widget.routePositions.map((p) => p.speed).toList();
+    final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+
+    // Create speed point features
+    final List<Map<String, dynamic>> routePoints = [];
+    for (final position in widget.routePositions) {
+      final colorHex = TurboColormap.getSpeedColorHex(position.speed, 0, maxSpeed);
+
+      final point = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'speed': position.speed,
+          'color': colorHex,
+        },
+      };
+
+      routePoints.add(point);
+    }
+
+    dev.log('updating speed points with ${routePoints.length} points (speed range: 0 - $maxSpeed km/h)');
+    await mapController!.setGeoJsonSource(
+      MapStyles.routePointsSourceId,
+      {'type': 'FeatureCollection', 'features': routePoints},
     );
 
     // Store current positions for next comparison
