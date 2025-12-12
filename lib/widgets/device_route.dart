@@ -49,11 +49,12 @@ class _StateSeparator extends _ListItem {
   final String state;
   final Duration duration;
   final double? distance; // Distance in kilometers
+  final double? maxSpeed; // Maximum speed in km/h
   final List<Position> positions;
   final Event startEvent;
   final Event endEvent;
 
-  _StateSeparator(this.state, this.duration, this.distance, this.positions, this.startEvent, this.endEvent);
+  _StateSeparator(this.state, this.duration, this.distance, this.maxSpeed, this.positions, this.startEvent, this.endEvent);
 }
 
 class _PositionItem extends _ListItem {
@@ -232,7 +233,10 @@ class _DeviceRouteState extends State<DeviceRoute> {
         if (gap.inMinutes >= 2) {
           final (state, positions) = _determineStateAndPositions(event.eventTime, nextEvent.eventTime);
           final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
-          items.add(_StateSeparator(state, gap, distance, positions, event, nextEvent));
+          final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
+              ? positions.map((p) => p.speed).reduce((a, b) => a > b ? a : b)
+              : null;
+          items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, event, nextEvent));
         }
       }
     }
@@ -349,6 +353,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
                         state: item.state,
                         duration: item.duration,
                         distance: item.distance,
+                        maxSpeed: item.maxSpeed,
                         isHighlighted: isHighlighted,
                         onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
                             ? () {
@@ -384,6 +389,7 @@ class _StateRow extends StatelessWidget {
   final String state;
   final Duration duration;
   final double? distance; // Distance in kilometers
+  final double? maxSpeed; // Maximum speed in km/h
   final bool isHighlighted;
   final VoidCallback? onTap;
 
@@ -391,6 +397,7 @@ class _StateRow extends StatelessWidget {
     required this.state,
     required this.duration,
     this.distance,
+    this.maxSpeed,
     this.isHighlighted = false,
     this.onTap,
   });
@@ -461,12 +468,26 @@ class _StateRow extends StatelessWidget {
                       color: isMoving ? colors.primary : colors.onSurfaceVariant,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}${distance != null ? ' · ${distance!.toStringAsFixed(1)} km' : ''}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isMoving ? colors.primary : colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (distance != null || maxSpeed != null)
+                          Text(
+                            '${distance != null ? '${distance!.toStringAsFixed(1)} km' : ''}${distance != null && maxSpeed != null ? ' · ' : ''}${maxSpeed != null ? 'max: ${maxSpeed!.toStringAsFixed(0)} km/h' : ''}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
