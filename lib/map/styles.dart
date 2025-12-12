@@ -272,7 +272,7 @@ class MapStyles {
     'id': routePointsLayerId,
     'type': 'circle',
     'paint': {
-      'circle-radius': 1,
+      'circle-radius': 2,
       'circle-color': ['get', 'color']
     },
   };
