@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math';
@@ -127,13 +128,27 @@ class _MapViewState extends State<MapView> {
 
   Future<void> _update() async {
     if (widget.positions.isNotEmpty && mapController != null && _mapReady) {
-      await _updateMapSource();
-      await _updateRouteSource();
-      await _updateMovingSegmentSource();
-      await _updateGeofencesSource();
-      if (!_initialFitDone) {
-        _fitMapToDevices();
-        _initialFitDone = true;
+      try {
+        dev.log('Updating map source with ${widget.positions.length} positions...');
+        await _updateMapSource();
+
+        dev.log('Updating route source...');
+        await _updateRouteSource();
+
+        dev.log('Updating moving segment source...');
+        await _updateMovingSegmentSource();
+
+        dev.log('Updating geofences source with ${widget.geofences.length} geofences...');
+        await _updateGeofencesSource();
+
+        if (!_initialFitDone) {
+          _fitMapToDevices();
+          _initialFitDone = true;
+        }
+      } catch (e, stack) {
+        dev.log('Error during map update: $e', error: e, stackTrace: stack);
+        // Rethrow to see the error in the console
+        rethrow;
       }
     }
   }
@@ -371,7 +386,23 @@ class _MapViewState extends State<MapView> {
         },
       });
     }
-    await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': features});
+
+    // Safety check: measure GeoJSON size before sending
+    final geojson = {'type': 'FeatureCollection', 'features': features};
+    final jsonString = jsonEncode(geojson);
+    final sizeInBytes = jsonString.length;
+    final sizeInMB = sizeInBytes / (1024 * 1024);
+
+    dev.log('Devices GeoJSON size: ${sizeInMB.toStringAsFixed(2)} MB (${features.length} features)');
+
+    // Prevent OOM: If GeoJSON is larger than 100MB, skip
+    if (sizeInBytes > 100 * 1024 * 1024) {
+      dev.log('WARNING: Devices GeoJSON too large (${sizeInMB.toStringAsFixed(2)} MB), limiting to prevent OOM');
+      // Send empty to prevent crash - user will see error in logs
+      await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': []});
+    } else {
+      await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, geojson);
+    }
 
     // Only update layer visibility if showingRoute changed
     if (_lastShowingRoute != widget.showingRoute) {
@@ -843,8 +874,24 @@ class _MapViewState extends State<MapView> {
         },
       };
       geofenceFeatures.add(labelFeature);
-
     }
-    await mapController!.setGeoJsonSource(MapStyles.geofencesSourceId, {'type': 'FeatureCollection', 'features': geofenceFeatures});
+
+    // Safety check: measure GeoJSON size before sending
+    final geojson = {'type': 'FeatureCollection', 'features': geofenceFeatures};
+    final jsonString = jsonEncode(geojson);
+    final sizeInBytes = jsonString.length;
+    final sizeInMB = sizeInBytes / (1024 * 1024);
+
+    dev.log('Geofences GeoJSON size: ${sizeInMB.toStringAsFixed(2)} MB (${geofenceFeatures.length} features)');
+
+    // Prevent OOM: If GeoJSON is larger than 100MB, skip or truncate
+    if (sizeInBytes > 100 * 1024 * 1024) {
+      dev.log('WARNING: Geofences GeoJSON too large (${sizeInMB.toStringAsFixed(2)} MB), skipping to prevent OOM');
+      // Send empty geofences to prevent crash
+      await mapController!.setGeoJsonSource(MapStyles.geofencesSourceId, {'type': 'FeatureCollection', 'features': []});
+      return;
+    }
+
+    await mapController!.setGeoJsonSource(MapStyles.geofencesSourceId, geojson);
   }
 }
