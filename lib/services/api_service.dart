@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:manager/utils/constants.dart';
 import '../models/geofence.dart';
 import 'auth_service.dart';
 import '../models/device.dart';
@@ -60,10 +61,16 @@ class ApiService {
   }
 
   Future<List<Geofence>> fetchGeofences() async {
-    return _fetchList(
+    final geofences = await _fetchList(
         endpoint: '/api/geofences',
         fromJson: Geofence.fromJson
     );
+    // Limit to first 1000 geofences to prevent OOM with massive datasets
+    if (geofences.length > maxGeofences) {
+      dev.log('WARNING: ${geofences.length} geofences received, limiting to $maxGeofences to prevent OOM', name: 'API');
+      return geofences.take(maxGeofences).toList();
+    }
+    return geofences;
   }
 
   Future<List<Event>> fetchEvents({

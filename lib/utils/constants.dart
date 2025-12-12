@@ -34,3 +34,4 @@ String get googleMapsClientId {
 }
 
 const double selectedZoomLevel=15;
+const int maxGeofences=100;
