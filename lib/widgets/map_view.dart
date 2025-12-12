@@ -130,8 +130,8 @@ class _MapViewState extends State<MapView> {
       await _updateMapSource();
       await _updateRouteSource();
       await _updateMovingSegmentSource();
-      await _updateGeofencesSource();
       if (!_initialFitDone) {
+        await _updateGeofencesSource();
         _fitMapToDevices();
         _initialFitDone = true;
       }

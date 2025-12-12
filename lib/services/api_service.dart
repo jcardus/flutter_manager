@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:manager/utils/constants.dart';
 import '../models/geofence.dart';
 import 'auth_service.dart';
 import '../models/device.dart';
@@ -65,9 +66,9 @@ class ApiService {
         fromJson: Geofence.fromJson
     );
     // Limit to first 1000 geofences to prevent OOM with massive datasets
-    if (geofences.length > 1000) {
-      dev.log('WARNING: ${geofences.length} geofences received, limiting to 1000 to prevent OOM', name: 'API');
-      return geofences.take(1000).toList();
+    if (geofences.length > maxGeofences) {
+      dev.log('WARNING: ${geofences.length} geofences received, limiting to $maxGeofences to prevent OOM', name: 'API');
+      return geofences.take(maxGeofences).toList();
     }
     return geofences;
   }
