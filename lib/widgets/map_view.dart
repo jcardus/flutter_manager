@@ -7,17 +7,20 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
+import '../models/geofence.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../utils/constants.dart';
 import '../utils/device_colors.dart';
+import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
-import '../icons/Icons.dart' as platform_icons;
+import '../icons/icons.dart' as platform_icons;
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Position> positions;
+  final Map<int, Geofence> geofences;
   final int? selectedDevice;
   final bool showingRoute;
   final List<Position> routePositions;
@@ -27,12 +30,14 @@ class MapView extends StatefulWidget {
   final Function(int deviceId)? onDeviceSelected;
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
+  final bool? isFirstPosition;
   final VoidCallback? onMapBackgroundTap;
 
   const MapView({
     super.key,
     required this.devices,
     required this.positions,
+    required this.geofences,
     this.selectedDevice,
     this.showingRoute = false,
     this.routePositions = const [],
@@ -42,6 +47,7 @@ class MapView extends StatefulWidget {
     this.onDeviceSelected,
     this.eventPositionToCenter,
     this.selectedEvent,
+    this.isFirstPosition,
     this.onMapBackgroundTap,
   });
 
@@ -54,6 +60,7 @@ class _MapViewState extends State<MapView> {
   bool _initialFitDone = false;
   bool _mapReady = false;
   int _styleIndex = 0;
+  bool _geofencesSelected = true;
   Future<String>? _initialStyleFuture;
   double scrollOffset = 0;
   bool? _lastShowingRoute;
@@ -78,6 +85,15 @@ class _MapViewState extends State<MapView> {
     final styleString = await MapStyles.getStyleString(MapStyles.configs[index], pixelRatio);
     await mapController!.setStyle(styleString);
     setState(() { _styleIndex = index; });
+  }
+
+  Future<void> _layerSelected() async {
+    if (mapController == null) return;
+    setState(() => _geofencesSelected = !_geofencesSelected);
+
+    await mapController!.setLayerVisibility(MapStyles.geofencePolygonLayerId, _geofencesSelected);
+    await mapController!.setLayerVisibility(MapStyles.geofenceLineLayerId, _geofencesSelected);
+    await mapController!.setLayerVisibility(MapStyles.geofenceLabelLayerId, _geofencesSelected);
   }
 
   @override
@@ -114,6 +130,7 @@ class _MapViewState extends State<MapView> {
       await _updateMapSource();
       await _updateRouteSource();
       await _updateMovingSegmentSource();
+      await _updateGeofencesSource();
       if (!_initialFitDone) {
         _fitMapToDevices();
         _initialFitDone = true;
@@ -172,45 +189,78 @@ class _MapViewState extends State<MapView> {
   }
 
   void _centerOnEventPosition(Position position) async {
-    if (mapController == null || widget.selectedEvent == null) { return; }
+    if (mapController == null) { return; }
 
-    // Generate icon name based on event type
-    final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
+    // If there's an event, show event marker
+    if (widget.selectedEvent != null) {
+      // Generate icon name based on event type
+      final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
 
-    // Check if icon already exists, if not add it
-    try {
-      final icon = _getEventIcon(widget.selectedEvent!.displayType);
-      await addImageFromIcon(
-        iconName,
-        icon,
-        const Color(0xFFFF5722),
-        size: 48,
+      // Check if icon already exists, if not add it
+      try {
+        final icon = _getEventIcon(widget.selectedEvent!.displayType);
+        await addImageFromIcon(
+          iconName,
+          icon,
+          const Color(0xFFFF5722),
+          size: 48,
+        );
+      } catch (e) {
+        dev.log('Error adding event icon: $e');
+      }
+
+      // Update event marker source with the specific icon
+      final markerFeature = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'icon': iconName,
+        },
+      };
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': [markerFeature]},
       );
-    } catch (e) {
-      dev.log('Error adding event icon: $e');
+    } else {
+      // No event, show a position marker (flag icon)
+      final isFirst = widget.isFirstPosition ?? true;
+      final iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+
+      try {
+        await addImageFromIcon(
+          iconName,
+          isFirst ? Icons.flag : Icons.flag_outlined,
+          isFirst ? const Color(0xFF4CAF50) : const Color(0xFFF44336), // Green for start, red for end
+          size: 48,
+        );
+      } catch (e) {
+        dev.log('Error adding position icon: $e');
+      }
+
+      final markerFeature = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'icon': iconName,
+        },
+      };
+
+      await mapController!.setGeoJsonSource(
+        MapStyles.eventMarkerSourceId,
+        {'type': 'FeatureCollection', 'features': [markerFeature]},
+      );
     }
 
-    // Update event marker source with the specific icon
-    final markerFeature = {
-      'type': 'Feature',
-      'geometry': {
-        'type': 'Point',
-        'coordinates': [position.longitude, position.latitude],
-      },
-      'properties': {
-        'icon': iconName,
-      },
-    };
-
-    await mapController!.setGeoJsonSource(
-      MapStyles.eventMarkerSourceId,
-      {'type': 'FeatureCollection', 'features': [markerFeature]},
-    );
-
-    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel ?
-        selectedZoomLevel : mapController!.cameraPosition!.zoom;
+    // Center camera on position
     await mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
+        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
         duration: const Duration(milliseconds: 500)
     );
   }
@@ -352,7 +402,11 @@ class _MapViewState extends State<MapView> {
 
     if (widget.routePositions.length < 2 ) {
       await mapController!.setGeoJsonSource(
-        MapStyles.deviceRouteSourceId,
+        MapStyles.routeLineSourceId,
+        {'type': 'FeatureCollection', 'features': []},
+      );
+      await mapController!.setGeoJsonSource(
+        MapStyles.routePointsSourceId,
         {'type': 'FeatureCollection', 'features': []},
       );
       _lastRoutePositions = [];
@@ -376,15 +430,107 @@ class _MapViewState extends State<MapView> {
 
     dev.log('updating route ${coordinates.length}');
     await mapController!.setGeoJsonSource(
-      MapStyles.deviceRouteSourceId,
+      MapStyles.routeLineSourceId,
       {'type': 'FeatureCollection', 'features': [lineString]},
     );
+
+    // Calculate min and max speeds for color normalization
+    final speeds = widget.routePositions.map((p) => p.speed).toList();
+    final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+
+    // Create speed point features
+    final List<Map<String, dynamic>> routePoints = [];
+    for (final position in widget.routePositions) {
+      final colorHex = TurboColormap.getSpeedColorHex(position.speed, 0, maxSpeed);
+
+      final point = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [position.longitude, position.latitude],
+        },
+        'properties': {
+          'speed': position.speed,
+          'color': colorHex,
+        },
+      };
+
+      routePoints.add(point);
+    }
+
+    dev.log('updating speed points with ${routePoints.length} points (speed range: 0 - $maxSpeed km/h)');
+    await mapController!.setGeoJsonSource(
+      MapStyles.routePointsSourceId,
+      {'type': 'FeatureCollection', 'features': routePoints},
+    );
+
+    // Add start and end position markers
+    await _addRouteStartEndMarkers();
 
     // Store current positions for next comparison
     _lastRoutePositions = List.from(widget.routePositions);
 
     // Fit map to route
     _fitMapToRoute();
+  }
+
+  Future<void> _addRouteStartEndMarkers() async {
+    if (mapController == null || widget.routePositions.isEmpty) return;
+
+    // Only show start/end markers when no other markers are active
+    if (widget.movingSegmentPositions.isNotEmpty ||
+        widget.eventPositionToCenter != null) {
+      return;
+    }
+
+    final startPos = widget.routePositions.first;
+    final endPos = widget.routePositions.last;
+
+    // Add icons for start and end positions
+    try {
+      await addImageFromIcon(
+        'route-start-marker',
+        Icons.flag,
+        const Color(0xFF4CAF50), // Green
+        size: 48,
+      );
+      await addImageFromIcon(
+        'route-end-marker',
+        Icons.flag_outlined,
+        const Color(0xFFF44336), // Red
+        size: 48,
+      );
+    } catch (e) {
+      dev.log('Error adding route start/end icons: $e');
+    }
+
+    final markers = [
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [startPos.longitude, startPos.latitude],
+        },
+        'properties': {
+          'icon': 'route-start-marker',
+        },
+      },
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [endPos.longitude, endPos.latitude],
+        },
+        'properties': {
+          'icon': 'route-end-marker',
+        },
+      },
+    ];
+
+    await mapController!.setGeoJsonSource(
+      MapStyles.eventMarkerSourceId,
+      {'type': 'FeatureCollection', 'features': markers},
+    );
   }
 
   bool _routePositionsEqual(List<Position> a, List<Position> b) {
@@ -404,15 +550,20 @@ class _MapViewState extends State<MapView> {
     }
 
     if (widget.movingSegmentPositions.length < 2 ) {
+      // If we're clearing a previously highlighted segment, fit back to full route
+      final wasHighlighted = _lastMovingSegmentPositions.isNotEmpty;
+
       await mapController!.setGeoJsonSource(
         MapStyles.movingSegmentSourceId,
         {'type': 'FeatureCollection', 'features': []},
       );
-      await mapController!.setGeoJsonSource(
-        MapStyles.eventMarkerSourceId,
-        {'type': 'FeatureCollection', 'features': []},
-      );
       _lastMovingSegmentPositions = [];
+
+      // Restore start/end markers and fit map back to route
+      if (wasHighlighted && widget.routePositions.isNotEmpty) {
+        await _addRouteStartEndMarkers();
+        _fitMapToRoute();
+      }
       return;
     }
 
@@ -430,7 +581,6 @@ class _MapViewState extends State<MapView> {
       'properties': {},
     };
 
-    dev.log('updating moving segment ${coordinates.length}');
     await mapController!.setGeoJsonSource(
       MapStyles.movingSegmentSourceId,
       {'type': 'FeatureCollection', 'features': [lineString]},
@@ -645,6 +795,8 @@ class _MapViewState extends State<MapView> {
                   selectedStyleIndex: _styleIndex,
                   mapReady: _mapReady,
                   onStyleSelected: _applyStyle,
+                  geofencesLayer: _geofencesSelected,
+                  onLayerSelected: _layerSelected,
                 )
             ],
           );
@@ -658,5 +810,41 @@ class _MapViewState extends State<MapView> {
       return category;
     }
     return 'truck';
+  }
+
+  Future<void> _updateGeofencesSource() async {
+    final List<Map<String, dynamic>> geofenceFeatures = [];
+    for (var entry in widget.geofences.entries) {
+      final geofence = entry.value;
+      final geometry = geofence.areaToGeometry();
+
+      // Skip geofences without valid geometry (null area)
+      if (geometry == null) continue;
+
+      final feature = {
+        'type': 'Feature',
+        'id': geofence.id,
+        "geometry": geometry,
+        "properties": {
+          "name": geofence.name
+        },
+      };
+      geofenceFeatures.add(feature);
+
+      final centroid = geometry["type"] == "Polygon" ? geofence.polygonCentroid(geometry["coordinates"][0]) : geometry["coordinates"][0];
+      final labelFeature = {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": centroid,
+        },
+        "properties": {
+          "name": geofence.name
+        },
+      };
+      geofenceFeatures.add(labelFeature);
+
+    }
+    await mapController!.setGeoJsonSource(MapStyles.geofencesSourceId, {'type': 'FeatureCollection', 'features': geofenceFeatures});
   }
 }

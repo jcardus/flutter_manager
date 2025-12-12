@@ -61,6 +61,11 @@
     "description": "Offline devices stat label"
   },
 
+  "unknown": "Unknown",
+  "@unknown": {
+    "description": "Unknown devices stat label"
+  },
+
   "searchDevices": "Search devices...",
   "@searchDevices": {
     "description": "Search field hint text"
@@ -293,5 +298,15 @@
   "stateStopped": "Stopped",
   "@stateStopped": {
     "description": "State: device is stopped"
+  },
+
+  "positionStart": "Start Position",
+  "@positionStart": {
+    "description": "Label for the first position in route"
+  },
+
+  "positionEnd": "End Position",
+  "@positionEnd": {
+    "description": "Label for the last position in route"
   }
 }

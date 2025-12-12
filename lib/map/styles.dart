@@ -6,12 +6,18 @@ import 'package:http/http.dart' as http;
 
 class MapStyles {
   static const String devicesSourceId = 'devices-source';
-  static const String deviceRouteSourceId = 'device-route';
+  static const String routeLineSourceId = 'device-route';
+  static const String routePointsSourceId = 'route-points';
   static const String movingSegmentSourceId = 'moving-segment';
   static const String eventMarkerSourceId = 'event-marker-source';
+  static const String geofencesSourceId = 'geofences-source';
   static const String layerId = 'devices-layer';
+  static const String geofencePolygonLayerId = 'geofences-polygon-layer';
+  static const String geofenceLineLayerId = 'geofences-line-layer';
+  static const String geofenceLabelLayerId = 'geofences-label-layer';
   static const String routeLayerId = 'route-layer';
   static const String routeCasingLayerId = 'route-layer-casing';
+  static const String routePointsLayerId = 'route-points-layer';
   static const String movingSegmentLayerId = 'moving-segment-layer';
   static const String clusterLayerId = 'clusters';
   static const String clusterCountLayerId = 'cluster-count';
@@ -89,6 +95,14 @@ class MapStyles {
     }
   };
 
+  static Map<String, dynamic> get _speedPointsSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
   static Map<String, dynamic> get _eventMarkerSource => {
     'type': 'geojson',
     'data': {
@@ -98,6 +112,14 @@ class MapStyles {
   };
 
   static Map<String, dynamic> get _movingSegmentSource => {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [],
+    }
+  };
+
+  static Map<String, dynamic> get _geofencesSource => {
     'type': 'geojson',
     'data': {
       'type': 'FeatureCollection',
@@ -175,8 +197,50 @@ class MapStyles {
     },
   };
 
+  static Map<String, dynamic> _geofencesPolygonLayer(MapStyleConfig config) => {
+    'id': geofencePolygonLayerId,
+    'type': 'fill',
+    'source': geofencesSourceId,
+    'paint': {
+      'fill-color': '#3FABC9',
+      'fill-opacity': 0.3,
+    },
+    'filter': ['==', ['geometry-type'], 'Polygon'],
+  };
+
+  static Map<String, dynamic> _geofencesLineLayer(MapStyleConfig config) => {
+    'id': geofenceLineLayerId,
+    'type': 'line',
+    'source': geofencesSourceId,
+    'paint': {
+      'line-color': '#3FABC9',
+      'line-width': 2,
+      'line-opacity': 0.6,
+    },
+    'filter': ['==', ['geometry-type'], 'LineString'],
+  };
+
+  static Map<String, dynamic> _geofencesLabelLayer(MapStyleConfig config) => {
+    'id': geofenceLabelLayerId,
+    'type': 'symbol',
+    'source': geofencesSourceId,
+    'layout': {
+      'text-field': '{name}',
+      'text-font': ['Noto Sans Regular', 'Arial Unicode MS Regular'],
+      'text-size': 12,
+      'text-anchor': 'top',
+      'text-justify': 'center',
+    },
+    'paint': {
+      'text-color': '#000000',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 2,
+    },
+    'filter': ['==', ['geometry-type'], 'Point'],
+  };
+
   static Map<String, dynamic> _routeLayer(MapStyleConfig config, double devicePixelRatio) => {
-    'source': deviceRouteSourceId,
+    'source': routeLineSourceId,
     'id': routeLayerId,
     'type': 'line',
     'layout': {
@@ -190,7 +254,7 @@ class MapStyles {
   };
 
   static Map<String, dynamic> _routeLayerCasing(MapStyleConfig config, double devicePixelRatio) => {
-    'source': deviceRouteSourceId,
+    'source': routeLineSourceId,
     'id': routeCasingLayerId,
     'type': 'line',
     'layout': {
@@ -200,6 +264,16 @@ class MapStyles {
     'paint': {
       'line-color': 'white',
       'line-width': 5,
+    },
+  };
+
+  static Map<String, dynamic> _routePointsLayer(MapStyleConfig config, double devicePixelRatio) => {
+    'source': routePointsSourceId,
+    'id': routePointsLayerId,
+    'type': 'circle',
+    'paint': {
+      'circle-radius': 2,
+      'circle-color': ['get', 'color']
     },
   };
 
@@ -214,6 +288,7 @@ class MapStyles {
     'paint': {
       'line-color': '#4CAF50',
       'line-width': 6,
+      'line-opacity': 0.5
     },
   };
 
@@ -257,9 +332,11 @@ class MapStyles {
       'sources': {
         'base-map': baseSource,
         devicesSourceId: _devicesSource,
-        deviceRouteSourceId: _routeSource,
+        routeLineSourceId: _routeSource,
+        routePointsSourceId: _speedPointsSource,
         movingSegmentSourceId: _movingSegmentSource,
         eventMarkerSourceId: _eventMarkerSource,
+        geofencesSourceId: _geofencesSource
       },
       'layers': [
         {
@@ -269,8 +346,12 @@ class MapStyles {
           'minzoom': 0,
           'maxzoom': 22,
         },
+        _geofencesPolygonLayer(config),
+        _geofencesLineLayer(config),
+        _geofencesLabelLayer(config),
         _routeLayer(config, devicePixelRatio),
         _routeLayerCasing(config, devicePixelRatio),
+        _routePointsLayer(config, devicePixelRatio),
         _movingSegmentLayer(config, devicePixelRatio),
         _clusterLayer(config),
         _clusterCountLayer(config),
@@ -445,14 +526,20 @@ class MapStyles {
       // Add our devices source
       final sources = style['sources'] as Map<String, dynamic>;
       sources[devicesSourceId] = _devicesSource;
-      sources[deviceRouteSourceId] = _routeSource;
+      sources[routeLineSourceId] = _routeSource;
+      sources[routePointsSourceId] = _speedPointsSource;
       sources[movingSegmentSourceId] = _movingSegmentSource;
       sources[eventMarkerSourceId] = _eventMarkerSource;
+      sources[geofencesSourceId] = _geofencesSource;
 
       // Add cluster layers and devices layer at the end (on top)
       final layers = style['layers'] as List<dynamic>;
+      layers.add(_geofencesPolygonLayer(config));
+      layers.add(_geofencesLineLayer(config));
+      layers.add(_geofencesLabelLayer(config));
       layers.add(_routeLayer(config, devicePixelRatio));
       layers.add(_routeLayerCasing(config, devicePixelRatio));
+      layers.add(_routePointsLayer(config, devicePixelRatio));
       layers.add(_movingSegmentLayer(config, devicePixelRatio));
       layers.add(_clusterLayer(config));
       layers.add(_clusterCountLayer(config));

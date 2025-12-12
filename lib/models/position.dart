@@ -1,7 +1,6 @@
 class Position {
   final int id;
   final int deviceId;
-  final DateTime deviceTime;
   final DateTime fixTime;
   final DateTime serverTime;
   final bool valid;
@@ -19,7 +18,6 @@ class Position {
   Position({
     required this.id,
     required this.deviceId,
-    required this.deviceTime,
     required this.fixTime,
     required this.serverTime,
     required this.valid,
@@ -39,7 +37,6 @@ class Position {
     return Position(
       id: json['id'] as int,
       deviceId: json['deviceId'] as int,
-      deviceTime: _parseDateTime(json['deviceTime']),
       fixTime: _parseDateTime(json['fixTime']),
       serverTime: _parseDateTime(json['serverTime']),
       valid: json['valid'] as bool? ?? false,
@@ -71,7 +68,6 @@ class Position {
     return {
       'id': id,
       'deviceId': deviceId,
-      'deviceTime': deviceTime.toIso8601String(),
       'fixTime': fixTime.toIso8601String(),
       'serverTime': serverTime.toIso8601String(),
       'valid': valid,

@@ -6,7 +6,7 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
-import '../icons/Icons.dart' as platform_icons;
+import '../icons/icons.dart' as platform_icons;
 import '../l10n/app_localizations.dart';
 
 class DeviceRoute extends StatefulWidget {
@@ -15,6 +15,7 @@ class DeviceRoute extends StatefulWidget {
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
+  final Function(Position position, bool isFirst)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
@@ -25,6 +26,7 @@ class DeviceRoute extends StatefulWidget {
     this.onBack,
     this.onRoutePositionsLoaded,
     this.onEventTap,
+    this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
   });
@@ -47,11 +49,19 @@ class _StateSeparator extends _ListItem {
   final String state;
   final Duration duration;
   final double? distance; // Distance in kilometers
+  final double? maxSpeed; // Maximum speed in km/h
   final List<Position> positions;
   final Event startEvent;
   final Event endEvent;
 
-  _StateSeparator(this.state, this.duration, this.distance, this.positions, this.startEvent, this.endEvent);
+  _StateSeparator(this.state, this.duration, this.distance, this.maxSpeed, this.positions, this.startEvent, this.endEvent);
+}
+
+class _PositionItem extends _ListItem {
+  final Position position;
+  final bool isFirst;
+
+  _PositionItem(this.position, {this.isFirst = false});
 }
 
 class _DeviceRouteState extends State<DeviceRoute> {
@@ -109,13 +119,12 @@ class _DeviceRouteState extends State<DeviceRoute> {
   }
 
   void _nextDay() {
-    final tomorrow = _selectedDate.add(const Duration(days: 1));
+    final nextDay = _selectedDate.add(const Duration(days: 1));
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
-
-    if (!tomorrow.isAfter(todayMidnight)) {
+    if (nextDay.difference(todayMidnight).inDays < 1) {
       setState(() {
-        _selectedDate = tomorrow;
+        _selectedDate = nextDay;
       });
       _loadEvents();
     }
@@ -179,10 +188,11 @@ class _DeviceRouteState extends State<DeviceRoute> {
   }
 
   (String, List<Position>) _determineStateAndPositions(DateTime startTime, DateTime endTime) {
-    // Find positions between the two events
+    // Find positions between the two events (inclusive)
     final positionsBetween = _positions.where((p) {
-      final posTime = p.deviceTime;
-      return posTime.isAfter(startTime) && posTime.isBefore(endTime);
+      final posTime = p.fixTime;
+      return (posTime.isAfter(startTime) || posTime.isAtSameMomentAs(startTime)) &&
+             (posTime.isBefore(endTime) || posTime.isAtSameMomentAs(endTime));
     }).toList();
 
     if (positionsBetween.isEmpty) {
@@ -196,6 +206,36 @@ class _DeviceRouteState extends State<DeviceRoute> {
 
   List<_ListItem> _buildListItems() {
     final items = <_ListItem>[];
+
+    // Add first position if available
+    if (_positions.isNotEmpty) {
+      items.add(_PositionItem(_positions.first, isFirst: true));
+
+      // Add segment from first position to first event
+      if (_events.isNotEmpty) {
+        final firstEvent = _events.first;
+        final firstPosition = _positions.first;
+        final gap = firstEvent.eventTime.difference(firstPosition.fixTime);
+
+        if (gap.inMinutes >= 2) {
+          final (state, positions) = _determineStateAndPositions(firstPosition.fixTime, firstEvent.eventTime);
+          final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
+          final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
+              ? positions.map((p) => p.speed * 1.852).reduce((a, b) => a > b ? a : b)
+              : null;
+          // Create a dummy event for the first position to use in the separator
+          final startEvent = Event(
+            id: -1,
+            type: 'start',
+            deviceId: firstPosition.deviceId,
+            eventTime: firstPosition.fixTime,
+            positionId: firstPosition.id,
+            attributes: {},
+          );
+          items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, startEvent, firstEvent));
+        }
+      }
+    }
 
     for (int i = 0; i < _events.length; i++) {
       final event = _events[i];
@@ -219,9 +259,42 @@ class _DeviceRouteState extends State<DeviceRoute> {
         if (gap.inMinutes >= 2) {
           final (state, positions) = _determineStateAndPositions(event.eventTime, nextEvent.eventTime);
           final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
-          items.add(_StateSeparator(state, gap, distance, positions, event, nextEvent));
+          final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
+              ? positions.map((p) => p.speed * 1.852).reduce((a, b) => a > b ? a : b)
+              : null;
+          items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, event, nextEvent));
         }
       }
+    }
+
+    // Add segment from last event to last position
+    if (_positions.isNotEmpty && _events.isNotEmpty) {
+      final lastEvent = _events.last;
+      final lastPosition = _positions.last;
+      final gap = lastPosition.fixTime.difference(lastEvent.eventTime);
+
+      if (gap.inMinutes >= 2) {
+        final (state, positions) = _determineStateAndPositions(lastEvent.eventTime, lastPosition.fixTime);
+        final distance = state.toLowerCase() == 'moving' ? _calculateTotalDistance(positions) : null;
+        final maxSpeed = state.toLowerCase() == 'moving' && positions.isNotEmpty
+            ? positions.map((p) => p.speed * 1.852).reduce((a, b) => a > b ? a : b)
+            : null;
+        // Create a dummy event for the last position to use in the separator
+        final endEvent = Event(
+          id: -2,
+          type: 'end',
+          deviceId: lastPosition.deviceId,
+          eventTime: lastPosition.fixTime,
+          positionId: lastPosition.id,
+          attributes: {},
+        );
+        items.add(_StateSeparator(state, gap, distance, maxSpeed, positions, lastEvent, endEvent));
+      }
+    }
+
+    // Add last position if available
+    if (_positions.isNotEmpty) {
+      items.add(_PositionItem(_positions.last, isFirst: false));
     }
 
     return items;
@@ -231,6 +304,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
@@ -252,20 +326,21 @@ class _DeviceRouteState extends State<DeviceRoute> {
                     onTap: _openDatePicker,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.calendar_today, color: colors.primary, size: 20),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Text(
-                            DateFormat.yMMMMd().format(_selectedDate),
+                            DateFormat.yMMMMd(locale).format(_selectedDate),
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w500,
+                              fontSize: 14
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Icon(Icons.arrow_drop_down, color: colors.onSurfaceVariant, size: 20),
+                          Icon(Icons.arrow_drop_down, color: colors.onSurfaceVariant, size: 18),
                         ],
                       ),
                     ),
@@ -286,22 +361,23 @@ class _DeviceRouteState extends State<DeviceRoute> {
                 child: CircularProgressIndicator(),
               ),
             )
-          else if (_events.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: Center(
-                child: Text(
-                  'No events for ${DateFormat.yMd().format(_selectedDate)}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            )
           else
             Builder(
               builder: (context) {
                 final items = _buildListItems();
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: Center(
+                      child: Text(
+                        'No events for ${DateFormat.yMd().format(_selectedDate)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  );
+                }
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -328,6 +404,8 @@ class _DeviceRouteState extends State<DeviceRoute> {
                         state: item.state,
                         duration: item.duration,
                         distance: item.distance,
+                        maxSpeed: item.maxSpeed,
+                        positions: item.positions,
                         isHighlighted: isHighlighted,
                         onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
                             ? () {
@@ -339,6 +417,12 @@ class _DeviceRouteState extends State<DeviceRoute> {
                                 }
                               }
                             : null,
+                      );
+                    } else if (item is _PositionItem) {
+                      return _PositionCard(
+                        position: item.position,
+                        isFirst: item.isFirst,
+                        onTap: () => widget.onPositionTap?.call(item.position, item.isFirst),
                       );
                     }
                     return const SizedBox.shrink();
@@ -357,6 +441,8 @@ class _StateRow extends StatelessWidget {
   final String state;
   final Duration duration;
   final double? distance; // Distance in kilometers
+  final double? maxSpeed; // Maximum speed in km/h
+  final List<Position> positions; // Positions for speed graph
   final bool isHighlighted;
   final VoidCallback? onTap;
 
@@ -364,6 +450,8 @@ class _StateRow extends StatelessWidget {
     required this.state,
     required this.duration,
     this.distance,
+    this.maxSpeed,
+    this.positions = const [],
     this.isHighlighted = false,
     this.onTap,
   });
@@ -400,48 +488,97 @@ class _StateRow extends StatelessWidget {
             child: InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isHighlighted
-                      ? colors.primary.withValues(alpha: 0.2)
-                      : isMoving
-                          ? colors.primaryContainer.withValues(alpha: 0.5)
-                          : colors.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isHighlighted
-                        ? colors.primary
-                        : isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
-                    width: isHighlighted ? 2 : 1,
-                  ),
-                  boxShadow: isHighlighted
-                      ? [
-                          BoxShadow(
-                            color: colors.primary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                          ),
-                        ]
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CustomPaint(
+                  painter: isMoving && positions.length > 1
+                      ? SpeedGraphPainter(
+                          positions: positions,
+                          maxSpeed: maxSpeed ?? 0,
+                          color: colors.tertiary.withValues(alpha: 0.5),
+                        )
                       : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
-                      size: 14,
-                      color: isMoving ? colors.primary : colors.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}${distance != null ? ' · ${distance!.toStringAsFixed(1)} km' : ''}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isMoving ? colors.primary : colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isHighlighted
+                          ? colors.primary.withValues(alpha: 0.3)
+                          : isMoving
+                              ? colors.primaryContainer.withValues(alpha: 0.5)
+                              : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isHighlighted
+                            ? colors.primary
+                            : isMoving ? colors.primary.withValues(alpha: 0.3) : colors.outlineVariant,
+                        width: isHighlighted ? 2 : 1,
                       ),
+                      boxShadow: isHighlighted
+                          ? [
+                              BoxShadow(
+                                color: colors.primary.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                spreadRadius: 0,
+                              ),
+                            ]
+                          : null,
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
+                          size: 14,
+                          color: isHighlighted
+                              ? Colors.white
+                              : isMoving ? colors.primary : colors.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isHighlighted
+                                    ? Colors.white
+                                    : isMoving ? colors.primary : colors.onSurfaceVariant,
+                                fontWeight: FontWeight.bold,
+                                shadows: isMoving && !isHighlighted ? [
+                                  const Shadow(color: Colors.white, blurRadius: 3),
+                                  const Shadow(color: Colors.white, blurRadius: 3),
+                                  const Shadow(color: Colors.white, blurRadius: 3),
+                                ] : isHighlighted ? [
+                                  Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                  Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                ] : null,
+                              ),
+                            ),
+                            if (distance != null || maxSpeed != null)
+                              Text(
+                                '${distance != null ? '${distance!.toStringAsFixed(1)} km' : ''}${distance != null && maxSpeed != null ? ' · ' : ''}${maxSpeed != null ? 'max: ${maxSpeed!.toStringAsFixed(0)} km/h' : ''}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: isHighlighted
+                                      ? Colors.white
+                                      : isMoving ? colors.primary : colors.onSurfaceVariant,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: isMoving && !isHighlighted ? [
+                                    const Shadow(color: Colors.white, blurRadius: 3),
+                                    const Shadow(color: Colors.white, blurRadius: 3),
+                                    const Shadow(color: Colors.white, blurRadius: 3),
+                                  ] : isHighlighted ? [
+                                    Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                    Shadow(color: colors.primary.withValues(alpha: 0.8), blurRadius: 4),
+                                  ] : null,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -453,6 +590,80 @@ class _StateRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PositionCard extends StatelessWidget {
+  final Position position;
+  final bool isFirst;
+  final VoidCallback? onTap;
+
+  const _PositionCard({
+    required this.position,
+    required this.isFirst,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
+    final localizations = AppLocalizations.of(context)!;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            Icon(
+              isFirst ? Icons.flag : Icons.flag_outlined,
+              color: isFirst ? colors.tertiary : colors.error,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isFirst ? localizations.positionStart : localizations.positionEnd,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        DateFormat.jm(locale).format(position.fixTime.toLocal()),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (position.address != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      position.address!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -540,7 +751,7 @@ class _EventCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final iconColor = _getEventColor(event.displayType, colors);
-
+    final locale = Localizations.localeOf(context).toString();
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -572,7 +783,7 @@ class _EventCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        DateFormat.jm().format(event.eventTime.toLocal()),
+                        DateFormat.jm(locale).format(event.eventTime.toLocal()),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
@@ -597,6 +808,75 @@ class _EventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class SpeedGraphPainter extends CustomPainter {
+  final List<Position> positions;
+  final double maxSpeed;
+  final Color color;
+
+  SpeedGraphPainter({
+    required this.positions,
+    required this.maxSpeed,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (positions.length < 2 || maxSpeed <= 0) return;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+
+    // Convert speeds from knots to km/h
+    final speeds = positions.map((p) => p.speed * 1.852).toList();
+
+    // Find the actual max speed from the data
+    final actualMaxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+
+    // Use the actual max if it's greater than 0, otherwise use the provided maxSpeed
+    final normalizer = actualMaxSpeed > 0 ? actualMaxSpeed : maxSpeed;
+
+    if (normalizer <= 0) return;
+
+    // Start path from bottom-left
+    path.moveTo(0, size.height);
+
+    // Draw the speed graph
+    for (int i = 0; i < speeds.length; i++) {
+      final x = (i / (speeds.length - 1)) * size.width;
+      final normalizedSpeed = speeds[i] / normalizer;
+      final y = size.height - (normalizedSpeed * size.height);
+
+      if (i == 0) {
+        path.lineTo(x, y);
+      } else {
+        // Use quadratic bezier curves for smooth transitions
+        final prevX = ((i - 1) / (speeds.length - 1)) * size.width;
+        final prevNormalizedSpeed = speeds[i - 1] / normalizer;
+        final prevY = size.height - (prevNormalizedSpeed * size.height);
+
+        final controlX = (prevX + x) / 2;
+        path.quadraticBezierTo(controlX, prevY, x, y);
+      }
+    }
+
+    // Close the path along the bottom
+    path.lineTo(size.width, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(SpeedGraphPainter oldDelegate) {
+    return oldDelegate.positions != positions ||
+        oldDelegate.maxSpeed != maxSpeed ||
+        oldDelegate.color != color;
   }
 }
 

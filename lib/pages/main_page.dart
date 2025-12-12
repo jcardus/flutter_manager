@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../models/geofence.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
@@ -27,6 +28,7 @@ class _MainPageState extends State<MainPage> {
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
+  final Map<int, Geofence> _geofences = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
   List<Position> _routePositions = [];
@@ -36,6 +38,7 @@ class _MainPageState extends State<MainPage> {
   double _bottomSheetSize = 0.0;
   Position? _eventPositionToCenter;
   Event? _selectedEvent;
+  bool? _isFirstPosition;
 
   @override
   void initState() {
@@ -50,9 +53,13 @@ class _MainPageState extends State<MainPage> {
     final positions = await _apiService.fetchPositions();
     final positionsMap = <int, Position>{};
     for (var position in positions) { positionsMap[position.deviceId] = position; }
+    final geofences = await _apiService.fetchGeofences();
+    final geofenceMap = <int, Geofence>{};
+    for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
+      _geofences.addAll(geofenceMap);
     });
     if (!mounted) return;
     await _connectSocket();
@@ -92,6 +99,13 @@ class _MainPageState extends State<MainPage> {
   void _onRoutePositionsLoaded(List<Position> positions) {
     setState(() {
       _routePositions = positions;
+      // Clear map icons when new route data is loaded (e.g., date change)
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
+      _eventPositionToCenter = null;
+      _selectedEvent = null;
+      _isFirstPosition = null;
     });
   }
 
@@ -138,6 +152,27 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
+  void _onPositionTap(Position position, bool isFirst) {
+    setState(() {
+      _eventPositionToCenter = position;
+      _selectedEvent = null;
+      _isFirstPosition = isFirst;
+      // Clear moving segment highlight when tapping a position
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
+    });
+    // Reset after next frame to allow MapView to process it
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _eventPositionToCenter = null;
+          _isFirstPosition = null;
+        });
+      }
+    });
+  }
+
   Widget _buildCurrentScreen() {
     return Stack(
       children: [
@@ -157,6 +192,7 @@ class _MainPageState extends State<MainPage> {
                 child: MapView(
                   devices: _devices,
                   positions: _positions,
+                  geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
                   showingRoute: _showingRoute,
                   routePositions: _routePositions,
@@ -166,6 +202,7 @@ class _MainPageState extends State<MainPage> {
                   onDeviceSelected: _onDeviceTap,
                   eventPositionToCenter: _eventPositionToCenter,
                   selectedEvent: _selectedEvent,
+                  isFirstPosition: _isFirstPosition,
                   onMapBackgroundTap: _clearMovingSegmentHighlight,
                 ),
               );
@@ -298,6 +335,7 @@ class _MainPageState extends State<MainPage> {
             onRoutePositionsLoaded: _onRoutePositionsLoaded,
             onSheetSizeChanged: _onBottomSheetSizeChanged,
             onEventTap: _onEventTap,
+            onPositionTap: _onPositionTap,
             onStateSegmentTap: _onStateSegmentTap,
             highlightedSegmentPositions: _movingSegmentPositions,
           ),
@@ -382,6 +420,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
+  final Function(Position position, bool isFirst)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
@@ -395,6 +434,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onRoutePositionsLoaded,
     this.onSheetSizeChanged,
     this.onEventTap,
+    this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
   });
@@ -459,6 +499,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
             onSheetSizeChanged: widget.onSheetSizeChanged,
             onEventTap: widget.onEventTap,
+            onPositionTap: widget.onPositionTap,
             onStateSegmentTap: widget.onStateSegmentTap,
             highlightedSegmentPositions: widget.highlightedSegmentPositions,
           ),
