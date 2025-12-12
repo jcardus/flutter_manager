@@ -60,10 +60,16 @@ class ApiService {
   }
 
   Future<List<Geofence>> fetchGeofences() async {
-    return _fetchList(
+    final geofences = await _fetchList(
         endpoint: '/api/geofences',
         fromJson: Geofence.fromJson
     );
+    // Limit to first 1000 geofences to prevent OOM with massive datasets
+    if (geofences.length > 1000) {
+      dev.log('WARNING: ${geofences.length} geofences received, limiting to 1000 to prevent OOM', name: 'API');
+      return geofences.take(1000).toList();
+    }
+    return geofences;
   }
 
   Future<List<Event>> fetchEvents({
