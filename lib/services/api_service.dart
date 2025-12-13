@@ -86,7 +86,11 @@ class ApiService {
     );
     // Filter out deviceOnline and deviceOffline events
     return events
-        .where((event) => event.type != 'deviceUnknown' && event.type != 'deviceOnline' && event.type != 'deviceOffline')
+        .where((event) =>
+              event.type != 'deviceUnknown' &&
+              event.type != 'deviceMoving' &&
+              event.type != 'deviceOnline' &&
+              event.type != 'deviceOffline')
         .toList();
   }
 
