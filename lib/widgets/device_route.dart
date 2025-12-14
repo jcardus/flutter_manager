@@ -6,6 +6,7 @@ import '../models/event.dart';
 import '../models/trip.dart';
 import '../models/stop.dart';
 import '../services/api_service.dart';
+import '../utils/geo_utils.dart';
 import 'common/handle_bar.dart';
 import '../icons/icons.dart' as platform_icons;
 import '../l10n/app_localizations.dart';
@@ -269,6 +270,74 @@ class _DeviceRouteState extends State<DeviceRoute> {
           startEvent,
           endEvent,
         ));
+      }
+    }
+
+    // Add virtual state separator between last trip/stop and final position
+    if (_positions.isNotEmpty && combined.isNotEmpty) {
+      final lastPosition = _positions.last;
+      final lastTripOrStop = combined.last;
+      final lastTripStopEndTime = lastTripOrStop.endTime;
+
+      // Check if there's a time gap between last trip/stop and final position
+      if (lastPosition.fixTime.isAfter(lastTripStopEndTime)) {
+        // Get positions in the gap
+        final gapPositions = _positions.where((p) {
+          return p.fixTime.isAfter(lastTripStopEndTime) &&
+                 !p.fixTime.isAfter(lastPosition.fixTime);
+        }).toList();
+
+        if (gapPositions.isNotEmpty) {
+          // Determine state based on movement
+          final hasMovement = gapPositions.any((p) => p.speed > 0);
+          final state = hasMovement ? 'moving' : 'stopped';
+
+          // Calculate duration
+          final duration = lastPosition.fixTime.difference(lastTripStopEndTime);
+
+          // Calculate distance and max speed for moving segments
+          double? distance;
+          double? maxSpeed;
+          if (hasMovement && gapPositions.length > 1) {
+            // Use Haversine formula for accurate distance
+            distance = calculateTotalDistance(gapPositions);
+
+            // Get max speed from positions
+            final speeds = gapPositions.map((p) => p.speed).where((s) => s > 0);
+            if (speeds.isNotEmpty) {
+              maxSpeed = speeds.reduce((a, b) => a > b ? a : b) * 1.852; // Convert knots to km/h
+            }
+          }
+
+          // Create dummy events
+          final startEvent = Event(
+            id: -5,
+            type: hasMovement ? 'virtualTripStart' : 'virtualStopStart',
+            deviceId: widget.device.id,
+            eventTime: lastTripStopEndTime,
+            positionId: null,
+            attributes: {},
+          );
+
+          final endEvent = Event(
+            id: -6,
+            type: hasMovement ? 'virtualTripEnd' : 'virtualStopEnd',
+            deviceId: widget.device.id,
+            eventTime: lastPosition.fixTime,
+            positionId: lastPosition.id,
+            attributes: {},
+          );
+
+          items.add(_StateSeparator(
+            state,
+            duration,
+            distance,
+            maxSpeed,
+            hasMovement ? gapPositions : [],
+            startEvent,
+            endEvent,
+          ));
+        }
       }
     }
 
