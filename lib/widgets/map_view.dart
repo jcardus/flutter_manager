@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
@@ -32,6 +31,7 @@ class MapView extends StatefulWidget {
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
   final bool? isFirstPosition;
+  final String? positionLabel;
   final VoidCallback? onMapBackgroundTap;
 
   const MapView({
@@ -50,6 +50,7 @@ class MapView extends StatefulWidget {
     this.eventPositionToCenter,
     this.selectedEvent,
     this.isFirstPosition,
+    this.positionLabel,
     this.onMapBackgroundTap,
   });
 
@@ -166,8 +167,12 @@ class _MapViewState extends State<MapView> {
       case 'commandresult':
         return Icons.check_circle;
       case 'devicemoving':
+      case 'tripstart':
         return platform_icons.PlatformIcons.play;
       case 'devicestopped':
+      case 'tripend':
+      case 'stopstart':
+      case 'stopend':
         return Icons.stop_circle;
       case 'deviceoverspeed':
         return Icons.speed;
@@ -181,9 +186,13 @@ class _MapViewState extends State<MapView> {
     switch (type.toLowerCase()) {
       case 'ignitionon':
       case 'devicemoving':
+      case 'tripstart':
         return colors.tertiary; // Green for movement/ignition on
       case 'ignitionoff':
       case 'devicestopped':
+      case 'tripend':
+      case 'stopstart':
+      case 'stopend':
         return colors.error; // Red for stop/ignition off
       default:
         return colors.primary;
@@ -228,15 +237,34 @@ class _MapViewState extends State<MapView> {
         {'type': 'FeatureCollection', 'features': [markerFeature]},
       );
     } else {
-      // No event, show a position marker (flag icon)
-      final isFirst = widget.isFirstPosition ?? true;
-      final iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+      // No event, show a position marker based on label
+      final colors = Theme.of(context).colorScheme;
+      IconData icon;
+      Color iconColor;
+      String iconName;
+
+      // Determine icon based on label
+      if (widget.positionLabel == 'Movement Start') {
+        icon = platform_icons.PlatformIcons.play;
+        iconColor = colors.tertiary;
+        iconName = 'position-movement-start';
+      } else if (widget.positionLabel == 'Stop') {
+        icon = Icons.stop_circle;
+        iconColor = colors.error;
+        iconName = 'position-stop';
+      } else {
+        // Day start/end positions
+        final isFirst = widget.isFirstPosition ?? true;
+        icon = isFirst ? Icons.flag : Icons.flag_outlined;
+        iconColor = isFirst ? colors.tertiary : colors.error;
+        iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+      }
 
       try {
         await addImageFromIcon(
           iconName,
-          isFirst ? Icons.flag : Icons.flag_outlined,
-          isFirst ? const Color(0xFF4CAF50) : const Color(0xFFF44336), // Green for start, red for end
+          icon,
+          iconColor,
           size: 48,
         );
       } catch (e) {
@@ -588,7 +616,7 @@ class _MapViewState extends State<MapView> {
       {'type': 'FeatureCollection', 'features': [lineString]},
     );
 
-    // Add start and end markers using event marker source
+    // Add start and end markers for the segment
     final startPos = widget.movingSegmentPositions.first;
     final endPos = widget.movingSegmentPositions.last;
 

@@ -39,6 +39,7 @@ class _MainPageState extends State<MainPage> {
   Position? _eventPositionToCenter;
   Event? _selectedEvent;
   bool? _isFirstPosition;
+  String? _positionLabel;
 
   @override
   void initState() {
@@ -152,11 +153,12 @@ class _MainPageState extends State<MainPage> {
     });
   }
 
-  void _onPositionTap(Position position, bool isFirst) {
+  void _onPositionTap(Position position, bool isFirst, String? label) {
     setState(() {
       _eventPositionToCenter = position;
       _selectedEvent = null;
       _isFirstPosition = isFirst;
+      _positionLabel = label;
       // Clear moving segment highlight when tapping a position
       _movingSegmentPositions = [];
       _segmentStartEvent = null;
@@ -168,6 +170,7 @@ class _MainPageState extends State<MainPage> {
         setState(() {
           _eventPositionToCenter = null;
           _isFirstPosition = null;
+          _positionLabel = null;
         });
       }
     });
@@ -204,6 +207,7 @@ class _MainPageState extends State<MainPage> {
                   eventPositionToCenter: _eventPositionToCenter,
                   selectedEvent: _selectedEvent,
                   isFirstPosition: _isFirstPosition,
+                  positionLabel: _positionLabel,
                   onMapBackgroundTap: _clearMovingSegmentHighlight,
                 ),
               );
@@ -421,7 +425,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
-  final Function(Position position, bool isFirst)? onPositionTap;
+  final Function(Position position, bool isFirst, String? label)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
