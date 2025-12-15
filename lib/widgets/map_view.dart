@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/device.dart';
@@ -32,6 +31,7 @@ class MapView extends StatefulWidget {
   final Position? eventPositionToCenter;
   final Event? selectedEvent;
   final bool? isFirstPosition;
+  final String? positionLabel;
   final VoidCallback? onMapBackgroundTap;
 
   const MapView({
@@ -50,6 +50,7 @@ class MapView extends StatefulWidget {
     this.eventPositionToCenter,
     this.selectedEvent,
     this.isFirstPosition,
+    this.positionLabel,
     this.onMapBackgroundTap,
   });
 
@@ -127,10 +128,10 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  Future<void> _update() async {
+  Future<void> _update({bool forceUpdateVisibility = false}) async {
     if (widget.positions.isNotEmpty && mapController != null && _mapReady && widget.selectedIndex == 0) {
-      await _updateMapSource();
-      await _updateRouteSource();
+      await _updateMapSource(forceUpdateVisibility: forceUpdateVisibility);
+      await _updateRouteSource(forceUpdate: forceUpdateVisibility);
       await _updateMovingSegmentSource();
       if (!_initialFitDone) {
         await _updateGeofencesSource();
@@ -166,8 +167,12 @@ class _MapViewState extends State<MapView> {
       case 'commandresult':
         return Icons.check_circle;
       case 'devicemoving':
+      case 'tripstart':
         return platform_icons.PlatformIcons.play;
       case 'devicestopped':
+      case 'tripend':
+      case 'stopstart':
+      case 'stopend':
         return Icons.stop_circle;
       case 'deviceoverspeed':
         return Icons.speed;
@@ -181,9 +186,13 @@ class _MapViewState extends State<MapView> {
     switch (type.toLowerCase()) {
       case 'ignitionon':
       case 'devicemoving':
+      case 'tripstart':
         return colors.tertiary; // Green for movement/ignition on
       case 'ignitionoff':
       case 'devicestopped':
+      case 'tripend':
+      case 'stopstart':
+      case 'stopend':
         return colors.error; // Red for stop/ignition off
       default:
         return colors.primary;
@@ -228,15 +237,35 @@ class _MapViewState extends State<MapView> {
         {'type': 'FeatureCollection', 'features': [markerFeature]},
       );
     } else {
-      // No event, show a position marker (flag icon)
-      final isFirst = widget.isFirstPosition ?? true;
-      final iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+      // No event, show a position marker based on label
+      // Get colors before any async operations
+      final colors = Theme.of(context).colorScheme;
+      IconData icon;
+      Color iconColor;
+      String iconName;
+
+      // Determine icon based on label
+      if (widget.positionLabel == 'Movement Start') {
+        icon = platform_icons.PlatformIcons.play;
+        iconColor = colors.tertiary;
+        iconName = 'position-movement-start';
+      } else if (widget.positionLabel == 'Stop') {
+        icon = Icons.stop_circle;
+        iconColor = colors.error;
+        iconName = 'position-stop';
+      } else {
+        // Day start/end positions
+        final isFirst = widget.isFirstPosition ?? true;
+        icon = isFirst ? Icons.flag : Icons.flag_outlined;
+        iconColor = isFirst ? colors.tertiary : colors.error;
+        iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
+      }
 
       try {
         await addImageFromIcon(
           iconName,
-          isFirst ? Icons.flag : Icons.flag_outlined,
-          isFirst ? const Color(0xFF4CAF50) : const Color(0xFFF44336), // Green for start, red for end
+          icon,
+          iconColor,
           size: 48,
         );
       } catch (e) {
@@ -346,7 +375,7 @@ class _MapViewState extends State<MapView> {
     return mapController!.addImage(name, list);
   }
 
-  Future<void> _updateMapSource() async {
+  Future<void> _updateMapSource({bool forceUpdateVisibility = false}) async {
     final List<Map<String, dynamic>> features = [];
     for (var entry in widget.positions.entries) {
       final deviceId = entry.key;
@@ -375,8 +404,8 @@ class _MapViewState extends State<MapView> {
     }
     await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': features});
 
-    // Only update layer visibility if showingRoute changed
-    if (_lastShowingRoute != widget.showingRoute) {
+    // Only update layer visibility if showingRoute changed or forced
+    if (forceUpdateVisibility || _lastShowingRoute != widget.showingRoute) {
       await _updateLayersVisibility();
       _lastShowingRoute = widget.showingRoute;
     }
@@ -394,11 +423,11 @@ class _MapViewState extends State<MapView> {
     await mapController!.setLayerVisibility(MapStyles.clusterCountLayerId, visible);
   }
 
-  Future<void> _updateRouteSource() async {
+  Future<void> _updateRouteSource({forceUpdate = false}) async {
     if (mapController == null) return;
 
     // Check if route positions have changed
-    if (_routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
+    if (!forceUpdate && _routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
       return;
     }
 
@@ -569,6 +598,20 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
+    // Get the event icons and colors before any async operations
+    final startIcon = widget.segmentStartEvent != null
+        ? _getEventIcon(widget.segmentStartEvent!.displayType)
+        : null;
+    final endIcon = widget.segmentEndEvent != null
+        ? _getEventIcon(widget.segmentEndEvent!.displayType)
+        : null;
+    final startColor = widget.segmentStartEvent != null
+        ? _getEventColor(widget.segmentStartEvent!.displayType, context)
+        : null;
+    final endColor = widget.segmentEndEvent != null
+        ? _getEventColor(widget.segmentEndEvent!.displayType, context)
+        : null;
+
     // Build LineString from moving segment positions
     final coordinates = widget.movingSegmentPositions
         .map((p) => [p.longitude, p.latitude])
@@ -588,17 +631,12 @@ class _MapViewState extends State<MapView> {
       {'type': 'FeatureCollection', 'features': [lineString]},
     );
 
-    // Add start and end markers using event marker source
+    // Add start and end markers for the segment
     final startPos = widget.movingSegmentPositions.first;
     final endPos = widget.movingSegmentPositions.last;
 
-    // Get the event icons and add them
-    if (widget.segmentStartEvent != null && widget.segmentEndEvent != null) {
-      final startIcon = _getEventIcon(widget.segmentStartEvent!.displayType);
-      final endIcon = _getEventIcon(widget.segmentEndEvent!.displayType);
-
-      final startColor = _getEventColor(widget.segmentStartEvent!.displayType, context);
-      final endColor = _getEventColor(widget.segmentEndEvent!.displayType, context);
+    // Add the event icons if available
+    if (startIcon != null && endIcon != null && startColor != null && endColor != null) {
 
       await addImageFromIcon('segment-start', startIcon, startColor, size: 48);
       await addImageFromIcon('segment-end', endIcon, endColor, size: 48);
@@ -754,7 +792,7 @@ class _MapViewState extends State<MapView> {
       }
 
       setState(() { _mapReady = true; });
-      _update();
+      _update(forceUpdateVisibility: true);
     } catch (e) {
       dev.log('_onStyleLoaded', error: e);
     }

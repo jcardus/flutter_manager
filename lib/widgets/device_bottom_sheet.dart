@@ -53,7 +53,7 @@ class DeviceBottomSheet extends StatefulWidget {
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final ValueChanged<double>? onSheetSizeChanged;
   final Function(Position position, Event event)? onEventTap;
-  final Function(Position position, bool isFirst)? onPositionTap;
+  final Function(Position position, bool isFirst, String? label)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
 
