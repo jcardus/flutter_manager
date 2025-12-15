@@ -26,5 +26,5 @@ String get googleMapsClientId {
   return '';
 }
 
-const double selectedZoomLevel=15;
+const double selectedZoomLevel=14;
 const int maxGeofences=100;
