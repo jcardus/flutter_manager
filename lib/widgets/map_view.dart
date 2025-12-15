@@ -344,9 +344,13 @@ class _MapViewState extends State<MapView> {
 
   Future<void> addImageFromAsset(String name, String assetName) async {
     dev.log('adding $name, $assetName');
-    final bytes = await rootBundle.load(assetName);
-    final list = bytes.buffer.asUint8List();
-    return mapController!.addImage(name, list);
+    try {
+      final bytes = await rootBundle.load(assetName);
+      final list = bytes.buffer.asUint8List();
+      return mapController!.addImage(name, list);
+    } catch (e) {
+      dev.log('$e');
+    }
   }
 
   Future<void> addImageFromIcon(String name, IconData icon, Color color, {double size = 48}) async {
