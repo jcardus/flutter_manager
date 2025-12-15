@@ -128,10 +128,10 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  Future<void> _update() async {
+  Future<void> _update({bool forceUpdateVisibility = false}) async {
     if (widget.positions.isNotEmpty && mapController != null && _mapReady && widget.selectedIndex == 0) {
-      await _updateMapSource();
-      await _updateRouteSource();
+      await _updateMapSource(forceUpdateVisibility: forceUpdateVisibility);
+      await _updateRouteSource(forceUpdate: forceUpdateVisibility);
       await _updateMovingSegmentSource();
       if (!_initialFitDone) {
         await _updateGeofencesSource();
@@ -238,6 +238,7 @@ class _MapViewState extends State<MapView> {
       );
     } else {
       // No event, show a position marker based on label
+      // Get colors before any async operations
       final colors = Theme.of(context).colorScheme;
       IconData icon;
       Color iconColor;
@@ -374,7 +375,7 @@ class _MapViewState extends State<MapView> {
     return mapController!.addImage(name, list);
   }
 
-  Future<void> _updateMapSource() async {
+  Future<void> _updateMapSource({bool forceUpdateVisibility = false}) async {
     final List<Map<String, dynamic>> features = [];
     for (var entry in widget.positions.entries) {
       final deviceId = entry.key;
@@ -403,8 +404,8 @@ class _MapViewState extends State<MapView> {
     }
     await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': features});
 
-    // Only update layer visibility if showingRoute changed
-    if (_lastShowingRoute != widget.showingRoute) {
+    // Only update layer visibility if showingRoute changed or forced
+    if (forceUpdateVisibility || _lastShowingRoute != widget.showingRoute) {
       await _updateLayersVisibility();
       _lastShowingRoute = widget.showingRoute;
     }
@@ -422,11 +423,11 @@ class _MapViewState extends State<MapView> {
     await mapController!.setLayerVisibility(MapStyles.clusterCountLayerId, visible);
   }
 
-  Future<void> _updateRouteSource() async {
+  Future<void> _updateRouteSource({forceUpdate = false}) async {
     if (mapController == null) return;
 
     // Check if route positions have changed
-    if (_routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
+    if (!forceUpdate && _routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
       return;
     }
 
@@ -597,6 +598,20 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
+    // Get the event icons and colors before any async operations
+    final startIcon = widget.segmentStartEvent != null
+        ? _getEventIcon(widget.segmentStartEvent!.displayType)
+        : null;
+    final endIcon = widget.segmentEndEvent != null
+        ? _getEventIcon(widget.segmentEndEvent!.displayType)
+        : null;
+    final startColor = widget.segmentStartEvent != null
+        ? _getEventColor(widget.segmentStartEvent!.displayType, context)
+        : null;
+    final endColor = widget.segmentEndEvent != null
+        ? _getEventColor(widget.segmentEndEvent!.displayType, context)
+        : null;
+
     // Build LineString from moving segment positions
     final coordinates = widget.movingSegmentPositions
         .map((p) => [p.longitude, p.latitude])
@@ -620,13 +635,8 @@ class _MapViewState extends State<MapView> {
     final startPos = widget.movingSegmentPositions.first;
     final endPos = widget.movingSegmentPositions.last;
 
-    // Get the event icons and add them
-    if (widget.segmentStartEvent != null && widget.segmentEndEvent != null) {
-      final startIcon = _getEventIcon(widget.segmentStartEvent!.displayType);
-      final endIcon = _getEventIcon(widget.segmentEndEvent!.displayType);
-
-      final startColor = _getEventColor(widget.segmentStartEvent!.displayType, context);
-      final endColor = _getEventColor(widget.segmentEndEvent!.displayType, context);
+    // Add the event icons if available
+    if (startIcon != null && endIcon != null && startColor != null && endColor != null) {
 
       await addImageFromIcon('segment-start', startIcon, startColor, size: 48);
       await addImageFromIcon('segment-end', endIcon, endColor, size: 48);
@@ -782,7 +792,7 @@ class _MapViewState extends State<MapView> {
       }
 
       setState(() { _mapReady = true; });
-      _update();
+      _update(forceUpdateVisibility: true);
     } catch (e) {
       dev.log('_onStyleLoaded', error: e);
     }
