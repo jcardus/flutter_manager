@@ -3,11 +3,14 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:manager/utils/constants.dart';
 import '../models/geofence.dart';
 import 'auth_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
+import '../models/trip.dart';
+import '../models/stop.dart';
 import 'web_helper_stub.dart'
     if (dart.library.html) 'web_helper_web.dart' as web_helper;
 
@@ -60,10 +63,16 @@ class ApiService {
   }
 
   Future<List<Geofence>> fetchGeofences() async {
-    return _fetchList(
+    final geofences = await _fetchList(
         endpoint: '/api/geofences',
         fromJson: Geofence.fromJson
     );
+    // Limit to first 1000 geofences to prevent OOM with massive datasets
+    if (geofences.length > maxGeofences) {
+      dev.log('WARNING: ${geofences.length} geofences received, limiting to $maxGeofences to prevent OOM', name: 'API');
+      return geofences.take(maxGeofences).toList();
+    }
+    return geofences;
   }
 
   Future<List<Event>> fetchEvents({
@@ -79,7 +88,11 @@ class ApiService {
     );
     // Filter out deviceOnline and deviceOffline events
     return events
-        .where((event) => event.type != 'deviceUnknown' && event.type != 'deviceOnline' && event.type != 'deviceOffline')
+        .where((event) =>
+              event.type != 'deviceUnknown' &&
+              event.type != 'deviceMoving' &&
+              event.type != 'deviceOnline' &&
+              event.type != 'deviceOffline')
         .toList();
   }
 
@@ -93,6 +106,32 @@ class ApiService {
     return _fetchList(
       endpoint: '/api/reports/route?deviceId=$deviceId&from=$fromParam&to=$toParam',
       fromJson: Position.fromJson
+    );
+  }
+
+  Future<List<Trip>> fetchTrips({
+    required int deviceId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromParam = from.toUtc().toIso8601String();
+    final toParam = to.toUtc().toIso8601String();
+    return _fetchList(
+      endpoint: '/api/reports/trips?deviceId=$deviceId&from=$fromParam&to=$toParam',
+      fromJson: Trip.fromJson
+    );
+  }
+
+  Future<List<Stop>> fetchStops({
+    required int deviceId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromParam = from.toUtc().toIso8601String();
+    final toParam = to.toUtc().toIso8601String();
+    return _fetchList(
+      endpoint: '/api/reports/stops?deviceId=$deviceId&from=$fromParam&to=$toParam',
+      fromJson: Stop.fromJson
     );
   }
 
