@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'pages/login_page.dart';
 import 'pages/main_page.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -24,6 +25,11 @@ Future<void> main() async {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
+
+  // Initialize notifications
+  if (!kIsWeb) {
+    await NotificationService().initialize();
+  }
 
   runApp(const App());
 }
