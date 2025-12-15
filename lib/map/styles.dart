@@ -37,7 +37,10 @@ class MapStyles {
       nameKey: 'google',
       type: 'raster',
       tilesOrStyleUrl: [
-        'https://d831cxdfrpk69.cloudfront.net/?x={x}&y={y}&z={z}&type=roads'
+        'https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&gl=MA',
+        'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&gl=MA',
+        'https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&gl=MA',
+        'https://mt3.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&gl=MA',
       ],
       attribution: '&copy; Google Maps',
     ),
@@ -45,7 +48,10 @@ class MapStyles {
       nameKey: 'satellite',
       type: 'raster',
       tilesOrStyleUrl: [
-        'https://d831cxdfrpk69.cloudfront.net/?x={x}&y={y}&z={z}&type=satellite'
+        'https://mt0.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&gl=MA',
+        'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&gl=MA',
+        'https://mt2.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&gl=MA',
+        'https://mt3.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&gl=MA',
       ],
       attribution: '&copy; Google Maps',
       textColor: '#FFFFFF',
