@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class ProfileView extends StatelessWidget {
   final int deviceCount;
@@ -101,6 +103,21 @@ class ProfileView extends StatelessWidget {
                 ),
               ),
 
+              // Test Notification Button (only on mobile)
+              if (!kIsWeb)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _handleTestNotification(context),
+                    icon: const Icon(Icons.notifications_active),
+                    label: const Text('Test Notification'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+
               // Logout Button
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -120,6 +137,29 @@ class ProfileView extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _handleTestNotification(BuildContext context) async {
+    try {
+      await NotificationService().showTestNotification();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test notification sent!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send notification: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleLogout(BuildContext context, AuthService authService) async {
