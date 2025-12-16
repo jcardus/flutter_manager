@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -103,14 +104,14 @@ class ProfileView extends StatelessWidget {
                 ),
               ),
 
-              // Test Notification Button (only on mobile)
+              // Show FCM Token Button (only on mobile)
               if (!kIsWeb)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: ElevatedButton.icon(
-                    onPressed: () => _handleTestNotification(context),
+                    onPressed: () => _showFcmToken(context),
                     icon: const Icon(Icons.notifications_active),
-                    label: const Text('Test Notification'),
+                    label: const Text('Show FCM Token'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
                     ),
@@ -139,27 +140,62 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Future<void> _handleTestNotification(BuildContext context) async {
-    try {
-      await NotificationService().showTestNotification();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Test notification sent!'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send notification: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
+  void _showFcmToken(BuildContext context) {
+    final token = NotificationService().fcmToken;
+
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('FCM token not available yet. Please try again in a moment.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
     }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('FCM Token'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Use this token to send test notifications from Firebase Console:',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            SelectableText(
+              token,
+              style: const TextStyle(
+                fontSize: 10,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: token));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Token copied to clipboard!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleLogout(BuildContext context, AuthService authService) async {
