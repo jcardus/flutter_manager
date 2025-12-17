@@ -253,6 +253,10 @@ class _MapViewState extends State<MapView> {
         icon = Icons.stop_circle;
         iconColor = colors.error;
         iconName = 'position-stop';
+      } else if (widget.positionLabel == 'AirTag Location') {
+        icon = Icons.location_on;
+        iconColor = colors.primary;
+        iconName = 'position-airtag-location';
       } else {
         // Day start/end positions
         final isFirst = widget.isFirstPosition ?? true;
