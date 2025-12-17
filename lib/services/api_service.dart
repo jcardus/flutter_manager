@@ -105,10 +105,12 @@ class ApiService {
   }) async {
     final fromParam = from.toUtc().toIso8601String();
     final toParam = to.toUtc().toIso8601String();
-    return _fetchList(
+    final positions = await _fetchList(
       endpoint: '/api/reports/route?deviceId=$deviceId&from=$fromParam&to=$toParam',
       fromJson: Position.fromJson
     );
+    // Filter out invalid positions
+    return positions.where((position) => position.valid).toList();
   }
 
   Future<List<Trip>> fetchTrips({
