@@ -56,10 +56,12 @@ class ApiService {
   }
 
   Future<List<Position>> fetchPositions() async {
-    return _fetchList(
+    final positions = await _fetchList(
       endpoint: '/api/positions',
       fromJson: Position.fromJson
     );
+    // Filter out invalid positions
+    return positions.where((position) => position.valid).toList();
   }
 
   Future<List<Geofence>> fetchGeofences() async {
