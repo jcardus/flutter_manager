@@ -99,6 +99,22 @@ class _MapViewState extends State<MapView> {
     await mapController!.setLayerVisibility(MapStyles.geofenceLabelLayerId, _geofencesSelected);
   }
 
+  Future<void> _zoomIn() async {
+    if (mapController == null) return;
+    await mapController!.animateCamera(
+      CameraUpdate.zoomIn(),
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
+  Future<void> _zoomOut() async {
+    if (mapController == null) return;
+    await mapController!.animateCamera(
+      CameraUpdate.zoomOut(),
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -845,6 +861,8 @@ class _MapViewState extends State<MapView> {
                   onStyleSelected: _applyStyle,
                   geofencesLayer: _geofencesSelected,
                   onLayerSelected: _layerSelected,
+                  onZoomIn: _zoomIn,
+                  onZoomOut: _zoomOut,
                 )
             ],
           );

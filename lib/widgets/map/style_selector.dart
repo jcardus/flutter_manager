@@ -8,6 +8,8 @@ class MapStyleSelector extends StatefulWidget {
   final Function(int) onStyleSelected;
   final bool geofencesLayer;
   final Function() onLayerSelected;
+  final Function() onZoomIn;
+  final Function() onZoomOut;
 
   const MapStyleSelector({
     super.key,
@@ -16,6 +18,8 @@ class MapStyleSelector extends StatefulWidget {
     required this.onStyleSelected,
     required this.geofencesLayer,
     required this.onLayerSelected,
+    required this.onZoomIn,
+    required this.onZoomOut,
   });
 
   @override
@@ -30,7 +34,7 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
     final l10n = AppLocalizations.of(context)!;
 
     return Positioned(
-      top: 60,
+      top: 0,
       right: 0,
       child: SafeArea(
         child: AnimatedSize(
@@ -63,6 +67,59 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                       ),
                     ),
                     if (_menuExpanded) ...[
+                      const Divider(height: 1),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            InkWell(
+                              onTap: widget.onZoomIn,
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            InkWell(
+                              onTap: widget.onZoomOut,
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.remove,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       const Divider(height: 1),
 
                       ...List.generate(MapStyles.configs.length, (index) {
@@ -135,7 +192,7 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                             ],
                           ),
                         ),
-                      )
+                      ),
                     ],
                   ],
                 ),
