@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
 
-  "appTitle": "Track Fleet",
+  "appTitle": "Moviflotte",
   "@appTitle": {
     "description": "Application title"
   },
