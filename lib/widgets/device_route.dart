@@ -159,6 +159,30 @@ class _DeviceRouteState extends State<DeviceRoute> {
 
     if (_positions.isEmpty) return items;
 
+    // For AirTags, just list different positions without trip/stop processing
+    if (widget.device.model?.toLowerCase() == 'airtag') {
+      // Filter to only include positions with different coordinates
+      final differentPositions = <Position>[];
+      for (int i = 0; i < _positions.length; i++) {
+        if (i == 0 ||
+            _positions[i].latitude != _positions[i - 1].latitude ||
+            _positions[i].longitude != _positions[i - 1].longitude) {
+          differentPositions.add(_positions[i]);
+        }
+      }
+
+      // Add filtered positions to items
+      for (int i = 0; i < differentPositions.length; i++) {
+        final isLastPosition = i == differentPositions.length - 1;
+        items.add(_PositionItem(
+          differentPositions[i],
+          isFirst: i == 0,
+          label: (!isLastPosition && i > 0) ? 'AirTag Location' : null,
+        ));
+      }
+      return items;
+    }
+
     // Add first position
     items.add(_PositionItem(_positions.first, isFirst: true));
 
@@ -675,6 +699,9 @@ class _PositionCard extends StatelessWidget {
     } else if (label == 'Stop') {
       icon = Icons.stop_circle;
       iconColor = colors.error;
+    } else if (label == 'AirTag Location') {
+      icon = Icons.location_on;
+      iconColor = colors.primary;
     } else if (isFirst) {
       icon = Icons.flag;
       iconColor = colors.tertiary;
