@@ -294,7 +294,9 @@ class _MainPageState extends State<MainPage> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Stack(
+      body: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        child: Stack(
         children: [
           _buildCurrentScreen(),
           // Floating Navigation Bar
@@ -366,6 +368,7 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
         ],
+        ),
       ),
     );
   }
