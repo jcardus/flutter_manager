@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:manager/l10n/app_localizations.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class ProfileView extends StatelessWidget {
   final int deviceCount;
@@ -101,6 +105,21 @@ class ProfileView extends StatelessWidget {
                 ),
               ),
 
+              // Show FCM Token Button (only on mobile)
+              if (!kIsWeb)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showFcmToken(context),
+                    icon: const Icon(Icons.notifications_active),
+                    label: const Text('Show FCM Token'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+
               // Logout Button
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -115,10 +134,90 @@ class ProfileView extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Version Information
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    final info = snapshot.data!;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Center(
+                        child: Text(
+                          'Version ${info.version} (${info.buildNumber})',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  void _showFcmToken(BuildContext context) {
+    final token = NotificationService().fcmToken;
+
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('FCM token not available yet. Please try again in a moment.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('FCM Token'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Use this token to send test notifications from Firebase Console:',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            SelectableText(
+              token,
+              style: const TextStyle(
+                fontSize: 10,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: token));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Token copied to clipboard!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Copy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 

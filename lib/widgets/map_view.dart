@@ -99,6 +99,22 @@ class _MapViewState extends State<MapView> {
     await mapController!.setLayerVisibility(MapStyles.geofenceLabelLayerId, _geofencesSelected);
   }
 
+  Future<void> _zoomIn() async {
+    if (mapController == null) return;
+    await mapController!.animateCamera(
+      CameraUpdate.zoomIn(),
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
+  Future<void> _zoomOut() async {
+    if (mapController == null) return;
+    await mapController!.animateCamera(
+      CameraUpdate.zoomOut(),
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -253,6 +269,10 @@ class _MapViewState extends State<MapView> {
         icon = Icons.stop_circle;
         iconColor = colors.error;
         iconName = 'position-stop';
+      } else if (widget.positionLabel == 'AirTag Location') {
+        icon = Icons.location_on;
+        iconColor = colors.primary;
+        iconName = 'position-airtag-location';
       } else {
         // Day start/end positions
         final isFirst = widget.isFirstPosition ?? true;
@@ -344,9 +364,13 @@ class _MapViewState extends State<MapView> {
 
   Future<void> addImageFromAsset(String name, String assetName) async {
     dev.log('adding $name, $assetName');
-    final bytes = await rootBundle.load(assetName);
-    final list = bytes.buffer.asUint8List();
-    return mapController!.addImage(name, list);
+    try {
+      final bytes = await rootBundle.load(assetName);
+      final list = bytes.buffer.asUint8List();
+      return mapController!.addImage(name, list);
+    } catch (e) {
+      dev.log('$e');
+    }
   }
 
   Future<void> addImageFromIcon(String name, IconData icon, Color color, {double size = 48}) async {
@@ -837,6 +861,8 @@ class _MapViewState extends State<MapView> {
                   onStyleSelected: _applyStyle,
                   geofencesLayer: _geofencesSelected,
                   onLayerSelected: _layerSelected,
+                  onZoomIn: _zoomIn,
+                  onZoomOut: _zoomOut,
                 )
             ],
           );

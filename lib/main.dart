@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'pages/login_page.dart';
 import 'pages/main_page.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -18,12 +19,22 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  // Initialize notifications
+  if (!kIsWeb) {
+    await NotificationService().initialize();
+  }
+
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
   PlatformDispatcher.instance.onError = (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
+
+  // Initialize notifications
+  if (!kIsWeb) {
+    await NotificationService().initialize();
+  }
 
   runApp(const App());
 }

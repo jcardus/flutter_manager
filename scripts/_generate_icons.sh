@@ -101,3 +101,7 @@ for COLOR_SPEC in "${COLOR_ARRAY[@]}"; do
     fi
     echo "  - ${OUTPUT_DIR}/${COLOR_NAME}/ (hex: $COLOR_HEX)"
 done
+
+rsvg-convert -w 50 -h 50 assets/red_user_icon.svg > "${OUTPUT_DIR}/person_red_000.0.png"
+rsvg-convert -w 50 -h 50 assets/green_user_icon.svg > "${OUTPUT_DIR}/person_green_000.0.png"
+rsvg-convert -w 50 -h 50 assets/grey_user_icon.svg > "${OUTPUT_DIR}/person_grey_000.0.png"

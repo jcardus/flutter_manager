@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Grey user icon in circle -->
+  <defs>
+    <style>
+      .circle-bg {
+        fill: #9E9E9E;
+        stroke: none;
+      }
+      .user-icon {
+        fill: #FFFFFF;
+        stroke: none;
+      }
+    </style>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" class="circle-bg"/>
+
+  <!-- Head (circle) -->
+  <circle cx="256" cy="210" r="60" class="user-icon"/>
+
+  <!-- Body (path forming shoulders and torso) -->
+  <path d="M 256 285
+           C 220 285, 180 300, 165 335
+           C 155 360, 155 385, 155 405
+           C 160 440, 170 460, 180 470
+           L 332 470
+           C 342 460, 352 440, 357 405
+           C 357 385, 357 360, 347 335
+           C 332 300, 292 285, 256 285 Z"
+        class="user-icon"/>
+</svg>
