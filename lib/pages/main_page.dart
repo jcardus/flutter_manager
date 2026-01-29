@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/geofence.dart';
@@ -294,7 +295,9 @@ class _MainPageState extends State<MainPage> {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Stack(
+      body: Padding(
+        padding: EdgeInsets.only(bottom: Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
+        child: Stack(
         children: [
           _buildCurrentScreen(),
           // Floating Navigation Bar
@@ -366,6 +369,7 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
         ],
+        ),
       ),
     );
   }
