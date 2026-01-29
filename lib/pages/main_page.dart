@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
-import 'dart:io' show Platform;
+import 'dart:io';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../models/geofence.dart';
@@ -309,22 +310,37 @@ class _MainPageState extends State<MainPage> {
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: Material(
-                    elevation: 3,
-                    borderRadius: BorderRadius.circular(10),
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: Container(
-                      height: 50,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildNavItem(0, Icons.map_outlined, l10n.map),
-                          const SizedBox(width: 4),
-                          _buildNavItem(1, Icons.list, l10n.devices),
-                          const SizedBox(width: 4),
-                          _buildNavItem(2, Icons.person_outline, l10n.profile),
-                        ],
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.22),
+                              blurRadius: 32,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildNavItem(0, Icons.map_outlined, Icons.map, l10n.map),
+                            const SizedBox(width: 4),
+                            _buildNavItem(1, Icons.list_outlined, Icons.list, l10n.devices),
+                            const SizedBox(width: 4),
+                            _buildNavItem(2, Icons.person_outline, Icons.person, l10n.profile),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -374,43 +390,60 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData outlinedIcon, IconData filledIcon, String label) {
     final isSelected = _selectedIndex == index;
-    return InkWell(
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
       onTap: () {
         setState(() {
           _selectedIndex = index;
         });
       },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 14,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected
-              ? Theme.of(context).colorScheme.primaryContainer
+              ? colorScheme.primary.withValues(alpha: 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isSelected
-                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isSelected ? filledIcon : outlinedIcon,
+                key: ValueKey(isSelected),
+                size: 22,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
-            ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: isSelected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
