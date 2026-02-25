@@ -91,7 +91,21 @@
 
   "map": "Carte",
 
+  "cameras": "Caméras",
+
   "profile": "Profil",
+
+  "noCameras": "Aucune caméra disponible",
+
+  "noCamerasHint": "Définissez l'attribut cameraUrl ou cameraUrl2 sur un appareil dans Traccar pour afficher son flux ici",
+
+  "rtspStream": "Flux RTSP\nCopiez l'URL pour l'ouvrir dans un lecteur multimédia",
+
+  "copyUrl": "Copier l'URL",
+
+  "copied": "Copié !",
+
+  "insecureStream": "Le flux nécessite une connexion sécurisée (HTTPS)",
 
   "eventIgnitionOn": "Allumage Activé",
 

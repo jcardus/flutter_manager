@@ -91,7 +91,21 @@
 
   "map": "Mapa",
 
+  "cameras": "Câmaras",
+
   "profile": "Perfil",
+
+  "noCameras": "Sem câmaras disponíveis",
+
+  "noCamerasHint": "Defina o atributo cameraUrl ou cameraUrl2 num dispositivo no Traccar para mostrar o feed aqui",
+
+  "rtspStream": "Stream RTSP\nCopie o URL para abrir num leitor de media",
+
+  "copyUrl": "Copiar URL",
+
+  "copied": "Copiado!",
+
+  "insecureStream": "O stream requer uma ligação segura (HTTPS)",
 
   "eventIgnitionOn": "Ignição Ligada",
 

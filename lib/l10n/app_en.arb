@@ -243,7 +243,21 @@
 
   "map": "Map",
 
+  "cameras": "Cameras",
+
   "profile": "Profile",
+
+  "noCameras": "No cameras available",
+
+  "noCamerasHint": "Set a cameraUrl or cameraUrl2 attribute on a device in Traccar to display its feed here",
+
+  "rtspStream": "RTSP stream\nCopy URL to open in a media player",
+
+  "copyUrl": "Copy URL",
+
+  "copied": "Copied!",
+
+  "insecureStream": "Stream requires a secure (HTTPS) connection",
 
   "eventIgnitionOn": "Ignition On",
   "@eventIgnitionOn": {
