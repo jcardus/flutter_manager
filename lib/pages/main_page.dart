@@ -11,7 +11,6 @@ import '../services/api_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
-import '../widgets/cameras_view.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
@@ -229,8 +228,6 @@ class _MainPageState extends State<MainPage> {
             deviceCount: _devices.length,
             activeCount: _positions.length,
           ),
-        if (_selectedIndex == 3)
-          CamerasView(devices: _devices),
       ],
     );
   }
@@ -341,9 +338,7 @@ class _MainPageState extends State<MainPage> {
                             const SizedBox(width: 4),
                             _buildNavItem(1, Icons.list_outlined, Icons.list, l10n.devices),
                             const SizedBox(width: 4),
-                            _buildNavItem(2, Icons.videocam_outlined, Icons.videocam, l10n.cameras),
-                            const SizedBox(width: 4),
-                            _buildNavItem(3, Icons.person_outline, Icons.person, l10n.profile),
+                            _buildNavItem(2, Icons.person_outline, Icons.person, l10n.profile),
                           ],
                         ),
                       ),

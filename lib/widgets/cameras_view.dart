@@ -7,7 +7,7 @@ import '../l10n/app_localizations.dart';
 const _urlKeys = ['cameraUrl', 'streamUrl', 'camera', 'videoUrl'];
 const _url2Keys = ['cameraUrl2', 'streamUrl2', 'videoUrl2'];
 
-List<String> _getCameraUrls(Device device) {
+List<String> getCameraUrls(Device device) {
   final attrs = device.attributes ?? {};
   final urls = <String>[];
   for (final key in _urlKeys) {
@@ -43,7 +43,7 @@ class CamerasView extends StatelessWidget {
 
     final cameras = <({Device device, String url, int? channel})>[];
     for (final device in devices.values) {
-      final urls = _getCameraUrls(device);
+      final urls = getCameraUrls(device);
       if (urls.isEmpty) continue;
       if (urls.length == 1) {
         cameras.add((device: device, url: urls[0], channel: null));
@@ -138,7 +138,7 @@ class _CameraCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: _CameraFeed(url: url, label: _label)),
+            Expanded(child: CameraFeed(url: url, label: _label)),
             _CameraLabel(
               label: _label,
               isOnline: device.status == 'online',
@@ -150,17 +150,17 @@ class _CameraCard extends StatelessWidget {
   }
 }
 
-class _CameraFeed extends StatefulWidget {
+class CameraFeed extends StatefulWidget {
   final String url;
   final String label;
 
-  const _CameraFeed({required this.url, required this.label});
+  const CameraFeed({super.key, required this.url, required this.label});
 
   @override
-  State<_CameraFeed> createState() => _CameraFeedState();
+  State<CameraFeed> createState() => _CameraFeedState();
 }
 
-class _CameraFeedState extends State<_CameraFeed> {
+class _CameraFeedState extends State<CameraFeed> {
   WebViewController? _controller;
 
   @override
@@ -338,7 +338,7 @@ class _FullScreenCamera extends StatelessWidget {
           ),
         ],
       ),
-      body: _CameraFeed(url: url, label: _label),
+      body: CameraFeed(url: url, label: _label),
     );
   }
 }
