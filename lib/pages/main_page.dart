@@ -294,8 +294,21 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final canPop = _selectedDeviceId == null && _selectedIndex == 0;
 
-    return Scaffold(
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_showingRoute) {
+          _onRouteToggle(false);
+        } else if (_selectedDeviceId != null) {
+          _closeBottomSheet();
+        } else if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+        }
+      },
+      child: Scaffold(
       body: Padding(
         padding: EdgeInsets.only(bottom: Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
         child: Stack(
@@ -387,6 +400,7 @@ class _MainPageState extends State<MainPage> {
         ],
         ),
       ),
+    ),
     );
   }
 

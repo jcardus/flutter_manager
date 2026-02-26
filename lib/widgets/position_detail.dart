@@ -51,11 +51,19 @@ class PositionDetail extends StatelessWidget {
     return '${km.toStringAsFixed(1)} km';
   }
 
+  String _formatHours(num? hours) {
+    if (hours == null) return 'N/A';
+    final totalMinutes = (hours / 60000).round();
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    return m > 0 ? '${h}h ${m}m' : '${h}h';
+  }
 
   @override
   Widget build(BuildContext context) {
     final ignition = pos.attributes?['ignition'] as bool?;
     final odometer = pos.attributes?['totalDistance'] as num?;
+    final hours = pos.attributes?['hours'] as num?;
 
     if (compact) {
       return Column(
@@ -149,6 +157,14 @@ class PositionDetail extends StatelessWidget {
                 icon: PlatformIcons.odometer,
                 label: '',
                 value: _formatOdometer(odometer?.toDouble()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _InfoRow(
+                icon: Icons.timer_outlined,
+                label: '',
+                value: _formatHours(hours),
               ),
             ),
           ],
