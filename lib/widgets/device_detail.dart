@@ -1,6 +1,7 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:manager/widgets/cameras_view.dart';
 import 'package:manager/widgets/position_detail.dart';
@@ -186,6 +187,17 @@ class DeviceDetail extends StatelessWidget {
 
   Future<void> _sendBlockCommand(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
+
+    final auth = LocalAuthentication();
+    final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+    if (canCheck) {
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Authenticate to send the block command',
+        options: const AuthenticationOptions(biometricOnly: false),
+      );
+      if (!authenticated) return;
+    }
+
     final apiService = ApiService();
 
     try {

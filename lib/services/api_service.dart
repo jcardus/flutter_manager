@@ -284,7 +284,7 @@ class ApiService {
         body: body,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return true;
       } else {
         dev.log('Failed to send command: ${response.statusCode}', name: 'API');

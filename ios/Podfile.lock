@@ -87,6 +87,9 @@ PODS:
   - GoogleUtilities/UserDefaults (8.1.0):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
+  - local_auth_darwin (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - MapLibre (6.19.1)
   - maplibre_gl (0.24.1):
     - Flutter
@@ -120,6 +123,7 @@ DEPENDENCIES:
   - firebase_crashlytics (from `.symlinks/plugins/firebase_crashlytics/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
+  - local_auth_darwin (from `.symlinks/plugins/local_auth_darwin/darwin`)
   - maplibre_gl (from `.symlinks/plugins/maplibre_gl/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
@@ -155,6 +159,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_messaging/ios"
   Flutter:
     :path: Flutter
+  local_auth_darwin:
+    :path: ".symlinks/plugins/local_auth_darwin/darwin"
   maplibre_gl:
     :path: ".symlinks/plugins/maplibre_gl/ios"
   package_info_plus:
@@ -186,6 +192,7 @@ SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
+  local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   MapLibre: 7f24faba45439f80ccb0f83393c29fa32cb81952
   maplibre_gl: d83126f1b19adee5e1071c453b421efd5fc99883
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
