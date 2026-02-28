@@ -252,7 +252,9 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return response.body;
+        final url = "https://fleetmap-io.github.io/share-vehicle-location?token=${response.body}";
+        dev.log(url);
+        return url;
       } else {
         dev.log('Failed to share device: ${response.statusCode}', name: 'API');
         return null;
