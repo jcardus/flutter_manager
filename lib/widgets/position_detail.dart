@@ -35,9 +35,10 @@ class PositionDetail extends StatelessWidget {
     }
   }
 
-  String _formatIgnition(bool? ignition) {
-    if (ignition == null) return 'Unknown';
-    return ignition ? 'Ignition On' : 'Ignition Off';
+  String _formatIgnition(BuildContext context, bool? ignition) {
+    final l10n = AppLocalizations.of(context)!;
+    if (ignition == null) return l10n.unknown;
+    return ignition ? l10n.eventIgnitionOn : l10n.eventIgnitionOff;
   }
 
   String _formatAddress(String? address) {
@@ -49,6 +50,11 @@ class PositionDetail extends StatelessWidget {
     if (odometer == null) return 'N/A';
     final km = odometer / 1000; // Convert meters to kilometers
     return '${km.toStringAsFixed(1)} km';
+  }
+
+  String _formatPower(num? power) {
+    if (power == null) return 'N/A';
+    return '${power.toStringAsFixed(1)} V';
   }
 
   String _formatHours(num? hours) {
@@ -64,6 +70,7 @@ class PositionDetail extends StatelessWidget {
     final ignition = pos.attributes?['ignition'] as bool?;
     final odometer = pos.attributes?['totalDistance'] as num?;
     final hours = pos.attributes?['hours'] as num?;
+    final power = pos.attributes?['power'] as num?;
 
     if (compact) {
       return Column(
@@ -78,7 +85,6 @@ class PositionDetail extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Expanded(
                 child: _InfoRow(
                   icon: PlatformIcons.lastLocationTime,
@@ -96,12 +102,26 @@ class PositionDetail extends StatelessWidget {
                   compact: true,
                 ),
               ),
-              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Expanded(
                 child: _InfoRow(
                   icon: PlatformIcons.odometer,
                   label: '',
                   value: _formatOdometer(odometer?.toDouble()),
+                  compact: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _InfoRow(
+                  icon: Icons.bolt_outlined,
+                  label: '',
+                  value: _formatPower(power),
                   compact: true,
                 ),
               ),
@@ -135,7 +155,7 @@ class PositionDetail extends StatelessWidget {
               child: _InfoRow(
                 icon: ignition != null && ignition ? PlatformIcons.ignitionOn : PlatformIcons.ignitionOff,
                 label: '',
-                value: _formatIgnition(ignition),
+                value: _formatIgnition(context, ignition),
               ),
             ),
           ],
@@ -146,12 +166,25 @@ class PositionDetail extends StatelessWidget {
           children: [
             Expanded(
               child: _InfoRow(
+                icon: Icons.bolt_outlined,
+                label: '',
+                value: _formatPower(power),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _InfoRow(
                 icon: PlatformIcons.lastLocationTime,
                 label: '',
                 value: _formatLastUpdate(context, device.lastUpdate),
               ),
             ),
-            const SizedBox(width: 12),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Expanded(
               child: _InfoRow(
                 icon: PlatformIcons.odometer,
