@@ -81,6 +81,10 @@
 
   "locationCopied": "Emplacement copié dans le presse-papiers",
 
+  "blockCommandConfirmTitle": "Bloquer le véhicule ?",
+
+  "blockCommandConfirmMessage": "Cela arrêtera le moteur à distance. Êtes-vous sûr ?",
+
   "blockCommandSent": "Commande de blocage envoyée",
 
   "blockCommandFailed": "Échec de l’envoi de la commande de blocage",

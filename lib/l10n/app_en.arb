@@ -221,6 +221,16 @@
     "description": "Snackbar message when location is copied"
   },
 
+  "blockCommandConfirmTitle": "Block vehicle?",
+  "@blockCommandConfirmTitle": {
+    "description": "Title for block command confirmation dialog"
+  },
+
+  "blockCommandConfirmMessage": "This will stop the engine remotely. Are you sure?",
+  "@blockCommandConfirmMessage": {
+    "description": "Body text for block command confirmation dialog"
+  },
+
   "blockCommandSent": "Block command sent",
   "@blockCommandSent": {
     "description": "Snackbar message when block command is sent"

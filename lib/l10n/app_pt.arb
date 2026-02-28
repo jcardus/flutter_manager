@@ -81,6 +81,10 @@
 
   "locationCopied": "Localização copiada para a área de transferência",
 
+  "blockCommandConfirmTitle": "Bloquear veículo?",
+
+  "blockCommandConfirmMessage": "Isto irá parar o motor remotamente. Tem a certeza?",
+
   "blockCommandSent": "Comando de bloqueio enviado",
 
   "blockCommandFailed": "Falha ao enviar comando de bloqueio",

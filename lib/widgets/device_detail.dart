@@ -171,7 +171,9 @@ class DeviceDetail extends StatelessWidget {
         shareUrl = await apiService.shareDeviceV2(device.id, expiration);
       }
       if (shareUrl == null || shareUrl.isEmpty) throw Exception('No share URL');
-      await SharePlus.instance.share(ShareParams(uri: Uri.parse(shareUrl)));
+      dev.log('Sharing URL: $shareUrl');
+      final result = await SharePlus.instance.share(ShareParams(uri: Uri.parse(shareUrl)));
+      dev.log('Share result: ${result.status}');
     } catch (e) {
       dev.log('Error sharing location: $e');
       if (context.mounted) {
@@ -187,6 +189,25 @@ class DeviceDetail extends StatelessWidget {
 
   Future<void> _sendBlockCommand(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.blockCommandConfirmTitle),
+        content: Text(l10n.blockCommandConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.block),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
 
     final auth = LocalAuthentication();
     final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
@@ -435,13 +456,17 @@ class _ActionButton extends StatelessWidget {
                 size: 24,
               ),
               const SizedBox(height: 4),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w500,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
