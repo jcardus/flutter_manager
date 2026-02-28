@@ -165,9 +165,12 @@ class DeviceDetail extends StatelessWidget {
 
     try {
       final expiration = DateTime.now().add(const Duration(hours: 24));
-      await SharePlus.instance.share(
-          ShareParams(uri: Uri.parse(await apiService.shareDevice(device.id, expiration)))
-      );
+      String? shareUrl = await apiService.shareDevice(device.id, expiration);
+      if (shareUrl.isEmpty) {
+        shareUrl = await apiService.shareDeviceV2(device.id, expiration);
+      }
+      if (shareUrl == null || shareUrl.isEmpty) throw Exception('No share URL');
+      await SharePlus.instance.share(ShareParams(uri: Uri.parse(shareUrl)));
     } catch (e) {
       dev.log('Error sharing location: $e');
       if (context.mounted) {
