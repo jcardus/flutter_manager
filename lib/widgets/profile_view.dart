@@ -9,11 +9,15 @@ import '../services/notification_service.dart';
 class ProfileView extends StatelessWidget {
   final int deviceCount;
   final int activeCount;
+  final bool wsConnected;
+  final DateTime? wsLastMessage;
 
   const ProfileView({
     super.key,
     required this.deviceCount,
     required this.activeCount,
+    required this.wsConnected,
+    this.wsLastMessage,
   });
 
   @override
@@ -105,6 +109,58 @@ class ProfileView extends StatelessWidget {
                 ),
               ),
 
+              // WebSocket Status Card
+              if (!kIsWeb)
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'WebSocket',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              wsConnected ? Icons.wifi : Icons.wifi_off,
+                              size: 20,
+                              color: wsConnected
+                                  ? Theme.of(context).colorScheme.tertiary
+                                  : Theme.of(context).colorScheme.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              wsConnected ? 'Connected' : 'Disconnected',
+                              style: TextStyle(
+                                color: wsConnected
+                                    ? Theme.of(context).colorScheme.tertiary
+                                    : Theme.of(context).colorScheme.error,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (wsLastMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Last message: ${_formatTime(wsLastMessage!)}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
               // Show FCM Token Button (only on mobile)
               if (!kIsWeb)
                 Padding(
@@ -161,6 +217,14 @@ class ProfileView extends StatelessWidget {
         );
       },
     );
+  }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    return '${diff.inHours}h ago';
   }
 
   void _showFcmToken(BuildContext context) {

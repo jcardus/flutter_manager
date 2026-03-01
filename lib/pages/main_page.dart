@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
@@ -27,6 +26,7 @@ class _MainPageState extends State<MainPage> {
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
   StreamSubscription? _wsSub;
+  bool _wsConnected = false;
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
@@ -227,25 +227,19 @@ class _MainPageState extends State<MainPage> {
           ProfileView(
             deviceCount: _devices.length,
             activeCount: _positions.length,
+            wsConnected: _wsConnected,
+            wsLastMessage: _socketService.lastMessageTime,
           ),
       ],
     );
   }
 
   Future<void> _connectSocket() async {
-    final ok = await _socketService.connect();
-    if (!mounted) return;
-    if (ok && _socketService.stream != null) {
-      _wsSub = _socketService.stream!.listen(
-        (event) {
-          _handleWebSocketMessage(event);
-        },
-        onError: (e) => dev.log('[WS] Stream error: $e', name: 'WS'),
-        onDone: () => dev.log('[WS] Closed', name: 'WS'),
-      );
-    } else {
-      dev.log('Failed to connect', name: 'WS');
-    }
+    _socketService.onStatusChanged = () {
+      if (mounted) setState(() => _wsConnected = _socketService.isConnected);
+    };
+    _wsSub = _socketService.stream.listen(_handleWebSocketMessage);
+    await _socketService.connect();
   }
 
   void _handleWebSocketMessage(dynamic event) {
