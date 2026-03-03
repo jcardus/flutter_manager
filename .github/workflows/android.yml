@@ -1,18 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy to Play Store
 
 on:
   push:
     branches:
       - jsrastreamento
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "deploy"
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -56,6 +47,11 @@ jobs:
           export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
           export TRACCAR_BASE_URL="${{vars.TRACCAR_BASE_URL}}"
           ./build.sh appbundle
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/bundle/release/app-release.aab
       - name: Upload to Play Store
         uses: r0adkll/upload-google-play@v1
         continue-on-error: true
