@@ -71,7 +71,7 @@ class DefaultFirebaseOptions {
     projectId: 'fleetmap-fe45f',
     storageBucket: 'fleetmap-fe45f.firebasestorage.app',
     androidClientId: '218052201497-nrml7ledfljhbpa05flmofap6laetkga.apps.googleusercontent.com',
-    iosBundleId: 'com.fleetmap.fleetmanager',
+    iosBundleId: 'com.fleetmap.jsrastreamento',
   );
 
 }
