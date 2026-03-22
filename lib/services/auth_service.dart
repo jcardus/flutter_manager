@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/constants.dart';
 
 class AuthService {
   static const String _cookieKey = 'traccar_cookie';
   static const String _userKey = 'traccar_user';
+  static const String _savedEmailKey = 'saved_email';
+  static const String _savedPasswordKey = 'saved_password';
 
   static String get baseUrl => traccarBaseUrl;
 
@@ -109,6 +113,7 @@ class AuthService {
           try {
             final data = jsonDecode(resp.body) as Map<String, dynamic>;
             await _saveUser(data);
+            await saveCredentials(email, password);
             final headers = await _effectiveHeaders();
             headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
            dev.log((await http.post(
@@ -129,6 +134,41 @@ class AuthService {
       return (false, msg);
     } catch (e) {
       return (false, 'Network error: $e');
+    }
+  }
+
+  Future<void> saveCredentials(String email, String password) async {
+    final p = await _prefs;
+    await p.setString(_savedEmailKey, email);
+    await p.setString(_savedPasswordKey, password);
+  }
+
+  Future<bool> hasSavedCredentials() async {
+    if (kIsWeb) return false;
+    final p = await _prefs;
+    return p.containsKey(_savedEmailKey) && p.containsKey(_savedPasswordKey);
+  }
+
+  /// Prompts biometric authentication and returns saved (email, password) on success.
+  Future<(String, String)?> getCredentialsWithBiometrics() async {
+    if (kIsWeb) return null;
+    final auth = LocalAuthentication();
+    try {
+      final canAuth = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+      if (!canAuth) return null;
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Authenticate to sign in',
+        options: const AuthenticationOptions(biometricOnly: false),
+      );
+      if (!authenticated) return null;
+      final p = await _prefs;
+      final email = p.getString(_savedEmailKey);
+      final password = p.getString(_savedPasswordKey);
+      if (email == null || password == null) return null;
+      return (email, password);
+    } catch (e) {
+      dev.log('Biometric auth error: $e', name: 'Auth');
+      return null;
     }
   }
 
