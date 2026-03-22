@@ -354,7 +354,7 @@ class _MainPageState extends State<MainPage> {
       },
       child: Scaffold(
       body: Padding(
-        padding: EdgeInsets.only(bottom: Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
+        padding: EdgeInsets.only(bottom: !kIsWeb && Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
         child: Stack(
         children: [
           _buildCurrentScreen(),
