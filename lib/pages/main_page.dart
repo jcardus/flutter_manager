@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:in_app_update/in_app_update.dart';
 import '../l10n/app_localizations.dart';
 import '../models/geofence.dart';
 import '../services/socket_service.dart';
@@ -27,6 +29,7 @@ class _MainPageState extends State<MainPage> {
   final ApiService _apiService = ApiService();
   StreamSubscription? _wsSub;
   bool _wsConnected = false;
+  Timer? _updatePollTimer;
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
@@ -66,6 +69,7 @@ class _MainPageState extends State<MainPage> {
     });
     if (!mounted) return;
     await _connectSocket();
+    _checkForUpdate();
   }
 
   void _onDeviceTap(int deviceId) {
@@ -234,6 +238,51 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  Future<void> _checkForUpdate() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+      if (!mounted) return;
+      if (info.installStatus == InstallStatus.downloaded) {
+        _showUpdateReadySnackbar();
+        return;
+      }
+      if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+        final result = await InAppUpdate.startFlexibleUpdate();
+        if (!mounted) return;
+        if (result == AppUpdateResult.success) {
+          _updatePollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+            try {
+              final updated = await InAppUpdate.checkForUpdate();
+              if (updated.installStatus == InstallStatus.downloaded) {
+                _updatePollTimer?.cancel();
+                if (mounted) _showUpdateReadySnackbar();
+              }
+            } catch (_) {
+              _updatePollTimer?.cancel();
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // Update check is non-critical, ignore errors
+    }
+  }
+
+  void _showUpdateReadySnackbar() {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.updateReady),
+        duration: const Duration(seconds: 15),
+        action: SnackBarAction(
+          label: l10n.restart,
+          onPressed: InAppUpdate.completeFlexibleUpdate,
+        ),
+      ),
+    );
+  }
+
   Future<void> _connectSocket() async {
     _socketService.onStatusChanged = () {
       if (mounted) setState(() => _wsConnected = _socketService.isConnected);
@@ -280,6 +329,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
+    _updatePollTimer?.cancel();
     _wsSub?.cancel();
     _socketService.close();
     super.dispose();

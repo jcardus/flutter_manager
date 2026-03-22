@@ -332,5 +332,15 @@
   "positionEnd": "End Position",
   "@positionEnd": {
     "description": "Label for the last position in route"
+  },
+
+  "updateReady": "Update ready to install",
+  "@updateReady": {
+    "description": "Snackbar message when app update has been downloaded"
+  },
+
+  "restart": "Restart",
+  "@restart": {
+    "description": "Snackbar action to restart the app and install the update"
   }
 }

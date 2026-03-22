@@ -135,5 +135,9 @@
 
   "positionStart": "Position de Départ",
 
-  "positionEnd": "Position Finale"
+  "positionEnd": "Position Finale",
+
+  "updateReady": "Mise à jour prête à installer",
+
+  "restart": "Redémarrer"
 }

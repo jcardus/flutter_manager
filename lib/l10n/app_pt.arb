@@ -135,5 +135,9 @@
 
   "positionStart": "Posição Inicial",
 
-  "positionEnd": "Posição Final"
+  "positionEnd": "Posição Final",
+
+  "updateReady": "Atualização pronta para instalar",
+
+  "restart": "Reiniciar"
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../services/auth_service.dart';
@@ -221,10 +222,10 @@ class ProfileView extends StatelessWidget {
 
   String _formatTime(DateTime dt) {
     final now = DateTime.now();
-    final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    return '${diff.inHours}h ago';
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    return isToday
+        ? DateFormat('HH:mm:ss').format(dt)
+        : DateFormat('dd/MM HH:mm:ss').format(dt);
   }
 
   void _showFcmToken(BuildContext context) {
