@@ -17,7 +17,7 @@ String get traccarBaseUrl {
 String get resellerApiUrl {
   const envValue = String.fromEnvironment('SUPABASE_URL');
   if (envValue.isNotEmpty) { return '$envValue/functions/v1/reseller-api'; }
-  return 'https://tincqsagqlslhtwyhwgy.supabase.co/functions/v1/reseller-api';
+  return 'https://ncaqkjpxwmufscronbpk.supabase.co/functions/v1/reseller-api';
 }
 
 String get googleMapsSigningSecret {
