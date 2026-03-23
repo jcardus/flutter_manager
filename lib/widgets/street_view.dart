@@ -7,7 +7,7 @@ import '../services/mapillary_service.dart';
 class StreetView extends StatefulWidget {
   final Position position;
 
-  const StreetView({super.key, required this.position});
+  const StreetView({super.key, required this.position, required double width});
 
   @override
   State<StreetView> createState() => _StreetViewState();
