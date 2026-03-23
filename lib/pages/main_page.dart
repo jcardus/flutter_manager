@@ -34,6 +34,7 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   final Map<int, Geofence> _geofences = {};
+  Set<int> _mergeSecondaryIds = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
   List<Position> _routePositions = [];
@@ -52,6 +53,13 @@ class _MainPageState extends State<MainPage> {
     _init();
   }
 
+  Map<int, Device> get _visibleDevices {
+    if (_mergeSecondaryIds.isEmpty) return _devices;
+    return Map.fromEntries(
+      _devices.entries.where((e) => !_mergeSecondaryIds.contains(e.key)),
+    );
+  }
+
   Future<void> _init() async {
     final devices = await _apiService.fetchDevices();
     final devicesMap = <int, Device>{};
@@ -62,10 +70,13 @@ class _MainPageState extends State<MainPage> {
     final geofences = await _apiService.fetchGeofences();
     final geofenceMap = <int, Geofence>{};
     for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
+    final merges = await _apiService.fetchDeviceMerges();
+    final secondaryIds = merges.map((m) => m.secondaryDeviceId).toSet();
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
       _geofences.addAll(geofenceMap);
+      _mergeSecondaryIds = secondaryIds;
     });
     if (!mounted) return;
     await _connectSocket();
@@ -199,7 +210,7 @@ class _MainPageState extends State<MainPage> {
               return SizedBox(
                 height: mapHeight,
                 child: MapView(
-                  devices: _devices,
+                  devices: _visibleDevices,
                   positions: _positions,
                   geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
@@ -223,13 +234,13 @@ class _MainPageState extends State<MainPage> {
         // Conditionally render other views (not kept alive)
         if (_selectedIndex == 1)
           DevicesListView(
-            devices: _devices,
+            devices: _visibleDevices,
             positions: _positions,
             onDeviceTap: _onDeviceTap,
           ),
         if (_selectedIndex == 2)
           ProfileView(
-            deviceCount: _devices.length,
+            deviceCount: _visibleDevices.length,
             activeCount: _positions.length,
             wsConnected: _wsConnected,
             wsLastMessage: _socketService.lastMessageTime,
@@ -354,7 +365,7 @@ class _MainPageState extends State<MainPage> {
       },
       child: Scaffold(
       body: Padding(
-        padding: EdgeInsets.only(bottom: Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
+        padding: EdgeInsets.only(bottom: !kIsWeb && Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
         child: Stack(
         children: [
           _buildCurrentScreen(),
