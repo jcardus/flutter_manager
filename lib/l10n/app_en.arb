@@ -221,6 +221,16 @@
     "description": "Snackbar message when location is copied"
   },
 
+  "blockCommandConfirmTitle": "Block vehicle?",
+  "@blockCommandConfirmTitle": {
+    "description": "Title for block command confirmation dialog"
+  },
+
+  "blockCommandConfirmMessage": "This will stop the engine remotely. Are you sure?",
+  "@blockCommandConfirmMessage": {
+    "description": "Body text for block command confirmation dialog"
+  },
+
   "blockCommandSent": "Block command sent",
   "@blockCommandSent": {
     "description": "Snackbar message when block command is sent"
@@ -243,7 +253,21 @@
 
   "map": "Map",
 
+  "cameras": "Cameras",
+
   "profile": "Profile",
+
+  "noCameras": "No cameras available",
+
+  "noCamerasHint": "Set a cameraUrl or cameraUrl2 attribute on a device in Traccar to display its feed here",
+
+  "rtspStream": "RTSP stream\nCopy URL to open in a media player",
+
+  "copyUrl": "Copy URL",
+
+  "copied": "Copied!",
+
+  "insecureStream": "Stream requires a secure (HTTPS) connection",
 
   "eventIgnitionOn": "Ignition On",
   "@eventIgnitionOn": {
@@ -308,5 +332,15 @@
   "positionEnd": "End Position",
   "@positionEnd": {
     "description": "Label for the last position in route"
+  },
+
+  "updateReady": "Update ready to install",
+  "@updateReady": {
+    "description": "Snackbar message when app update has been downloaded"
+  },
+
+  "restart": "Restart",
+  "@restart": {
+    "description": "Snackbar action to restart the app and install the update"
   }
 }

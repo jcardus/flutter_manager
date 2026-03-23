@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import '../services/auth_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -17,8 +18,19 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordFocusNode = FocusNode();
   bool _loading = false;
   String? _error;
+  bool _hasSavedCredentials = false;
 
   final _auth = AuthService();
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      _auth.hasSavedCredentials().then((has) {
+        if (mounted) setState(() => _hasSavedCredentials = has);
+      });
+    }
+  }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -30,6 +42,26 @@ class _LoginPageState extends State<LoginPage> {
       email: _emailController.text.trim(),
       password: _passwordController.text,
     );
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (ok) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    } else {
+      final l10n = AppLocalizations.of(context)!;
+      setState(() => _error = msg ?? l10n.loginFailed);
+    }
+  }
+
+  Future<void> _biometricLogin() async {
+    setState(() { _loading = true; _error = null; });
+    final creds = await _auth.getCredentialsWithBiometrics();
+    if (!mounted) return;
+    if (creds == null) {
+      setState(() => _loading = false);
+      return;
+    }
+    final (email, password) = creds;
+    final (ok, msg) = await _auth.login(email: email, password: password);
     if (!mounted) return;
     setState(() => _loading = false);
     if (ok) {
@@ -100,6 +132,17 @@ class _LoginPageState extends State<LoginPage> {
                               : Text(l10n.login),
                         ),
                       ),
+                      if (_hasSavedCredentials) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _loading ? null : _biometricLogin,
+                            icon: const Icon(Icons.face),
+                            label: const Text('Face ID / Biometrics'),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
