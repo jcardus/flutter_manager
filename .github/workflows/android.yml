@@ -55,6 +55,7 @@ jobs:
           export GOOGLE_MAPS_CLIENT_ID="${{ secrets.GOOGLE_MAPS_CLIENT_ID }}"
           export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
           export TRACCAR_BASE_URL="https://moviflotte.com"
+          export WEBSOCKET_URL="https://traccar-eu.fleetmap.pt/api/socket"
           export MAPILLARY_TOKEN="${{vars.MAPILLARY_TOKEN}}"
           ./build.sh appbundle
       - name: Upload to Play Store
