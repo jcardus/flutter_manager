@@ -47,7 +47,7 @@ class Position {
       course: (json['course'] as num?)?.toDouble() ?? 0.0,
       address: json['address'] as String?,
       accuracy: (json['accuracy'] as num?)?.toDouble(),
-      batteryLevel: json['attributes']?['batteryLevel'] as int?,
+      batteryLevel: (json['attributes']?['batteryLevel'] as num?)?.toInt(),
       attributes: json['attributes'] as Map<String, dynamic>?,
     );
   }
