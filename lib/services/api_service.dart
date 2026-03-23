@@ -7,6 +7,7 @@ import 'package:manager/utils/constants.dart';
 import '../models/geofence.dart';
 import 'auth_service.dart';
 import '../models/device.dart';
+import '../models/device_merge.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../models/trip.dart';
@@ -53,6 +54,24 @@ class ApiService {
       endpoint: '/api/devices',
       fromJson: Device.fromJson
     );
+  }
+
+  Future<List<DeviceMerge>> fetchDeviceMerges() async {
+    final uri = Uri.parse('${resellerApiUrl}/device-merges');
+    try {
+      final headers = await _getAuthHeaders({'accept': 'application/json'});
+      final resp = await http.get(uri, headers: headers);
+      if (resp.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(resp.body) as List<dynamic>;
+        return data.map((json) => DeviceMerge.fromJson(json as Map<String, dynamic>)).toList();
+      } else {
+        dev.log('Failed to fetch device merges: ${resp.statusCode}', name: 'API');
+        return [];
+      }
+    } catch (e, stack) {
+      dev.log('Error fetching device merges: $e', name: 'API', error: e, stackTrace: stack);
+      return [];
+    }
   }
 
   Future<List<Position>> fetchPositions() async {
@@ -252,7 +271,9 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return response.body;
+        final url = "https://fleetmap-io.github.io/share-vehicle-location?token=${response.body}";
+        dev.log(url);
+        return url;
       } else {
         dev.log('Failed to share device: ${response.statusCode}', name: 'API');
         return null;
@@ -284,7 +305,7 @@ class ApiService {
         body: body,
       );
 
-      if (response.statusCode == 200 || response.statusCode == 204) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         return true;
       } else {
         dev.log('Failed to send command: ${response.statusCode}', name: 'API');

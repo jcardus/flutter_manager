@@ -1,15 +1,38 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../icons/icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 
-class PositionDetail extends StatelessWidget {
+class PositionDetail extends StatefulWidget {
   const PositionDetail({super.key, required this.pos, required this.device, this.compact = false, this.showStatus = false});
   final Position pos;
   final Device device;
   final bool compact;
   final bool showStatus;
+
+  @override
+  State<PositionDetail> createState() => _PositionDetailState();
+}
+
+class _PositionDetailState extends State<PositionDetail> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   String _formatSpeed(BuildContext context, double? speed) {
     final l10n = AppLocalizations.of(context)!;
@@ -35,9 +58,10 @@ class PositionDetail extends StatelessWidget {
     }
   }
 
-  String _formatIgnition(bool? ignition) {
-    if (ignition == null) return 'Unknown';
-    return ignition ? 'Ignition On' : 'Ignition Off';
+  String _formatIgnition(BuildContext context, bool? ignition) {
+    final l10n = AppLocalizations.of(context)!;
+    if (ignition == null) return l10n.unknown;
+    return ignition ? l10n.eventIgnitionOn : l10n.eventIgnitionOff;
   }
 
   String _formatAddress(String? address) {
@@ -51,49 +75,76 @@ class PositionDetail extends StatelessWidget {
     return '${km.toStringAsFixed(1)} km';
   }
 
+  String _formatPower(num? power) {
+    if (power == null) return 'N/A';
+    return '${power.toStringAsFixed(1)} V';
+  }
+
+  String _formatHours(num? hours) {
+    if (hours == null) return 'N/A';
+    final totalMinutes = (hours / 60000).round();
+    final h = totalMinutes ~/ 60;
+    final m = totalMinutes % 60;
+    return m > 0 ? '${h}h ${m}m' : '${h}h';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final ignition = pos.attributes?['ignition'] as bool?;
-    final odometer = pos.attributes?['totalDistance'] as num?;
+    final ignition = widget.pos.attributes?['ignition'] as bool?;
+    final odometer = widget.pos.attributes?['totalDistance'] as num?;
+    final hours = widget.pos.attributes?['hours'] as num?;
+    final power = widget.pos.attributes?['power'] as num?;
 
-    if (compact) {
+    if (widget.compact) {
       return Column(
         children: [
           _InfoRow(
             icon: PlatformIcons.location,
             label: '',
-            value: _formatAddress(pos.address),
+            value: _formatAddress(widget.pos.address),
             compact: true,
           ),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Expanded(
                 child: _InfoRow(
                   icon: PlatformIcons.lastLocationTime,
                   label: '',
-                  value: _formatLastUpdate(context, device.lastUpdate),
+                  value: _formatLastUpdate(context, widget.device.lastUpdate),
                   compact: true,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: _InfoRow(
-                  icon: pos.speed >= 90 ? PlatformIcons.speedFast : pos.speed > 0 ? PlatformIcons.speedMedium : PlatformIcons.speedSlow,
+                  icon: widget.pos.speed >= 90 ? PlatformIcons.speedFast : widget.pos.speed > 0 ? PlatformIcons.speedMedium : PlatformIcons.speedSlow,
                   label: '',
-                  value: _formatSpeed(context, pos.speed),
+                  value: _formatSpeed(context, widget.pos.speed),
                   compact: true,
                 ),
               ),
-              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Expanded(
                 child: _InfoRow(
                   icon: PlatformIcons.odometer,
                   label: '',
                   value: _formatOdometer(odometer?.toDouble()),
+                  compact: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _InfoRow(
+                  icon: Icons.bolt_outlined,
+                  label: '',
+                  value: _formatPower(power),
                   compact: true,
                 ),
               ),
@@ -109,7 +160,7 @@ class PositionDetail extends StatelessWidget {
         _InfoRow(
           icon: PlatformIcons.location,
           label: '',
-          value: _formatAddress(pos.address),
+          value: _formatAddress(widget.pos.address),
         ),
         const SizedBox(height: 12),
         Row(
@@ -117,9 +168,9 @@ class PositionDetail extends StatelessWidget {
           children: [
             Expanded(
               child: _InfoRow(
-                icon: pos.speed >= 90 ? PlatformIcons.speedFast : pos.speed > 0 ? PlatformIcons.speedMedium : PlatformIcons.speedSlow,
+                icon: widget.pos.speed >= 90 ? PlatformIcons.speedFast : widget.pos.speed > 0 ? PlatformIcons.speedMedium : PlatformIcons.speedSlow,
                 label: '',
-                value: _formatSpeed(context, pos.speed),
+                value: _formatSpeed(context, widget.pos.speed),
               ),
             ),
             const SizedBox(width: 12),
@@ -127,7 +178,7 @@ class PositionDetail extends StatelessWidget {
               child: _InfoRow(
                 icon: ignition != null && ignition ? PlatformIcons.ignitionOn : PlatformIcons.ignitionOff,
                 label: '',
-                value: _formatIgnition(ignition),
+                value: _formatIgnition(context, ignition),
               ),
             ),
           ],
@@ -138,17 +189,38 @@ class PositionDetail extends StatelessWidget {
           children: [
             Expanded(
               child: _InfoRow(
-                icon: PlatformIcons.lastLocationTime,
+                icon: Icons.bolt_outlined,
                 label: '',
-                value: _formatLastUpdate(context, device.lastUpdate),
+                value: _formatPower(power),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _InfoRow(
+                icon: PlatformIcons.lastLocationTime,
+                label: '',
+                value: _formatLastUpdate(context, widget.device.lastUpdate),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _InfoRow(
                 icon: PlatformIcons.odometer,
                 label: '',
                 value: _formatOdometer(odometer?.toDouble()),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _InfoRow(
+                icon: Icons.timer_outlined,
+                label: '',
+                value: _formatHours(hours),
               ),
             ),
           ],

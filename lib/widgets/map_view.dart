@@ -347,7 +347,7 @@ class _MapViewState extends State<MapView> {
             final zoom = mapController!.cameraPosition!.zoom;
             coordinates ??= await mapController!.toLatLng(point);
             await mapController!.animateCamera(
-              CameraUpdate.newLatLngZoom(coordinates, zoom + 2),
+              CameraUpdate.newLatLngZoom(coordinates, zoom + 3),
               duration: const Duration(milliseconds: 1000),
             );
             return;

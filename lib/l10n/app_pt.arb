@@ -75,11 +75,15 @@
 
   "directions": "Direções",
 
-  "share": "Partilhar",
+  "share": "Compartilhar",
 
   "block": "Bloquear",
 
   "locationCopied": "Localização copiada para a área de transferência",
+
+  "blockCommandConfirmTitle": "Bloquear veículo?",
+
+  "blockCommandConfirmMessage": "Isto irá parar o motor remotamente. Tem a certeza?",
 
   "blockCommandSent": "Comando de bloqueio enviado",
 
@@ -91,7 +95,21 @@
 
   "map": "Mapa",
 
+  "cameras": "Câmaras",
+
   "profile": "Perfil",
+
+  "noCameras": "Sem câmaras disponíveis",
+
+  "noCamerasHint": "Defina o atributo cameraUrl ou cameraUrl2 num dispositivo no Traccar para mostrar o feed aqui",
+
+  "rtspStream": "Stream RTSP\nCopie o URL para abrir num leitor de media",
+
+  "copyUrl": "Copiar URL",
+
+  "copied": "Copiado!",
+
+  "insecureStream": "O stream requer uma ligação segura (HTTPS)",
 
   "eventIgnitionOn": "Ignição Ligada",
 
@@ -117,5 +135,9 @@
 
   "positionStart": "Posição Inicial",
 
-  "positionEnd": "Posição Final"
+  "positionEnd": "Posição Final",
+
+  "updateReady": "Atualização pronta para instalar",
+
+  "restart": "Reiniciar"
 }
