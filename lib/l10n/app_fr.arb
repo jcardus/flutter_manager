@@ -81,6 +81,10 @@
 
   "locationCopied": "Emplacement copié dans le presse-papiers",
 
+  "blockCommandConfirmTitle": "Bloquer le véhicule ?",
+
+  "blockCommandConfirmMessage": "Cela arrêtera le moteur à distance. Êtes-vous sûr ?",
+
   "blockCommandSent": "Commande de blocage envoyée",
 
   "blockCommandFailed": "Échec de l’envoi de la commande de blocage",
@@ -91,7 +95,21 @@
 
   "map": "Carte",
 
+  "cameras": "Caméras",
+
   "profile": "Profil",
+
+  "noCameras": "Aucune caméra disponible",
+
+  "noCamerasHint": "Définissez l'attribut cameraUrl ou cameraUrl2 sur un appareil dans Traccar pour afficher son flux ici",
+
+  "rtspStream": "Flux RTSP\nCopiez l'URL pour l'ouvrir dans un lecteur multimédia",
+
+  "copyUrl": "Copier l'URL",
+
+  "copied": "Copié !",
+
+  "insecureStream": "Le flux nécessite une connexion sécurisée (HTTPS)",
 
   "eventIgnitionOn": "Allumage Activé",
 
@@ -117,5 +135,9 @@
 
   "positionStart": "Position de Départ",
 
-  "positionEnd": "Position Finale"
+  "positionEnd": "Position Finale",
+
+  "updateReady": "Mise à jour prête à installer",
+
+  "restart": "Redémarrer"
 }

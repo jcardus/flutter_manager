@@ -21,6 +21,12 @@ String get traccarBaseUrl {
   return 'https://dash.frotaweb.com/traccar';
 }
 
+String get resellerApiUrl {
+  const envValue = String.fromEnvironment('SUPABASE_URL');
+  if (envValue.isNotEmpty) { return '$envValue/functions/v1/reseller-api'; }
+  return 'https://ncaqkjpxwmufscronbpk.supabase.co/functions/v1/reseller-api';
+}
+
 String get googleMapsSigningSecret {
   const envValue = String.fromEnvironment('GOOGLE_MAPS_SIGNING_SECRET');
   if (envValue.isNotEmpty) { return envValue; }

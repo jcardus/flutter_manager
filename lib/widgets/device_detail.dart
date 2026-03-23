@@ -1,7 +1,9 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:manager/widgets/cameras_view.dart';
 import 'package:manager/widgets/position_detail.dart';
 import 'package:manager/widgets/street_view.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -164,9 +166,14 @@ class DeviceDetail extends StatelessWidget {
 
     try {
       final expiration = DateTime.now().add(const Duration(hours: 24));
-      await SharePlus.instance.share(
-          ShareParams(uri: Uri.parse(await apiService.shareDevice(device.id, expiration)))
-      );
+      String? shareUrl = await apiService.shareDevice(device.id, expiration);
+      if (shareUrl.isEmpty) {
+        shareUrl = await apiService.shareDeviceV2(device.id, expiration);
+      }
+      if (shareUrl == null || shareUrl.isEmpty) throw Exception('No share URL');
+      dev.log('Sharing URL: $shareUrl');
+      final result = await SharePlus.instance.share(ShareParams(uri: Uri.parse(shareUrl)));
+      dev.log('Share result: ${result.status}');
     } catch (e) {
       dev.log('Error sharing location: $e');
       if (context.mounted) {
@@ -182,6 +189,36 @@ class DeviceDetail extends StatelessWidget {
 
   Future<void> _sendBlockCommand(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.blockCommandConfirmTitle),
+        content: Text(l10n.blockCommandConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.block),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final auth = LocalAuthentication();
+    final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
+    if (canCheck) {
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Authenticate to send the block command',
+        options: const AuthenticationOptions(biometricOnly: false),
+      );
+      if (!authenticated) return;
+    }
+
     final apiService = ApiService();
 
     try {
@@ -222,6 +259,8 @@ class DeviceDetail extends StatelessWidget {
     final deviceColor = DeviceColors.getDeviceColor(device, position, context);
     final statusColor = DeviceColors.getStatusColor(device, context);
     final pos = position;
+    final cameraUrls = getCameraUrls(device);
+    final hasCameras = cameraUrls.isNotEmpty;
 
     return
       Padding(
@@ -229,47 +268,42 @@ class DeviceDetail extends StatelessWidget {
         child: Column(
           children: [
             const HandleBar(),
-            if (pos != null) Container(
+            if (hasCameras || pos != null) Container(
               margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
               child: Column(children: [
-              // Street View with Title Overlay
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Stack(
-                  children: [
-                    StreetView(
-                      position: pos,
-                    ),
-                    // Title overlay with gradient background
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.7),
-                              Colors.black.withValues(alpha: 0.3),
-                              Colors.transparent,
-                            ],
+              // Camera or Street View with Title Overlay
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Stack(
+                      children: [
+                        if (hasCameras)
+                          SizedBox(
+                            height: 200,
+                            width: constraints.maxWidth,
+                            child: CameraFeed(url: cameraUrls[0], label: device.name),
+                          )
+                        else
+                          StreetView(
+                            position: pos!,
+                            width: constraints.maxWidth,
                           ),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 24,
-                              backgroundColor: statusColor.withValues(alpha: 0.9),
-                              child: Icon(
-                                _getDeviceIcon(),
-                                color: Colors.white,
-                                size: 24,
+                        // Title overlay with gradient background
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.7),
+                                  Colors.black.withValues(alpha: 0.3),
+                                  Colors.transparent,
+                                ],
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -325,6 +359,7 @@ class DeviceDetail extends StatelessWidget {
                   ],
                 ),
               ),
+              if (pos != null) ...[
               const SizedBox(height: 12),
               PositionDetail(pos: pos, device: device),
               const SizedBox(height: 16),
@@ -365,6 +400,7 @@ class DeviceDetail extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              ],
             ]))
       ]));
   }
@@ -403,13 +439,17 @@ class _ActionButton extends StatelessWidget {
                 size: 24,
               ),
               const SizedBox(height: 4),
-              Text(
-                label,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w500,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),

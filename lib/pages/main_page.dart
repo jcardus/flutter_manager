@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as dev;
+import 'dart:io';
+import 'dart:ui' show ImageFilter;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:in_app_update/in_app_update.dart';
 import '../l10n/app_localizations.dart';
 import '../models/geofence.dart';
 import '../services/socket_service.dart';
@@ -25,10 +28,13 @@ class _MainPageState extends State<MainPage> {
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
   StreamSubscription? _wsSub;
+  bool _wsConnected = false;
+  Timer? _updatePollTimer;
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   final Map<int, Geofence> _geofences = {};
+  Set<int> _mergeSecondaryIds = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
   List<Position> _routePositions = [];
@@ -47,6 +53,13 @@ class _MainPageState extends State<MainPage> {
     _init();
   }
 
+  Map<int, Device> get _visibleDevices {
+    if (_mergeSecondaryIds.isEmpty) return _devices;
+    return Map.fromEntries(
+      _devices.entries.where((e) => !_mergeSecondaryIds.contains(e.key)),
+    );
+  }
+
   Future<void> _init() async {
     final devices = await _apiService.fetchDevices();
     final devicesMap = <int, Device>{};
@@ -57,13 +70,17 @@ class _MainPageState extends State<MainPage> {
     final geofences = await _apiService.fetchGeofences();
     final geofenceMap = <int, Geofence>{};
     for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
+    final merges = await _apiService.fetchDeviceMerges();
+    final secondaryIds = merges.map((m) => m.secondaryDeviceId).toSet();
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
       _geofences.addAll(geofenceMap);
+      _mergeSecondaryIds = secondaryIds;
     });
     if (!mounted) return;
     await _connectSocket();
+    _checkForUpdate();
   }
 
   void _onDeviceTap(int deviceId) {
@@ -193,7 +210,7 @@ class _MainPageState extends State<MainPage> {
               return SizedBox(
                 height: mapHeight,
                 child: MapView(
-                  devices: _devices,
+                  devices: _visibleDevices,
                   positions: _positions,
                   geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
@@ -217,33 +234,72 @@ class _MainPageState extends State<MainPage> {
         // Conditionally render other views (not kept alive)
         if (_selectedIndex == 1)
           DevicesListView(
-            devices: _devices,
+            devices: _visibleDevices,
             positions: _positions,
             onDeviceTap: _onDeviceTap,
           ),
         if (_selectedIndex == 2)
           ProfileView(
-            deviceCount: _devices.length,
+            deviceCount: _visibleDevices.length,
             activeCount: _positions.length,
+            wsConnected: _wsConnected,
+            wsLastMessage: _socketService.lastMessageTime,
           ),
       ],
     );
   }
 
-  Future<void> _connectSocket() async {
-    final ok = await _socketService.connect();
-    if (!mounted) return;
-    if (ok && _socketService.stream != null) {
-      _wsSub = _socketService.stream!.listen(
-        (event) {
-          _handleWebSocketMessage(event);
-        },
-        onError: (e) => dev.log('[WS] Stream error: $e', name: 'WS'),
-        onDone: () => dev.log('[WS] Closed', name: 'WS'),
-      );
-    } else {
-      dev.log('Failed to connect', name: 'WS');
+  Future<void> _checkForUpdate() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+      if (!mounted) return;
+      if (info.installStatus == InstallStatus.downloaded) {
+        _showUpdateReadySnackbar();
+        return;
+      }
+      if (info.updateAvailability == UpdateAvailability.updateAvailable) {
+        final result = await InAppUpdate.startFlexibleUpdate();
+        if (!mounted) return;
+        if (result == AppUpdateResult.success) {
+          _updatePollTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+            try {
+              final updated = await InAppUpdate.checkForUpdate();
+              if (updated.installStatus == InstallStatus.downloaded) {
+                _updatePollTimer?.cancel();
+                if (mounted) _showUpdateReadySnackbar();
+              }
+            } catch (_) {
+              _updatePollTimer?.cancel();
+            }
+          });
+        }
+      }
+    } catch (_) {
+      // Update check is non-critical, ignore errors
     }
+  }
+
+  void _showUpdateReadySnackbar() {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.updateReady),
+        duration: const Duration(seconds: 15),
+        action: SnackBarAction(
+          label: l10n.restart,
+          onPressed: InAppUpdate.completeFlexibleUpdate,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _connectSocket() async {
+    _socketService.onStatusChanged = () {
+      if (mounted) setState(() => _wsConnected = _socketService.isConnected);
+    };
+    _wsSub = _socketService.stream.listen(_handleWebSocketMessage);
+    await _socketService.connect();
   }
 
   void _handleWebSocketMessage(dynamic event) {
@@ -284,6 +340,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
+    _updatePollTimer?.cancel();
     _wsSub?.cancel();
     _socketService.close();
     super.dispose();
@@ -292,9 +349,24 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final canPop = _selectedDeviceId == null && _selectedIndex == 0;
 
-    return Scaffold(
-      body: Stack(
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_showingRoute) {
+          _onRouteToggle(false);
+        } else if (_selectedDeviceId != null) {
+          _closeBottomSheet();
+        } else if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+        }
+      },
+      child: Scaffold(
+      body: Padding(
+        padding: EdgeInsets.only(bottom: !kIsWeb && Platform.isAndroid ? MediaQuery.of(context).padding.bottom : 0),
+        child: Stack(
         children: [
           _buildCurrentScreen(),
           // Floating Navigation Bar
@@ -306,22 +378,37 @@ class _MainPageState extends State<MainPage> {
               child: Center(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: Material(
-                    elevation: 3,
-                    borderRadius: BorderRadius.circular(10),
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: Container(
-                      height: 50,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildNavItem(0, Icons.map_outlined, l10n.map),
-                          const SizedBox(width: 4),
-                          _buildNavItem(1, Icons.list, l10n.devices),
-                          const SizedBox(width: 4),
-                          _buildNavItem(2, Icons.person_outline, l10n.profile),
-                        ],
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.22),
+                              blurRadius: 32,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildNavItem(0, Icons.map_outlined, Icons.map, l10n.map),
+                            const SizedBox(width: 4),
+                            _buildNavItem(1, Icons.list_outlined, Icons.list, l10n.devices),
+                            const SizedBox(width: 4),
+                            _buildNavItem(2, Icons.person_outline, Icons.person, l10n.profile),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -366,47 +453,66 @@ class _MainPageState extends State<MainPage> {
               ),
             ),
         ],
+        ),
       ),
+    ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData outlinedIcon, IconData filledIcon, String label) {
     final isSelected = _selectedIndex == index;
-    return InkWell(
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
       onTap: () {
         setState(() {
           _selectedIndex = index;
         });
       },
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 14,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected
-              ? Theme.of(context).colorScheme.primaryContainer
+              ? colorScheme.primary.withValues(alpha: 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isSelected
-                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isSelected ? filledIcon : outlinedIcon,
+                key: ValueKey(isSelected),
+                size: 22,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
-            ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              child: isSelected
+                  ? Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
