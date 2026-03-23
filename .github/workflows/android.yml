@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - moviflotte
 
 permissions:
   contents: read
@@ -55,13 +55,14 @@ jobs:
           export GOOGLE_MAPS_CLIENT_ID="${{ secrets.GOOGLE_MAPS_CLIENT_ID }}"
           export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
           export TRACCAR_BASE_URL="${{vars.TRACCAR_BASE_URL}}"
+          export MAPILLARY_TOKEN="${{vars.MAPILLARY_TOKEN}}"
           ./build.sh appbundle
       - name: Upload to Play Store
         uses: r0adkll/upload-google-play@v1
         continue-on-error: true
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_AUTH }}
-          packageName: com.fleetmap.fleetmanager
+          packageName: com.fleetmap.moviflotte
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: draft

@@ -8,6 +8,13 @@ const colors = [
 
 const rotationFrames = 16;
 
+String get mapillaryToken {
+  const envValue = String.fromEnvironment('MAPILLARY_TOKEN');
+  if (envValue.isNotEmpty) { return envValue; }
+  return '';
+}
+
+
 String get traccarBaseUrl {
   const envValue = String.fromEnvironment('TRACCAR_BASE_URL');
   if (envValue.isNotEmpty) { return envValue; }

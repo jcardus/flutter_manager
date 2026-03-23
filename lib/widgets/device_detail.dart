@@ -306,75 +306,58 @@ class DeviceDetail extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
-                            ),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: deviceColor.withValues(alpha: 0.9),
-                                  child: Icon(
-                                    _getDeviceIcon(),
-                                    color: Colors.white,
-                                    size: 24,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    device.name,
+                                    style: textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      shadows: [
+                                        Shadow(
+                                          blurRadius: 8,
+                                          color: Colors.black.withValues(alpha: 0.5),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  const SizedBox(height: 4),
+                                  Row(
                                     children: [
+                                      Icon(Icons.circle, size: 10, color: statusColor),
+                                      const SizedBox(width: 6),
                                       Text(
-                                        device.name,
-                                        style: textTheme.titleLarge?.copyWith(
-                                          fontWeight: FontWeight.bold,
+                                        device.status?.toUpperCase() ??
+                                            l10n.statusUnknown,
+                                        style: textTheme.bodyMedium?.copyWith(
                                           color: Colors.white,
+                                          fontWeight: FontWeight.w600,
                                           shadows: [
                                             Shadow(
-                                              blurRadius: 8,
+                                              blurRadius: 4,
                                               color: Colors.black.withValues(alpha: 0.5),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.circle, size: 10, color: statusColor),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            device.status?.toUpperCase() ??
-                                                l10n.statusUnknown,
-                                            style: textTheme.bodyMedium?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                              shadows: [
-                                                Shadow(
-                                                  blurRadius: 4,
-                                                  color: Colors.black.withValues(alpha: 0.5),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ],
                                   ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close, color: Colors.white),
-                                  onPressed: onClose,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.white),
+                              onPressed: onClose,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
               if (pos != null) ...[
               const SizedBox(height: 12),
