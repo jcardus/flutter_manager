@@ -45,8 +45,7 @@ jobs:
           export BUILD_NUMBER="${{ github.run_number }}"
           export GOOGLE_MAPS_CLIENT_ID="${{ secrets.GOOGLE_MAPS_CLIENT_ID }}"
           export GOOGLE_MAPS_SIGNING_SECRET="${{ secrets.GOOGLE_MAPS_SIGNING_SECRET }}"
-          export TRACCAR_BASE_URL="https://nogartel.fleetmap.io"
-          export WEBSOCKET_URL="wss://traccar-eu.fleetmap.pt/api/socket"
+          export TRACCAR_BASE_URL="https://traccar-eu.fleetmap.pt"
           ./build.sh appbundle
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
