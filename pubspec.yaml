@@ -1,5 +1,4 @@
 name: manager
-description: "Track Fleet"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
 version: 3.3.12+1
