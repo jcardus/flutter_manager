@@ -250,7 +250,8 @@ class ApiService {
         headers: permissionHeaders,
         body: permissionBody,
       );
-      return 'https://eta.fleetmap.io/?token=$token';
+      final exp = Uri.encodeComponent(expirationTime.toUtc().toIso8601String());
+      return 'https://eta.fleetmap.io/?token=$token&expiration=$exp';
     } catch (e, stack) {
       dev.log('Error in shareDevice: $e', name: 'API', error: e, stackTrace: stack);
       return '';
@@ -271,7 +272,8 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final url = "https://fleetmap-io.github.io/share-vehicle-location?token=${response.body}";
+        final exp = Uri.encodeComponent(expiration.toUtc().toIso8601String());
+        final url = "https://fleetmap-io.github.io/share-vehicle-location?token=${response.body}&expiration=$exp";
         dev.log(url);
         return url;
       } else {

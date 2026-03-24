@@ -162,12 +162,24 @@ class DeviceDetail extends StatelessWidget {
   Future<void> _shareLocation(BuildContext context) async {
     if (position == null) return;
 
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (pickedDate == null) return;
+    if (!context.mounted) return;
+
+    final expiration = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, 23, 59, 59);
+
     final apiService = ApiService();
 
     try {
-      final expiration = DateTime.now().add(const Duration(hours: 24));
       String? shareUrl = await apiService.shareDevice(device.id, expiration);
       if (shareUrl.isEmpty) {
+        if (!context.mounted) return;
         shareUrl = await apiService.shareDeviceV2(device.id, expiration);
       }
       if (shareUrl == null || shareUrl.isEmpty) throw Exception('No share URL');
