@@ -26,11 +26,13 @@ class SocketService {
   Future<bool> connect() async {
     if (_disposed || kIsWeb) return false;
 
-    final base = traccarBaseUrl;
-    if (base.isEmpty) return false;
-
-    final wsScheme = base.startsWith('https') ? 'wss' : 'ws';
-    final wsUrl = '${base.replaceFirst(RegExp('^https?'), wsScheme)}/api/socket';
+    var wsUrl = String.fromEnvironment('WEBSOCKET_URL');
+    if (wsUrl.isEmpty) {
+      final base = traccarBaseUrl;
+      if (base.isEmpty) return false;
+      final wsScheme = base.startsWith('https') ? 'wss' : 'ws';
+      wsUrl = '${base.replaceFirst(RegExp('^https?'), wsScheme)}/api/socket';
+    }
 
     try {
       final cookie = await AuthService().getCookie();
