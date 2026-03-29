@@ -342,5 +342,15 @@
   "restart": "Restart",
   "@restart": {
     "description": "Snackbar action to restart the app and install the update"
+  },
+
+  "updateAvailable": "A new version is available",
+  "@updateAvailable": {
+    "description": "Snackbar message when a newer version is available on the App Store"
+  },
+
+  "update": "Update",
+  "@update": {
+    "description": "Snackbar action to open the App Store and update the app"
   }
 }

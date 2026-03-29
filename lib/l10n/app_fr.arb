@@ -139,5 +139,9 @@
 
   "updateReady": "Mise à jour prête à installer",
 
-  "restart": "Redémarrer"
+  "restart": "Redémarrer",
+
+  "updateAvailable": "Une nouvelle version est disponible",
+
+  "update": "Mettre à jour"
 }

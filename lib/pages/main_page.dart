@@ -4,7 +4,10 @@ import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:in_app_update/in_app_update.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../models/geofence.dart';
 import '../services/socket_service.dart';
@@ -250,7 +253,15 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _checkForUpdate() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb) return;
+    if (Platform.isAndroid) {
+      await _checkForUpdateAndroid();
+    } else if (Platform.isIOS) {
+      await _checkForUpdateIos();
+    }
+  }
+
+  Future<void> _checkForUpdateAndroid() async {
     try {
       final info = await InAppUpdate.checkForUpdate();
       if (!mounted) return;
@@ -280,6 +291,40 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  Future<void> _checkForUpdateIos() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final response = await http
+          .get(Uri.parse(
+              'https://itunes.apple.com/lookup?bundleId=com.fleetmap.fleetmanager'))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final results = data['results'] as List?;
+      if (results == null || results.isEmpty) return;
+      final storeVersion = results[0]['version'] as String?;
+      final storeUrl = results[0]['trackViewUrl'] as String?;
+      if (storeVersion == null || storeUrl == null) return;
+      if (_isNewerVersion(storeVersion, packageInfo.version)) {
+        if (mounted) _showIosUpdateSnackbar(storeUrl);
+      }
+    } catch (_) {
+      // Update check is non-critical, ignore errors
+    }
+  }
+
+  bool _isNewerVersion(String storeVersion, String currentVersion) {
+    final storeParts = storeVersion.split('.').map(int.tryParse).toList();
+    final currentParts = currentVersion.split('.').map(int.tryParse).toList();
+    for (var i = 0; i < storeParts.length; i++) {
+      final store = storeParts[i] ?? 0;
+      final current = i < currentParts.length ? (currentParts[i] ?? 0) : 0;
+      if (store > current) return true;
+      if (store < current) return false;
+    }
+    return false;
+  }
+
   void _showUpdateReadySnackbar() {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -289,6 +334,23 @@ class _MainPageState extends State<MainPage> {
         action: SnackBarAction(
           label: l10n.restart,
           onPressed: InAppUpdate.completeFlexibleUpdate,
+        ),
+      ),
+    );
+  }
+
+  void _showIosUpdateSnackbar(String storeUrl) {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.updateAvailable),
+        duration: const Duration(seconds: 15),
+        action: SnackBarAction(
+          label: l10n.update,
+          onPressed: () => launchUrl(
+            Uri.parse(storeUrl),
+            mode: LaunchMode.externalApplication,
+          ),
         ),
       ),
     );
