@@ -41,6 +41,13 @@ class _PositionDetailState extends State<PositionDetail> {
     return l10n.speedKmh(kmh.round());
   }
 
+  DateTime? _effectiveLastUpdate() {
+    final deviceTime = widget.device.lastUpdate;
+    final posTime = widget.pos.fixTime;
+    if (deviceTime == null) return posTime;
+    return posTime.isAfter(deviceTime) ? posTime : deviceTime;
+  }
+
   String _formatLastUpdate(BuildContext context, DateTime? lastUpdate) {
     final l10n = AppLocalizations.of(context)!;
     if (lastUpdate == null) return l10n.never;
@@ -112,7 +119,7 @@ class _PositionDetailState extends State<PositionDetail> {
                 child: _InfoRow(
                   icon: PlatformIcons.lastLocationTime,
                   label: '',
-                  value: _formatLastUpdate(context, widget.device.lastUpdate),
+                  value: _formatLastUpdate(context, _effectiveLastUpdate()),
                   compact: true,
                 ),
               ),
