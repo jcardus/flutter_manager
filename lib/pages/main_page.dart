@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
 import '../models/geofence.dart';
+import '../models/device_merge.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../models/device.dart';
@@ -37,6 +38,7 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   final Map<int, Geofence> _geofences = {};
+  List<DeviceMerge> _deviceMerges = [];
   Set<int> _mergeSecondaryIds = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
@@ -63,6 +65,38 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  Map<int, Position> get _effectivePositions {
+    if (_deviceMerges.isEmpty) return _positions;
+    final result = Map<int, Position>.from(_positions);
+    for (final merge in _deviceMerges) {
+      final primaryPos = _positions[merge.primaryDeviceId];
+      final secondaryPos = _positions[merge.secondaryDeviceId];
+      if (secondaryPos != null) {
+        final primaryTime = primaryPos?.fixTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        if (secondaryPos.fixTime.isAfter(primaryTime)) {
+          result[merge.primaryDeviceId] = Position(
+            id: secondaryPos.id,
+            deviceId: merge.primaryDeviceId,
+            fixTime: secondaryPos.fixTime,
+            serverTime: secondaryPos.serverTime,
+            valid: secondaryPos.valid,
+            latitude: secondaryPos.latitude,
+            longitude: secondaryPos.longitude,
+            altitude: secondaryPos.altitude,
+            speed: secondaryPos.speed,
+            course: secondaryPos.course,
+            address: secondaryPos.address,
+            accuracy: secondaryPos.accuracy,
+            network: secondaryPos.network,
+            batteryLevel: secondaryPos.batteryLevel,
+            attributes: secondaryPos.attributes,
+          );
+        }
+      }
+    }
+    return result;
+  }
+
   Future<void> _init() async {
     final devices = await _apiService.fetchDevices();
     final devicesMap = <int, Device>{};
@@ -79,6 +113,7 @@ class _MainPageState extends State<MainPage> {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
       _geofences.addAll(geofenceMap);
+      _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
     });
     if (!mounted) return;
@@ -214,7 +249,7 @@ class _MainPageState extends State<MainPage> {
                 height: mapHeight,
                 child: MapView(
                   devices: _visibleDevices,
-                  positions: _positions,
+                  positions: _effectivePositions,
                   geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
                   selectedIndex: _selectedIndex,
@@ -238,7 +273,7 @@ class _MainPageState extends State<MainPage> {
         if (_selectedIndex == 1)
           DevicesListView(
             devices: _visibleDevices,
-            positions: _positions,
+            positions: _effectivePositions,
             onDeviceTap: _onDeviceTap,
           ),
         if (_selectedIndex == 2)
@@ -482,7 +517,7 @@ class _MainPageState extends State<MainPage> {
           _BottomSheetBuilder(
             selectedDeviceId: _selectedDeviceId,
             devices: _devices,
-            positions: _positions,
+            positions: _effectivePositions,
             onClose: _closeBottomSheet,
             onRouteToggle: _onRouteToggle,
             showingRoute: _showingRoute,
