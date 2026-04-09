@@ -6,6 +6,7 @@
 	<array>
 		<string>waze</string>
 		<string>comgooglemaps</string>
+		<string>google.streetview</string>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
