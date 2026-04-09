@@ -331,7 +331,7 @@ class _MainPageState extends State<MainPage> {
       final packageInfo = await PackageInfo.fromPlatform();
       final response = await http
           .get(Uri.parse(
-              'https://itunes.apple.com/lookup?bundleId=com.fleetmap.fleetmanager'))
+              'https://itunes.apple.com/lookup?bundleId=${packageInfo.packageName}'))
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
