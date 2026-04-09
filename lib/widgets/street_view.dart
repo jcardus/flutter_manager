@@ -30,9 +30,17 @@ class StreetView extends StatelessWidget {
     );
   }
 
-  void _openStreetView(double latitude, double longitude, double heading) {
-    final url = 'https://www.google.com/maps?q=&layer=c&cbll=$latitude,$longitude&cbp=12,${heading.toStringAsFixed(0)},0,0,0';
-    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  Future<void> _openStreetView(double latitude, double longitude, double heading) async {
+    final h = heading.toStringAsFixed(0);
+    // Try Google Street View app first
+    final appUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
+    if (await canLaunchUrl(appUri)) {
+      await launchUrl(appUri, mode: LaunchMode.externalApplication);
+    } else {
+      // Fallback: open Google Maps directly in Street View mode
+      final webUri = Uri.parse('https://www.google.com/maps/@$latitude,$longitude,3a,75y,${h}h,90t/data=!3m6!1e1');
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
