@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:manager/models/position.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/constants.dart';
 import '../utils/google_url_signer.dart';
@@ -29,9 +30,20 @@ class StreetView extends StatelessWidget {
     );
   }
 
+  void _openStreetView(double latitude, double longitude, double heading) {
+    final url = 'https://www.google.com/maps?q=&layer=c&cbll=$latitude,$longitude&cbp=12,${heading.toStringAsFixed(0)},0,0,0';
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return GestureDetector(
+      onTap: () => _openStreetView(
+        position!.latitude,
+        position!.longitude,
+        position!.course,
+      ),
+      child: SizedBox(
       height: 200,
       child: Image.network(
         _getStreetViewUrl(
@@ -75,6 +87,7 @@ class StreetView extends StatelessWidget {
           );
         },
       ),
+    ),
     );
   }
 }
