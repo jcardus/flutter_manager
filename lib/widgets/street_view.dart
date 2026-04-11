@@ -33,14 +33,20 @@ class StreetView extends StatelessWidget {
   Future<void> _openStreetView(double latitude, double longitude, double heading) async {
     final h = heading.toStringAsFixed(0);
     // Try Google Street View app first
-    final appUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
-    if (await canLaunchUrl(appUri)) {
-      await launchUrl(appUri, mode: LaunchMode.externalApplication);
-    } else {
-      // Fallback: open Google Maps directly in Street View mode
-      final webUri = Uri.parse('https://www.google.com/maps/@$latitude,$longitude,3a,75y,${h}h,90t/data=!3m6!1e1');
-      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    final svUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
+    if (await canLaunchUrl(svUri)) {
+      await launchUrl(svUri, mode: LaunchMode.externalApplication);
+      return;
     }
+    // Try Google Maps app with Street View layer
+    final mapsUri = Uri.parse('comgooglemaps://?center=$latitude,$longitude&mapmode=streetview');
+    if (await canLaunchUrl(mapsUri)) {
+      await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    // Fallback: web URL in Street View mode
+    final webUri = Uri.parse('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$latitude,$longitude&heading=$h');
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 
   @override

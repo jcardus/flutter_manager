@@ -2,13 +2,13 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/device.dart';
 import '../models/geofence.dart';
 import '../models/position.dart';
 import '../models/event.dart';
-import '../utils/constants.dart';
 import '../utils/device_colors.dart';
 import '../utils/svg_cache.dart';
 import '../utils/turbo_colormap.dart';
@@ -58,17 +58,98 @@ class MapView extends StatefulWidget {
   State<MapView> createState() => _MapViewState();
 }
 
-class _MapViewState extends State<MapView> {
+class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   final _mapController = MapController();
   int _styleIndex = 0;
   bool _geofencesSelected = true;
   bool _initialFitDone = false;
   List<Position> _lastRoutePositions = [];
   List<Position> _lastMovingSegmentPositions = [];
+  AnimationController? _animController;
+  AnimationController? _markerAnimController;
+  final Map<int, LatLng> _fromPositions = {};
+  final Map<int, LatLng> _lastKnownPositions = {};
+  double _markerT = 1.0;
+
+  void _animatedMove(LatLng dest, double zoom) {
+    _animController?.dispose();
+    final cam = _mapController.camera;
+    final latTween = Tween(begin: cam.center.latitude, end: dest.latitude);
+    final lngTween = Tween(begin: cam.center.longitude, end: dest.longitude);
+    final zoomTween = Tween(begin: cam.zoom, end: zoom);
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..addListener(() {
+        final t = _animController!.value;
+        _mapController.move(
+          LatLng(latTween.evaluate(AlwaysStoppedAnimation(t)),
+              lngTween.evaluate(AlwaysStoppedAnimation(t))),
+          zoomTween.evaluate(AlwaysStoppedAnimation(t)),
+        );
+      });
+    _animController!.forward();
+  }
+
+  static const _clusterDisableZoom = 16;
+
+  void _onPositionsChanged() {
+    final animate = _mapController.camera.zoom >= 10;
+    final bounds = animate ? _mapController.camera.visibleBounds : null;
+    bool changed = false;
+
+    for (final e in widget.positions.entries) {
+      final newLL = LatLng(e.value.latitude, e.value.longitude);
+      final oldLL = _lastKnownPositions[e.key];
+      if (oldLL == null || oldLL == newLL) {
+        _lastKnownPositions[e.key] = newLL;
+        continue;
+      }
+      _lastKnownPositions[e.key] = newLL;
+      if (animate && bounds!.contains(newLL)) {
+        _fromPositions[e.key] = oldLL;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    dev.log('Animating ${_fromPositions.length} devices at zoom ${_mapController.camera.zoom.toStringAsFixed(1)}', name: 'MAP');
+
+    // Reset and reuse controller instead of disposing mid-animation
+    if (_markerAnimController == null) {
+      _markerAnimController = AnimationController(
+        vsync: this, duration: const Duration(seconds: 2),
+      )..addListener(() => setState(() => _markerT = _markerAnimController!.value))
+       ..addStatusListener((s) { if (s == AnimationStatus.completed) _fromPositions.clear(); });
+    } else {
+      _markerAnimController!.reset();
+    }
+    _markerT = 0;
+    _markerAnimController!.forward();
+  }
+
+  LatLng _animatedPoint(int id, Position pos) {
+    final to = LatLng(pos.latitude, pos.longitude);
+    final from = _fromPositions[id];
+    if (from == null || _markerT >= 1.0) return to;
+    final t = Curves.easeOut.transform(_markerT);
+    return LatLng(
+      from.latitude + (to.latitude - from.latitude) * t,
+      from.longitude + (to.longitude - from.longitude) * t,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animController?.dispose();
+    _markerAnimController?.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _onPositionsChanged();
 
     // Initial fit on first data
     if (!_initialFitDone &&
@@ -83,6 +164,22 @@ class _MapViewState extends State<MapView> {
         widget.selectedDevice != oldWidget.selectedDevice) {
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _centerOnDevice(widget.selectedDevice!));
+    }
+
+    // Pan to selected device if it moves outside the visible map
+    if (widget.selectedDevice != null &&
+        widget.selectedDevice == oldWidget.selectedDevice &&
+        !widget.showingRoute) {
+      final pos = widget.positions[widget.selectedDevice!];
+      if (pos != null) {
+        final deviceLatLng = LatLng(pos.latitude, pos.longitude);
+        final bounds = _mapController.camera.visibleBounds;
+        if (!bounds.contains(deviceLatLng)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _animatedMove(deviceLatLng, _mapController.camera.zoom);
+          });
+        }
+      }
     }
 
     // Center on event position
@@ -133,10 +230,18 @@ class _MapViewState extends State<MapView> {
   void _centerOnDevice(int deviceId) {
     final position = widget.positions[deviceId];
     if (position == null) return;
-    final zoom = _mapController.camera.zoom < selectedZoomLevel
-        ? selectedZoomLevel
-        : _mapController.camera.zoom;
-    _mapController.move(LatLng(position.latitude, position.longitude), zoom);
+    final dest = LatLng(position.latitude, position.longitude);
+    final currentZoom = _mapController.camera.zoom;
+    final minZoom = _clusterDisableZoom.toDouble();
+    if (currentZoom >= minZoom) {
+      _animatedMove(dest, currentZoom);
+    } else {
+      _mapController.move(dest, minZoom);
+      // Force rebuild so cluster layer re-evaluates at new zoom
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   void _fitMapToDevices() {
@@ -287,6 +392,29 @@ class _MapViewState extends State<MapView> {
     }
   }
 
+  Marker _buildMarkerFor(int deviceId, Position position, Device device) {
+    final statusColor = DeviceColors.getDeviceColor(device, position, context);
+    final colorName = DeviceColors.getDeviceColorName(device, position);
+    final url = _iconUrl(device.category, colorName, position.course);
+    final remainder = _rotationRemainder(position.course) * pi / 180;
+
+    return Marker(
+      key: ValueKey(deviceId),
+      point: _animatedPoint(deviceId, position),
+      width: 96,
+      height: 110,
+      alignment: Alignment.center,
+      child: _AnimatedDeviceMarker(
+        deviceId: deviceId,
+        url: url,
+        statusColor: statusColor,
+        rotationRemainder: remainder,
+        deviceName: device.name,
+        onTap: () => widget.onDeviceSelected?.call(deviceId),
+      ),
+    );
+  }
+
   List<Marker> _buildDeviceMarkers() {
     if (widget.showingRoute) return [];
 
@@ -296,53 +424,20 @@ class _MapViewState extends State<MapView> {
       final position = entry.value;
       final device = widget.devices[deviceId];
       if (device == null) continue;
+      // Skip selected device — it's rendered separately outside the cluster
+      if (deviceId == widget.selectedDevice) continue;
 
-      final statusColor = DeviceColors.getDeviceColor(device, position, context);
-      final colorName = DeviceColors.getDeviceColorName(device, position);
-      final url = _iconUrl(device.category, colorName, position.course);
-      final remainder = _rotationRemainder(position.course) * pi / 180;
-
-      markers.add(Marker(
-        point: LatLng(position.latitude, position.longitude),
-        width: 96,
-        height: 110,
-        alignment: Alignment.center,
-        child: GestureDetector(
-          onTap: () => widget.onDeviceSelected?.call(deviceId),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Transform.rotate(
-                angle: remainder,
-                child: _SvgIcon(
-                  url: url,
-                  statusColor: statusColor,
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(204),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  device.name,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ));
+      markers.add(_buildMarkerFor(deviceId, position, device));
     }
     return markers;
+  }
+
+  List<Marker> _buildSelectedDeviceMarker() {
+    if (widget.showingRoute || widget.selectedDevice == null) return [];
+    final position = widget.positions[widget.selectedDevice!];
+    final device = widget.devices[widget.selectedDevice!];
+    if (position == null || device == null) return [];
+    return [_buildMarkerFor(widget.selectedDevice!, position, device)];
   }
 
   List<Polygon> _buildGeofencePolygons() {
@@ -604,10 +699,56 @@ class _MapViewState extends State<MapView> {
             PolylineLayer(polylines: _buildRouteLines()),
             CircleLayer(circles: _buildSpeedCircles()),
             PolylineLayer(polylines: _buildMovingSegmentLine()),
-            MarkerLayer(markers: _buildDeviceMarkers()),
+            MarkerClusterLayerWidget(
+              options: MarkerClusterLayerOptions(
+                maxClusterRadius: 60,
+                disableClusteringAtZoom: _clusterDisableZoom,
+                animationsOptions: const AnimationsOptions(
+                  zoom: Duration(milliseconds: 300),
+                  fitBound: Duration(milliseconds: 300),
+                  spiderfy: Duration(milliseconds: 300),
+                ),
+                markers: _buildDeviceMarkers(),
+                size: const Size(48, 48),
+                builder: (context, markers) {
+                  final count = markers.length;
+                  final size = count > 99 ? 56.0 : 48.0;
+                  return Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(64),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        count.toString(),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                          fontSize: count > 99 ? 14 : 16,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            MarkerLayer(markers: _buildSelectedDeviceMarker()),
             MarkerLayer(markers: _buildEventMarkers()),
           ],
         ),
+        if (widget.positions.isEmpty)
+          const Center(
+            child: CircularProgressIndicator(),
+          ),
         MapStyleSelector(
           selectedStyleIndex: _styleIndex,
           mapReady: true,
@@ -625,6 +766,64 @@ class _MapViewState extends State<MapView> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _AnimatedDeviceMarker extends StatelessWidget {
+  final int deviceId;
+  final String url;
+  final Color statusColor;
+  final double rotationRemainder;
+  final String deviceName;
+  final VoidCallback? onTap;
+
+  const _AnimatedDeviceMarker({
+    required this.deviceId,
+    required this.url,
+    required this.statusColor,
+    required this.rotationRemainder,
+    required this.deviceName,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TweenAnimationBuilder<double>(
+            key: ValueKey('rot_$deviceId'),
+            tween: Tween(end: rotationRemainder),
+            duration: const Duration(seconds: 2),
+            curve: Curves.easeOut,
+            builder: (context, angle, child) => Transform.rotate(
+              angle: angle,
+              child: child,
+            ),
+            child: _SvgIcon(url: url, statusColor: statusColor),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(204),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              deviceName,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -5,27 +5,27 @@ class MapStyles {
   static const List<MapStyleConfig> configs = [
     MapStyleConfig(
       nameKey: 'roads',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
     ),
     MapStyleConfig(
       nameKey: 'satellite',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&scale=2',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
       isDark: true,
     ),
     MapStyleConfig(
       nameKey: 'hybrid',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
       isDark: true,
     ),
     MapStyleConfig(
       nameKey: 'traffic',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}&scale=2',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
     ),
