@@ -46,6 +46,14 @@ class NotificationService {
         return;
       }
 
+      // Wait for APNS token on iOS before requesting FCM token
+      final apnsToken = await _fcm.getAPNSToken();
+      if (apnsToken == null) {
+        // APNS not ready yet — wait and retry
+        await Future.delayed(const Duration(seconds: 3));
+        await _fcm.getAPNSToken();
+      }
+
       // Get FCM token
       _fcmToken = await _fcm.getToken();
       if (_fcmToken != null) {

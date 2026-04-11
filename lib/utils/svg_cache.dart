@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 class SvgCache {
   static final _cache = <String, String>{};
 
+  /// Returns cached SVG synchronously, or null if not yet fetched.
+  static String? getSync(String url) => _cache[url];
+
   /// Returns the SVG string with CSS classes inlined, or null on failure.
   static Future<String?> get(String url) async {
     if (_cache.containsKey(url)) {

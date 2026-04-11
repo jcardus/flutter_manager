@@ -221,16 +221,23 @@ class _MapViewState extends State<MapView> {
   static const _colorNameToHex = {
     'green': '22c55e',   // moving
     'yellow': 'eab308',  // idle (ignition on, stopped)
-    'red': 'f97316',     // parked (ignition off)
-    'grey': 'ef4444',    // offline (no data)
+    'orange': 'f97316',  // parked (ignition off)
+    'red': 'ef4444',     // offline
   };
+
+  static const _rotationStep = 22.5; // 16 frames per 360°
 
   String _iconUrl(String? category, String colorName, double course) {
     final icon = _category3dIcon[category?.toLowerCase()] ??
         _category3dIcon['default']!;
     final hex = _colorNameToHex[colorName] ?? _colorNameToHex['grey']!;
-    final grados = (course % 360).toStringAsFixed(1);
-    return '$_iconBaseUrl$icon.php?grados=$grados&c=$hex&b=F0F0F0';
+    final snapped = (course % 360 ~/ _rotationStep) * _rotationStep;
+    return '$_iconBaseUrl$icon.php?grados=${snapped.toStringAsFixed(1)}&c=$hex&b=F0F0F0';
+  }
+
+  /// Remainder degrees after quantizing to 22.5° frames
+  double _rotationRemainder(double course) {
+    return (course % 360) - (course % 360 ~/ _rotationStep) * _rotationStep;
   }
 
   IconData _getEventIcon(String type) {
@@ -293,20 +300,24 @@ class _MapViewState extends State<MapView> {
       final statusColor = DeviceColors.getDeviceColor(device, position, context);
       final colorName = DeviceColors.getDeviceColorName(device, position);
       final url = _iconUrl(device.category, colorName, position.course);
+      final remainder = _rotationRemainder(position.course) * pi / 180;
 
       markers.add(Marker(
         point: LatLng(position.latitude, position.longitude),
-        width: 80,
-        height: 94,
+        width: 96,
+        height: 110,
         alignment: Alignment.center,
         child: GestureDetector(
           onTap: () => widget.onDeviceSelected?.call(deviceId),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _SvgIcon(
-                url: url,
-                statusColor: statusColor,
+              Transform.rotate(
+                angle: remainder,
+                child: _SvgIcon(
+                  url: url,
+                  statusColor: statusColor,
+                ),
               ),
               Container(
                 padding:
@@ -573,6 +584,9 @@ class _MapViewState extends State<MapView> {
           options: MapOptions(
             initialCenter: const LatLng(0, 0),
             initialZoom: 2,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
             onTap: (_, __) => widget.onMapBackgroundTap?.call(),
           ),
           children: [
@@ -632,16 +646,17 @@ class _SvgIconState extends State<_SvgIcon> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _svgData = SvgCache.getSync(widget.url);
+    if (_svgData == null) _load();
   }
 
   @override
   void didUpdateWidget(_SvgIcon old) {
     super.didUpdateWidget(old);
     if (old.url != widget.url) {
-      _svgData = null;
+      _svgData = SvgCache.getSync(widget.url);
       _failed = false;
-      _load();
+      if (_svgData == null) _load();
     }
   }
 
@@ -657,12 +672,11 @@ class _SvgIconState extends State<_SvgIcon> {
   @override
   Widget build(BuildContext context) {
     if (_svgData != null) {
-      return SvgPicture.string(_svgData!, width: 56, height: 56);
+      return SvgPicture.string(_svgData!, width: 72, height: 72);
     }
-    return Icon(
-      _failed ? Icons.error_outline : Icons.directions_car,
-      color: widget.statusColor,
-      size: 56,
-    );
+    if (_failed) {
+      return Icon(Icons.error_outline, color: widget.statusColor, size: 56);
+    }
+    return const SizedBox(width: 72, height: 72);
   }
 }
