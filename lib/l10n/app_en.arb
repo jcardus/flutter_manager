@@ -171,9 +171,14 @@
     "description": "Cancel button text"
   },
 
-  "mapStyleRoads": "Roads",
-  "@mapStyleRoads": {
-    "description": "Roads map style name"
+  "mapStyleMapbox": "Mapbox",
+  "@mapStyleMapbox": {
+    "description": "Mapbox map style name"
+  },
+
+  "mapStyleGoogle": "Google",
+  "@mapStyleGoogle": {
+    "description": "Google map style name"
   },
 
   "mapStyleSatellite": "Satellite",
@@ -181,14 +186,14 @@
     "description": "Satellite map style name"
   },
 
-  "mapStyleHybrid": "Hybrid",
-  "@mapStyleHybrid": {
-    "description": "Hybrid map style name"
+  "mapStyleDark": "Dark",
+  "@mapStyleDark": {
+    "description": "Dark map style name"
   },
 
-  "mapStyleTraffic": "Traffic",
-  "@mapStyleTraffic": {
-    "description": "Traffic map style name"
+  "mapStyleLight": "Light",
+  "@mapStyleLight": {
+    "description": "Light map style name"
   },
 
   "loading": "Loading...",

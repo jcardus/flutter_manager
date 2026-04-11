@@ -34,11 +34,12 @@ class StreetView extends StatelessWidget {
     final h = heading.toStringAsFixed(0);
     // Try Google Street View app first
     final appUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
-    if (await canLaunchUrl(appUri)) {
+    final canLaunchApp = await canLaunchUrl(appUri);
+    if (canLaunchApp) {
       await launchUrl(appUri, mode: LaunchMode.externalApplication);
     } else {
-      // Fallback: open Google Maps directly in Street View mode
-      final webUri = Uri.parse('https://www.google.com/maps/@$latitude,$longitude,3a,75y,${h}h,90t/data=!3m6!1e1');
+      // Fallback: open Google Maps Street View via Maps URLs API
+      final webUri = Uri.parse('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$latitude%2C$longitude&heading=$h');
       await launchUrl(webUri, mode: LaunchMode.externalApplication);
     }
   }

@@ -8,7 +8,7 @@ import 'package:manager/widgets/position_detail.dart';
 import 'package:manager/widgets/street_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
 import '../icons/icons.dart';
 import '../l10n/app_localizations.dart';
@@ -59,7 +59,7 @@ class DeviceDetail extends StatelessWidget {
     final lng = position!.longitude;
     final color = Theme.of(context).primaryColor;
 
-    if (Platform.isIOS) {
+    if ((!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)) {
       // Check which map apps are available on iOS
       final availableApps = <MapApp>[];
 
@@ -413,7 +413,7 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Platform.isIOS ? Icons.ios_share : Icons.share,
+                      icon: (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ? Icons.ios_share : Icons.share,
                       label: l10n.share,
                       onPressed: () => _shareLocation(context),
                     ),

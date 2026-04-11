@@ -15,11 +15,7 @@ dependencies:
 
   intl: ^0.20.2
   cupertino_icons: ^1.0.8
-  flutter_map: ^7.0.2
-  latlong2: ^0.9.1
-  flutter_map_marker_cluster: ^1.4.0
-  flutter_map_cancellable_tile_provider: ^3.0.0
-  flutter_svg: ^2.0.0
+  maplibre_gl: ^0.24.1
   shared_preferences: ^2.3.3
   http: ^1.2.2
   web_socket_channel: ^3.0.3
@@ -50,6 +46,7 @@ flutter:
 
   assets:
     - assets/marker.png
+    - assets/map/icons/
   fonts:
     - family: platform-font
       fonts:
