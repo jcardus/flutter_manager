@@ -10,11 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install librsvg
-        run: sudo apt-get update && sudo apt-get install -y librsvg2-bin
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.7'
+          flutter-version: '3.41.6'
           channel: 'stable'
           cache: true
       - name: Cache Flutter dependencies
@@ -35,10 +33,6 @@ jobs:
           cache-dependency-path: | # optional
             android/*.gradle*
             android/**/gradle-wrapper.properties
-      - name: Generate icons
-        run: |
-          export BASE_URL="${{vars.BASE_URL}}"
-          scripts/generate_icons.sh
       - name: Build
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android/keystore
@@ -61,5 +55,3 @@ jobs:
           releaseFiles: build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: draft
-
-

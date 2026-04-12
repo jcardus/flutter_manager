@@ -2,7 +2,7 @@ name: manager
 description: "Gestor"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 3.3.13+1
+version: 3.16.4+1
 
 environment:
   sdk: ^3.9.2
@@ -15,7 +15,11 @@ dependencies:
 
   intl: ^0.20.2
   cupertino_icons: ^1.0.8
-  maplibre_gl: ^0.24.1
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  flutter_map_marker_cluster: ^1.4.0
+  flutter_map_cancellable_tile_provider: ^3.0.0
+  flutter_svg: ^2.0.0
   shared_preferences: ^2.3.3
   http: ^1.2.2
   web_socket_channel: ^3.0.3
@@ -31,6 +35,9 @@ dependencies:
   webview_flutter: ^4.13.0
   local_auth: ^2.3.0
   in_app_update: ^4.2.3
+  csv: ^8.0.0
+  pdf: ^3.12.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -46,7 +53,6 @@ flutter:
 
   assets:
     - assets/marker.png
-    - assets/map/icons/
   fonts:
     - family: platform-font
       fonts:

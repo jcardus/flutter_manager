@@ -1,20 +1,28 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:in_app_update/in_app_update.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/constants.dart';
 import '../models/geofence.dart';
+import '../models/device_merge.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
+import '../widgets/reports_view.dart';
 import '../widgets/device_bottom_sheet.dart';
 
 class MainPage extends StatefulWidget {
@@ -34,6 +42,7 @@ class _MainPageState extends State<MainPage> {
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
   final Map<int, Geofence> _geofences = {};
+  List<DeviceMerge> _deviceMerges = [];
   Set<int> _mergeSecondaryIds = {};
   int? _selectedDeviceId;
   bool _showingRoute = false;
@@ -60,6 +69,38 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  Map<int, Position> get _effectivePositions {
+    if (_deviceMerges.isEmpty) return _positions;
+    final result = Map<int, Position>.from(_positions);
+    for (final merge in _deviceMerges) {
+      final primaryPos = _positions[merge.primaryDeviceId];
+      final secondaryPos = _positions[merge.secondaryDeviceId];
+      if (secondaryPos != null) {
+        final primaryTime = primaryPos?.fixTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        if (secondaryPos.fixTime.isAfter(primaryTime)) {
+          result[merge.primaryDeviceId] = Position(
+            id: secondaryPos.id,
+            deviceId: merge.primaryDeviceId,
+            fixTime: secondaryPos.fixTime,
+            serverTime: secondaryPos.serverTime,
+            valid: secondaryPos.valid,
+            latitude: secondaryPos.latitude,
+            longitude: secondaryPos.longitude,
+            altitude: secondaryPos.altitude,
+            speed: secondaryPos.speed,
+            course: secondaryPos.course,
+            address: secondaryPos.address,
+            accuracy: secondaryPos.accuracy,
+            network: secondaryPos.network,
+            batteryLevel: secondaryPos.batteryLevel,
+            attributes: secondaryPos.attributes,
+          );
+        }
+      }
+    }
+    return result;
+  }
+
   Future<void> _init() async {
     final devices = await _apiService.fetchDevices();
     final devicesMap = <int, Device>{};
@@ -70,15 +111,21 @@ class _MainPageState extends State<MainPage> {
     final geofences = await _apiService.fetchGeofences();
     final geofenceMap = <int, Geofence>{};
     for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
-    final merges = await _apiService.fetchDeviceMerges();
+    // Only apply device merges for customers (userLimit == 0).
+    // Resellers/managers see both primary and secondary devices.
+    final user = await AuthService().getUser();
+    final isCustomer = (user?['userLimit'] as int? ?? 0) == 0
+        && (user?['administrator'] as bool? ?? false) == false;
+    final merges = isCustomer ? await _apiService.fetchDeviceMerges() : <DeviceMerge>[];
     final secondaryIds = merges.map((m) => m.secondaryDeviceId).toSet();
+    if (!mounted) return;
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
       _geofences.addAll(geofenceMap);
+      _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
     });
-    if (!mounted) return;
     await _connectSocket();
     _checkForUpdate();
   }
@@ -132,6 +179,11 @@ class _MainPageState extends State<MainPage> {
       _movingSegmentPositions = positions;
       _segmentStartEvent = startEvent;
       _segmentEndEvent = endEvent;
+      // Clear position marker when selecting a segment
+      _eventPositionToCenter = null;
+      _selectedEvent = null;
+      _isFirstPosition = null;
+      _positionLabel = null;
     });
   }
 
@@ -181,16 +233,6 @@ class _MainPageState extends State<MainPage> {
       _segmentStartEvent = null;
       _segmentEndEvent = null;
     });
-    // Reset after next frame to allow MapView to process it
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _eventPositionToCenter = null;
-          _isFirstPosition = null;
-          _positionLabel = null;
-        });
-      }
-    });
   }
 
   Widget _buildCurrentScreen() {
@@ -211,7 +253,7 @@ class _MainPageState extends State<MainPage> {
                 height: mapHeight,
                 child: MapView(
                   devices: _visibleDevices,
-                  positions: _positions,
+                  positions: _effectivePositions,
                   geofences: _geofences,
                   selectedDevice: _selectedDeviceId,
                   selectedIndex: _selectedIndex,
@@ -235,10 +277,15 @@ class _MainPageState extends State<MainPage> {
         if (_selectedIndex == 1)
           DevicesListView(
             devices: _visibleDevices,
-            positions: _positions,
+            positions: _effectivePositions,
             onDeviceTap: _onDeviceTap,
           ),
         if (_selectedIndex == 2)
+          ReportsView(
+            devices: _visibleDevices,
+            onBack: () => setState(() => _selectedIndex = 0),
+          ),
+        if (_selectedIndex == 3)
           ProfileView(
             deviceCount: _visibleDevices.length,
             activeCount: _positions.length,
@@ -250,7 +297,15 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _checkForUpdate() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb) return;
+    if (Platform.isAndroid) {
+      await _checkForUpdateAndroid();
+    } else if (Platform.isIOS) {
+      await _checkForUpdateIos();
+    }
+  }
+
+  Future<void> _checkForUpdateAndroid() async {
     try {
       final info = await InAppUpdate.checkForUpdate();
       if (!mounted) return;
@@ -280,6 +335,45 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
+  Future<void> _checkForUpdateIos() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      dev.log('Bundle: ${packageInfo.packageName}, local: ${packageInfo.version}', name: 'UPDATE');
+      final response = await http
+          .get(Uri.parse(
+              'https://itunes.apple.com/lookup?bundleId=${packageInfo.packageName}&country=$appStoreCountry'))
+          .timeout(const Duration(seconds: 10));
+      dev.log('App Store response: ${response.statusCode}', name: 'UPDATE');
+      if (response.statusCode != 200) return;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final results = data['results'] as List?;
+      dev.log('Results count: ${results?.length ?? 0}', name: 'UPDATE');
+      if (results == null || results.isEmpty) return;
+      final storeVersion = results[0]['version'] as String?;
+      final storeUrl = results[0]['trackViewUrl'] as String?;
+      dev.log('Store: $storeVersion, local: ${packageInfo.version}, newer: ${storeVersion != null ? _isNewerVersion(storeVersion, packageInfo.version) : false}', name: 'UPDATE');
+      if (storeVersion == null || storeUrl == null) return;
+      if (_isNewerVersion(storeVersion, packageInfo.version)) {
+        dev.log('Update available! Showing snackbar', name: 'UPDATE');
+        if (mounted) _showIosUpdateSnackbar(storeUrl);
+      }
+    } catch (e) {
+      dev.log('Update check error: $e', name: 'UPDATE');
+    }
+  }
+
+  bool _isNewerVersion(String storeVersion, String currentVersion) {
+    final storeParts = storeVersion.split('.').map(int.tryParse).toList();
+    final currentParts = currentVersion.split('.').map(int.tryParse).toList();
+    for (var i = 0; i < storeParts.length; i++) {
+      final store = storeParts[i] ?? 0;
+      final current = i < currentParts.length ? (currentParts[i] ?? 0) : 0;
+      if (store > current) return true;
+      if (store < current) return false;
+    }
+    return false;
+  }
+
   void _showUpdateReadySnackbar() {
     final l10n = AppLocalizations.of(context)!;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -289,6 +383,23 @@ class _MainPageState extends State<MainPage> {
         action: SnackBarAction(
           label: l10n.restart,
           onPressed: InAppUpdate.completeFlexibleUpdate,
+        ),
+      ),
+    );
+  }
+
+  void _showIosUpdateSnackbar(String storeUrl) {
+    final l10n = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(l10n.updateAvailable),
+        duration: const Duration(seconds: 15),
+        action: SnackBarAction(
+          label: l10n.update,
+          onPressed: () => launchUrl(
+            Uri.parse(storeUrl),
+            mode: LaunchMode.externalApplication,
+          ),
         ),
       ),
     );
@@ -369,7 +480,8 @@ class _MainPageState extends State<MainPage> {
         child: Stack(
         children: [
           _buildCurrentScreen(),
-          // Floating Navigation Bar
+          // Floating Navigation Bar (hidden on reports tab)
+          if (_selectedIndex != 2)
           Positioned(
             bottom: 0,
             left: 0,
@@ -406,7 +518,9 @@ class _MainPageState extends State<MainPage> {
                             const SizedBox(width: 4),
                             _buildNavItem(1, Icons.list_outlined, Icons.list, l10n.devices),
                             const SizedBox(width: 4),
-                            _buildNavItem(2, Icons.person_outline, Icons.person, l10n.profile),
+                            _buildNavItem(2, Icons.assessment_outlined, Icons.assessment, l10n.reports),
+                            const SizedBox(width: 4),
+                            _buildNavItem(3, Icons.person_outline, Icons.person, l10n.profile),
                           ],
                         ),
                       ),
@@ -420,7 +534,8 @@ class _MainPageState extends State<MainPage> {
           _BottomSheetBuilder(
             selectedDeviceId: _selectedDeviceId,
             devices: _devices,
-            positions: _positions,
+            positions: _effectivePositions,
+            deviceMerges: _deviceMerges,
             onClose: _closeBottomSheet,
             onRouteToggle: _onRouteToggle,
             showingRoute: _showingRoute,
@@ -525,6 +640,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final int? selectedDeviceId;
   final Map<int, Device> devices;
   final Map<int, Position> positions;
+  final List<DeviceMerge> deviceMerges;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
@@ -539,6 +655,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     required this.selectedDeviceId,
     required this.devices,
     required this.positions,
+    this.deviceMerges = const [],
     this.onClose,
     this.onRouteToggle,
     this.showingRoute = false,
@@ -604,6 +721,10 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             key: ValueKey(selectedDeviceId),
             device: device!,
             position: position,
+            mergedDeviceId: widget.deviceMerges
+                .where((m) => m.primaryDeviceId == selectedDeviceId)
+                .map((m) => m.secondaryDeviceId)
+                .firstOrNull,
             onClose: widget.onClose,
             onRouteToggle: widget.onRouteToggle,
             showingRoute: widget.showingRoute,
