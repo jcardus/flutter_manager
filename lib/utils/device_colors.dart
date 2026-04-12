@@ -44,25 +44,27 @@ class DeviceColors {
     }
   }
 
-  /// Get color name as string (for map GeoJSON properties)
-  /// Returns: 'green', 'yellow', 'red', or 'grey'
+  /// Get color name as string (for 3D icon URL color parameter)
+  /// Returns: 'green', 'yellow', 'orange', or 'red'
+  /// Matches traccar-dash logic: offline→red, moving→green, idle→yellow, parked→orange
   static String getDeviceColorName(Device device, Position? position) {
+    if (device.status?.toLowerCase() != 'online') {
+      return 'red'; // offline
+    }
+
     if (position == null) {
-      return 'grey';
-    }
-
-    final attributes = position.attributes;
-    if (attributes == null || !attributes.containsKey('ignition')) {
-      return 'grey';
-    }
-
-    final ignition = attributes['ignition'] == true;
-    if (ignition) {
-      // Ignition is on - check speed
-      return position.speed > 0 ? 'green' : 'yellow';
-    } else {
-      // Ignition is off
       return 'red';
     }
+
+    if (position.speed > 0) {
+      return 'green'; // moving
+    }
+
+    final ignition = position.attributes?['ignition'] == true;
+    if (ignition) {
+      return 'yellow'; // idle (ignition on, stopped)
+    }
+
+    return 'orange'; // parked (ignition off)
   }
 }

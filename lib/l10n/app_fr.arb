@@ -61,15 +61,13 @@
 
   "cancel": "Annuler",
 
-  "mapStyleMapbox": "Mapbox",
-
-  "mapStyleGoogle": "Google",
+  "mapStyleRoads": "Routes",
 
   "mapStyleSatellite": "Satellite",
 
-  "mapStyleDark": "Sombre",
+  "mapStyleHybrid": "Hybride",
 
-  "mapStyleLight": "Clair",
+  "mapStyleTraffic": "Trafic",
 
   "loading": "Chargement...",
 
@@ -139,5 +137,41 @@
 
   "updateReady": "Mise à jour prête à installer",
 
-  "restart": "Redémarrer"
+  "restart": "Redémarrer",
+
+  "updateAvailable": "Une nouvelle version est disponible",
+
+  "update": "Mettre à jour",
+
+  "reports": "Rapports",
+  "reportTrips": "Trajets",
+  "reportStops": "Arrêts",
+  "reportEvents": "Événements",
+  "reportSummary": "Résumé",
+  "reportActivity": "Activité",
+  "reportRoute": "Itinéraire",
+  "selectDevice": "Sélectionner appareil",
+  "allDevices": "Tous les appareils",
+  "from": "Du",
+  "to": "Au",
+  "generate": "Générer",
+  "exportCsv": "CSV",
+  "exportPdf": "PDF",
+  "noData": "Aucune donnée pour la période sélectionnée",
+  "distance": "Distance",
+  "avgSpeed": "Vit. Moyenne",
+  "maxSpeed": "Vit. Maximum",
+  "startTime": "Début",
+  "endTime": "Fin",
+  "address": "Adresse",
+  "engineHours": "Heures Moteur",
+  "fuel": "Carburant",
+  "movingTime": "En Mouvement",
+  "stoppedTime": "Arrêté",
+  "speed": "Vitesse",
+  "eventType": "Type",
+  "time": "Heure",
+  "device": "Appareil",
+  "duration": "Durée",
+  "reportExported": "Rapport exporté"
 }

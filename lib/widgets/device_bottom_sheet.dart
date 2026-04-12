@@ -47,6 +47,7 @@ class _MeasureSizeRenderObject extends RenderProxyBox {
 class DeviceBottomSheet extends StatefulWidget {
   final Device device;
   final Position? position;
+  final int? mergedDeviceId;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
@@ -61,6 +62,7 @@ class DeviceBottomSheet extends StatefulWidget {
     super.key,
     required this.device,
     this.position,
+    this.mergedDeviceId,
     this.onClose,
     this.onRouteToggle,
     this.showingRoute = false,
@@ -167,6 +169,7 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                           key: const ValueKey('route'),
                           position: position,
                           device: widget.device,
+                          mergedDeviceId: widget.mergedDeviceId,
                           onBack: _toggleRoute,
                           onRoutePositionsLoaded: widget.onRoutePositionsLoaded,
                           onEventTap: widget.onEventTap,

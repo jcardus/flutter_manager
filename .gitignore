@@ -45,5 +45,6 @@ app.*.map.json
 /android/app/release
 /assets/map/icons/
 /ios/gc_keys.json
+/macos/Flutter/ephemeral/
 /lib/l10n/*.dart
 /android/keystore

@@ -12,6 +12,7 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../models/trip.dart';
 import '../models/stop.dart';
+import '../models/summary.dart';
 import 'web_helper_stub.dart'
     if (dart.library.html) 'web_helper_web.dart' as web_helper;
 
@@ -158,6 +159,19 @@ class ApiService {
     );
   }
 
+  Future<List<Summary>> fetchSummary({
+    required List<int> deviceIds,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromParam = from.toUtc().toIso8601String();
+    final toParam = to.toUtc().toIso8601String();
+    final deviceIdParams = deviceIds.map((id) => 'deviceId=$id').join('&');
+    return _fetchList(
+      endpoint: '/api/reports/summary?$deviceIdParams&from=$fromParam&to=$toParam',
+      fromJson: Summary.fromJson
+    );
+  }
 
   Future<Map<String, String>> _getAuthHeaders([Map<String, String>? extraHeaders]) async {
     final headers = <String, String>{
@@ -250,7 +264,8 @@ class ApiService {
         headers: permissionHeaders,
         body: permissionBody,
       );
-      return 'https://eta.fleetmap.io/?token=$token';
+      final exp = Uri.encodeComponent(expirationTime.toUtc().toIso8601String());
+      return 'https://eta.fleetmap.io/?token=$token&expiration=$exp';
     } catch (e, stack) {
       dev.log('Error in shareDevice: $e', name: 'API', error: e, stackTrace: stack);
       return '';
@@ -271,7 +286,8 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final url = "https://fleetmap-io.github.io/share-vehicle-location?token=${response.body}";
+        final exp = Uri.encodeComponent(expiration.toUtc().toIso8601String());
+        final url = "https://fleetmap-io.github.io/share-vehicle-location?token=${response.body}&expiration=$exp";
         dev.log(url);
         return url;
       } else {

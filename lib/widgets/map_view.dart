@@ -1,16 +1,17 @@
 import 'dart:developer' as dev;
-import 'dart:io';
-import 'dart:math';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
+import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/device.dart';
 import '../models/geofence.dart';
 import '../models/position.dart';
 import '../models/event.dart';
-import '../utils/constants.dart';
 import '../utils/device_colors.dart';
+import '../utils/device_icons.dart';
+import '../utils/svg_cache.dart';
 import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
@@ -58,114 +59,291 @@ class MapView extends StatefulWidget {
   State<MapView> createState() => _MapViewState();
 }
 
-class _MapViewState extends State<MapView> {
-  MapLibreMapController? mapController;
-  bool _initialFitDone = false;
-  bool _mapReady = false;
+class _MapViewState extends State<MapView> with TickerProviderStateMixin {
+  final _mapController = MapController();
   int _styleIndex = 0;
   bool _geofencesSelected = true;
-  Future<String>? _initialStyleFuture;
-  double scrollOffset = 0;
-  bool? _lastShowingRoute;
+  bool _initialFitDone = false;
   List<Position> _lastRoutePositions = [];
   List<Position> _lastMovingSegmentPositions = [];
+  AnimationController? _animController;
+  AnimationController? _markerAnimController;
+  final Map<int, LatLng> _fromPositions = {};
+  final Map<int, LatLng> _lastKnownPositions = {};
+  double _markerT = 1.0;
 
+  void _animatedMove(LatLng dest, double zoom) {
+    _animController?.dispose();
+    final cam = _mapController.camera;
+    final latTween = Tween(begin: cam.center.latitude, end: dest.latitude);
+    final lngTween = Tween(begin: cam.center.longitude, end: dest.longitude);
+    final zoomTween = Tween(begin: cam.zoom, end: zoom);
+
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..addListener(() {
+        final t = _animController!.value;
+        _mapController.move(
+          LatLng(latTween.evaluate(AlwaysStoppedAnimation(t)),
+              lngTween.evaluate(AlwaysStoppedAnimation(t))),
+          zoomTween.evaluate(AlwaysStoppedAnimation(t)),
+        );
+      });
+    _animController!.forward();
+  }
+
+  static const _clusterDisableZoom = 16;
+
+  void _onPositionsChanged() {
+    final animate = _mapController.camera.zoom >= 10;
+    final bounds = animate ? _mapController.camera.visibleBounds : null;
+    bool changed = false;
+
+    for (final e in widget.positions.entries) {
+      final newLL = LatLng(e.value.latitude, e.value.longitude);
+      final oldLL = _lastKnownPositions[e.key];
+      if (oldLL == null || oldLL == newLL) {
+        _lastKnownPositions[e.key] = newLL;
+        continue;
+      }
+      _lastKnownPositions[e.key] = newLL;
+      if (animate && bounds!.contains(newLL)) {
+        _fromPositions[e.key] = oldLL;
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    dev.log('Animating ${_fromPositions.length} devices at zoom ${_mapController.camera.zoom.toStringAsFixed(1)}', name: 'MAP');
+
+    // Reset and reuse controller instead of disposing mid-animation
+    if (_markerAnimController == null) {
+      _markerAnimController = AnimationController(
+        vsync: this, duration: const Duration(seconds: 2),
+      )..addListener(() => setState(() => _markerT = _markerAnimController!.value))
+       ..addStatusListener((s) { if (s == AnimationStatus.completed) _fromPositions.clear(); });
+    } else {
+      _markerAnimController!.reset();
+    }
+    _markerT = 0;
+    _markerAnimController!.forward();
+  }
+
+  LatLng _animatedPoint(int id, Position pos) {
+    final to = LatLng(pos.latitude, pos.longitude);
+    final from = _fromPositions[id];
+    if (from == null || _markerT >= 1.0) return to;
+    final t = Curves.easeOut.transform(_markerT);
+    return LatLng(
+      from.latitude + (to.latitude - from.latitude) * t,
+      from.longitude + (to.longitude - from.longitude) * t,
+    );
+  }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_initialStyleFuture == null) {
-      final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-      _initialStyleFuture = MapStyles.getStyleString(MapStyles.configs[_styleIndex], pixelRatio);
-    }
-    super.didChangeDependencies();
-  }
-
-  Future<void> _applyStyle(int index) async {
-    if (mapController == null) return;
-    setState(() => _mapReady = false);
-    final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-    final styleString = await MapStyles.getStyleString(MapStyles.configs[index], pixelRatio);
-    await mapController!.setStyle(styleString);
-    setState(() { _styleIndex = index; });
-  }
-
-  Future<void> _layerSelected() async {
-    if (mapController == null) return;
-    setState(() => _geofencesSelected = !_geofencesSelected);
-
-    await mapController!.setLayerVisibility(MapStyles.geofencePolygonLayerId, _geofencesSelected);
-    await mapController!.setLayerVisibility(MapStyles.geofenceLineLayerId, _geofencesSelected);
-    await mapController!.setLayerVisibility(MapStyles.geofenceLabelLayerId, _geofencesSelected);
-  }
-
-  Future<void> _zoomIn() async {
-    if (mapController == null) return;
-    await mapController!.animateCamera(
-      CameraUpdate.zoomIn(),
-      duration: const Duration(milliseconds: 200),
-    );
-  }
-
-  Future<void> _zoomOut() async {
-    if (mapController == null) return;
-    await mapController!.animateCamera(
-      CameraUpdate.zoomOut(),
-      duration: const Duration(milliseconds: 200),
-    );
+  void dispose() {
+    _animController?.dispose();
+    _markerAnimController?.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _update();
+    _onPositionsChanged();
+
+    // Initial fit on first data
+    if (!_initialFitDone &&
+        widget.positions.isNotEmpty &&
+        widget.selectedIndex == 0) {
+      _initialFitDone = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fitMapToDevices());
+    }
+
+    // Center on newly selected device
     if (widget.selectedDevice != null &&
         widget.selectedDevice != oldWidget.selectedDevice) {
-      // Defer showing bottom sheet until after build completes
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _centerOnDevice(widget.selectedDevice!);
-      });
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _centerOnDevice(widget.selectedDevice!));
     }
 
-    // Clear event marker when not showing route or no device selected
-    if ((widget.selectedDevice == null || !widget.showingRoute) &&
-        (oldWidget.selectedDevice != null || oldWidget.showingRoute)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _clearEventMarker();
-      });
+    // Pan to selected device if it moves outside the visible map
+    if (widget.selectedDevice != null &&
+        widget.selectedDevice == oldWidget.selectedDevice &&
+        !widget.showingRoute) {
+      final pos = widget.positions[widget.selectedDevice!];
+      if (pos != null) {
+        final deviceLatLng = LatLng(pos.latitude, pos.longitude);
+        final bounds = _mapController.camera.visibleBounds;
+        if (!bounds.contains(deviceLatLng)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _animatedMove(deviceLatLng, _mapController.camera.zoom);
+          });
+        }
+      }
     }
 
-    // Center on event position if provided
+    // Center on event position
     if (widget.eventPositionToCenter != null &&
         widget.eventPositionToCenter != oldWidget.eventPositionToCenter) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _centerOnEventPosition(widget.eventPositionToCenter!);
+        final pos = widget.eventPositionToCenter!;
+        _mapController.move(
+          LatLng(pos.latitude, pos.longitude),
+          _mapController.camera.zoom < 14 ? 14 : _mapController.camera.zoom,
+        );
+      });
+    }
+
+    // Fit to route when route positions change
+    if (!_routePositionsEqual(widget.routePositions, _lastRoutePositions) &&
+        widget.routePositions.length >= 2) {
+      _lastRoutePositions = List.from(widget.routePositions);
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _fitMapToRoute());
+    }
+
+    // Fit to moving segment when it changes
+    if (!_routePositionsEqual(
+        widget.movingSegmentPositions, _lastMovingSegmentPositions)) {
+      final wasHighlighted = _lastMovingSegmentPositions.isNotEmpty;
+      _lastMovingSegmentPositions = List.from(widget.movingSegmentPositions);
+      if (widget.movingSegmentPositions.length >= 2) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _fitMapToMovingSegment());
+      } else if (wasHighlighted && widget.routePositions.isNotEmpty) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _fitMapToRoute());
+      }
+    }
+
+    setState(() {});
+  }
+
+  bool _routePositionsEqual(List<Position> a, List<Position> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
+  }
+
+  void _centerOnDevice(int deviceId) {
+    final position = widget.positions[deviceId];
+    if (position == null) return;
+    final dest = LatLng(position.latitude, position.longitude);
+    final currentZoom = _mapController.camera.zoom;
+    final minZoom = _clusterDisableZoom.toDouble();
+    if (currentZoom >= minZoom) {
+      _animatedMove(dest, currentZoom);
+    } else {
+      _mapController.move(dest, minZoom);
+      // Force rebuild so cluster layer re-evaluates at new zoom
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) setState(() {});
       });
     }
   }
 
-  Future<void> _update({bool forceUpdateVisibility = false}) async {
-    if (widget.positions.isNotEmpty && mapController != null && _mapReady && widget.selectedIndex == 0) {
-      await _updateMapSource(forceUpdateVisibility: forceUpdateVisibility);
-      await _updateRouteSource(forceUpdate: forceUpdateVisibility);
-      await _updateMovingSegmentSource();
-      if (!_initialFitDone) {
-        await _updateGeofencesSource();
-        _fitMapToDevices();
-        _initialFitDone = true;
-      }
+  void _fitMapToDevices() {
+    if (widget.positions.isEmpty) return;
+    _fitToPoints(
+      widget.positions.values
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList(),
+      bottomPadding: 150,
+    );
+  }
+
+  void _fitMapToRoute() {
+    if (widget.routePositions.isEmpty) return;
+    _fitToPoints(
+      widget.routePositions
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList(),
+    );
+  }
+
+  void _fitMapToMovingSegment() {
+    if (widget.movingSegmentPositions.isEmpty) return;
+    _fitToPoints(
+      widget.movingSegmentPositions
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList(),
+      bottomPadding: 100,
+    );
+  }
+
+  void _fitToPoints(List<LatLng> points, {double bottomPadding = 50}) {
+    if (points.isEmpty) return;
+    if (points.length == 1) {
+      _mapController.move(points.first, 14);
+      return;
+    }
+    try {
+      final bounds = LatLngBounds.fromPoints(points);
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: EdgeInsets.fromLTRB(50, 50, 50, bottomPadding),
+        ),
+      );
+    } catch (e) {
+      dev.log('_fitToPoints error: $e');
     }
   }
 
-  void _centerOnDevice(int deviceId, {bool changeZoom = true}) async {
-    final position = widget.positions[deviceId];
-    if (mapController == null || position == null) { return; }
-    final zoom = mapController!.cameraPosition!.zoom < selectedZoomLevel && changeZoom ?
-        selectedZoomLevel : mapController!.cameraPosition!.zoom;
-    await mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(position.latitude, position.longitude), zoom),
-        duration: const Duration(milliseconds: 250)
-    );
+  static const _category3dIcon = {
+    'default':         'sedan_50',
+    'car':             'sedan_50',
+    'van':             'furgoneta_60',
+    'camper':          'furgoneta_ventana',
+    'truck':           'cam_caja_60',
+    'bus':             'bus_85',
+    'tractor':         'tractor_v2',
+    'crane':           'grua_v2',
+    'trailer':         'remolque_caja_70',
+    'motorcycle':      'moto_50',
+    'scooter':         'motoneta_45',
+    'construction':    'retroex',
+    'freightelevator': 'montacarga',
+    'boat':            'barco',
+    'ship':            'barco',
+    'plane':           'helicoptero',
+    'helicopter':      'helicoptero',
+    'bicycle':         'bici_40',
+    'person':          'sedan_50',
+    'animal':          'sedan_50',
+    'pickup':          'pickup_60',
+    'taxi':            'taxi',
+    'planer':          'aplanadora_75',
+    'excavator':       'excavadora',
+    'excavatorcrane':  'grua_excavadora_85',
+  };
+
+  static const _iconBaseUrl =
+      'https://library.service24gps.com/img/iconUber/iconsDinamicos_new_medidas/';
+
+  static const _colorNameToHex = {
+    'green': '22c55e',   // moving
+    'yellow': 'eab308',  // idle (ignition on, stopped)
+    'orange': 'f97316',  // parked (ignition off)
+    'red': 'ef4444',     // offline
+  };
+
+  static const _rotationStep = 22.5; // 16 frames per 360°
+
+  String _iconUrl(String? category, String colorName, double course) {
+    final icon = _category3dIcon[category?.toLowerCase()] ??
+        _category3dIcon['default']!;
+    final hex = _colorNameToHex[colorName] ?? _colorNameToHex['grey']!;
+    final snapped = (course % 360 ~/ _rotationStep) * _rotationStep;
+    return '$_iconBaseUrl$icon.php?grados=${snapped.toStringAsFixed(1)}&c=$hex&b=F0F0F0';
+  }
+
+  /// Remainder degrees after quantizing to 22.5° frames
+  double _rotationRemainder(double course) {
+    return (course % 360) - (course % 360 ~/ _rotationStep) * _rotationStep;
   }
 
   IconData _getEventIcon(String type) {
@@ -184,12 +362,12 @@ class _MapViewState extends State<MapView> {
         return Icons.check_circle;
       case 'devicemoving':
       case 'tripstart':
-        return platform_icons.PlatformIcons.play;
+        return Icons.play_arrow;
       case 'devicestopped':
       case 'tripend':
       case 'stopstart':
       case 'stopend':
-        return Icons.stop_circle;
+        return Icons.stop;
       case 'deviceoverspeed':
         return Icons.speed;
       default:
@@ -197,720 +375,525 @@ class _MapViewState extends State<MapView> {
     }
   }
 
-  Color _getEventColor(String type, BuildContext context) {
+  Color _getEventColor(String type) {
     final colors = Theme.of(context).colorScheme;
     switch (type.toLowerCase()) {
       case 'ignitionon':
       case 'devicemoving':
       case 'tripstart':
-        return colors.tertiary; // Green for movement/ignition on
+        return colors.tertiary;
       case 'ignitionoff':
       case 'devicestopped':
       case 'tripend':
       case 'stopstart':
       case 'stopend':
-        return colors.error; // Red for stop/ignition off
+        return colors.error;
       default:
         return colors.primary;
     }
   }
 
-  void _centerOnEventPosition(Position position) async {
-    if (mapController == null) { return; }
+  Marker _buildMarkerFor(int deviceId, Position position, Device device) {
+    final statusColor = DeviceColors.getDeviceColor(device, position, context);
+    final colorName = DeviceColors.getDeviceColorName(device, position);
+    final url = _iconUrl(device.category, colorName, position.course);
+    final remainder = _rotationRemainder(position.course) * pi / 180;
 
-    // If there's an event, show event marker
-    if (widget.selectedEvent != null) {
-      // Generate icon name based on event type
-      final iconName = 'event-marker-${widget.selectedEvent!.displayType.toLowerCase()}';
-
-      // Check if icon already exists, if not add it
-      try {
-        final icon = _getEventIcon(widget.selectedEvent!.displayType);
-        await addImageFromIcon(
-          iconName,
-          icon,
-          const Color(0xFFFF5722),
-          size: 48,
-        );
-      } catch (e) {
-        dev.log('Error adding event icon: $e');
-      }
-
-      // Update event marker source with the specific icon
-      final markerFeature = {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [position.longitude, position.latitude],
-        },
-        'properties': {
-          'icon': iconName,
-        },
-      };
-
-      await mapController!.setGeoJsonSource(
-        MapStyles.eventMarkerSourceId,
-        {'type': 'FeatureCollection', 'features': [markerFeature]},
-      );
-    } else {
-      // No event, show a position marker based on label
-      // Get colors before any async operations
-      final colors = Theme.of(context).colorScheme;
-      IconData icon;
-      Color iconColor;
-      String iconName;
-
-      // Determine icon based on label
-      if (widget.positionLabel == 'Movement Start') {
-        icon = platform_icons.PlatformIcons.play;
-        iconColor = colors.tertiary;
-        iconName = 'position-movement-start';
-      } else if (widget.positionLabel == 'Stop') {
-        icon = Icons.stop_circle;
-        iconColor = colors.error;
-        iconName = 'position-stop';
-      } else if (widget.positionLabel == 'AirTag Location') {
-        icon = Icons.location_on;
-        iconColor = colors.primary;
-        iconName = 'position-airtag-location';
-      } else {
-        // Day start/end positions
-        final isFirst = widget.isFirstPosition ?? true;
-        icon = isFirst ? Icons.flag : Icons.flag_outlined;
-        iconColor = isFirst ? colors.tertiary : colors.error;
-        iconName = isFirst ? 'position-start-marker' : 'position-end-marker';
-      }
-
-      try {
-        await addImageFromIcon(
-          iconName,
-          icon,
-          iconColor,
-          size: 48,
-        );
-      } catch (e) {
-        dev.log('Error adding position icon: $e');
-      }
-
-      final markerFeature = {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [position.longitude, position.latitude],
-        },
-        'properties': {
-          'icon': iconName,
-        },
-      };
-
-      await mapController!.setGeoJsonSource(
-        MapStyles.eventMarkerSourceId,
-        {'type': 'FeatureCollection', 'features': [markerFeature]},
-      );
-    }
-
-    // Center camera on position
-    await mapController!.animateCamera(
-        CameraUpdate.newLatLng(LatLng(position.latitude, position.longitude)),
-        duration: const Duration(milliseconds: 500)
-    );
-  }
-
-  Future<void> _clearEventMarker() async {
-    if (mapController == null) { return; }
-    await mapController!.setGeoJsonSource(
-      MapStyles.eventMarkerSourceId,
-      {'type': 'FeatureCollection', 'features': []},
-    );
-  }
-
-  void _onMapCreated(MapLibreMapController controller) {
-    mapController = controller;
-  }
-
-  Future<void> _onMapClick(Point<double> point, LatLng? coordinates) async {
-    if (mapController == null) return;
-    try {
-      final features = await mapController!.queryRenderedFeatures(
-          point,
-          [MapStyles.layerId, MapStyles.clusterLayerId],
-          null
-      );
-
-      if (features.isNotEmpty) {
-        for (var feature in features) {
-          final properties = feature['properties'];
-          if (properties != null && properties['deviceId'] != null) {
-            widget.onDeviceSelected?.call((properties['deviceId'] as num).toInt());
-            return;
-          } else if (properties != null && properties['cluster_id'] != null) {
-            final zoom = mapController!.cameraPosition!.zoom;
-            coordinates ??= await mapController!.toLatLng(point);
-            await mapController!.animateCamera(
-              CameraUpdate.newLatLngZoom(coordinates, zoom + 3),
-              duration: const Duration(milliseconds: 1000),
-            );
-            return;
-          }
-        }
-      }
-
-      // If we didn't click on a device or cluster, trigger background tap
-      widget.onMapBackgroundTap?.call();
-    } catch (e, stack) {
-      dev.log('_onMapClick', error: e, stackTrace: stack);
-    }
-  }
-
-  Future<void> addImageFromAsset(String name, String assetName) async {
-    dev.log('adding $name, $assetName');
-    try {
-      final bytes = await rootBundle.load(assetName);
-      final list = bytes.buffer.asUint8List();
-      return mapController!.addImage(name, list);
-    } catch (e) {
-      dev.log('$e');
-    }
-  }
-
-  Future<void> addImageFromIcon(String name, IconData icon, Color color, {double size = 48}) async {
-    final pictureRecorder = ui.PictureRecorder();
-    final canvas = Canvas(pictureRecorder);
-
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    textPainter.text = TextSpan(
-      text: String.fromCharCode(icon.codePoint),
-      style: TextStyle(
-        fontSize: size,
-        fontFamily: icon.fontFamily,
-        color: color,
+    return Marker(
+      key: ValueKey(deviceId),
+      point: _animatedPoint(deviceId, position),
+      width: 96,
+      height: 110,
+      alignment: Alignment.center,
+      child: _AnimatedDeviceMarker(
+        deviceId: deviceId,
+        url: url,
+        statusColor: statusColor,
+        rotationRemainder: remainder,
+        deviceName: device.name,
+        fallbackIcon: DeviceIcons.getCategoryIcon(device),
+        onTap: () => widget.onDeviceSelected?.call(deviceId),
       ),
     );
-    textPainter.layout();
-    textPainter.paint(canvas, Offset.zero);
-
-    final image = await pictureRecorder.endRecording().toImage(
-      size.toInt(),
-      size.toInt(),
-    );
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    final list = byteData!.buffer.asUint8List();
-
-    return mapController!.addImage(name, list);
   }
 
-  Future<void> _updateMapSource({bool forceUpdateVisibility = false}) async {
-    final List<Map<String, dynamic>> features = [];
-    for (var entry in widget.positions.entries) {
+  List<Marker> _buildDeviceMarkers() {
+    if (widget.showingRoute) return [];
+
+    final markers = <Marker>[];
+    for (final entry in widget.positions.entries) {
       final deviceId = entry.key;
       final position = entry.value;
       final device = widget.devices[deviceId];
-      if (device == null) { continue; }
-      final baseRotation =
-          (position.course / (360 / rotationFrames)).floor() *
-          (360 / rotationFrames);
-      features.add({
-        'type': 'Feature',
-        'id': deviceId,
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [position.longitude, position.latitude],
-        },
-        'properties': {
-          'deviceId': deviceId,
-          'category': getMapIcon(device.category),
-          'name': device.name,
-          'color': DeviceColors.getDeviceColorName(device, position),
-          'baseRotation': baseRotation.toStringAsFixed(1).padLeft(5, '0'),
-          'rotate': position.course - baseRotation,
-        },
-      });
-    }
-    await mapController!.setGeoJsonSource(MapStyles.devicesSourceId, {'type': 'FeatureCollection', 'features': features});
+      if (device == null) continue;
+      // Skip selected device — it's rendered separately outside the cluster
+      if (deviceId == widget.selectedDevice) continue;
 
-    // Only update layer visibility if showingRoute changed or forced
-    if (forceUpdateVisibility || _lastShowingRoute != widget.showingRoute) {
-      await _updateLayersVisibility();
-      _lastShowingRoute = widget.showingRoute;
+      markers.add(_buildMarkerFor(deviceId, position, device));
     }
-
-    // Check if selected device is visible, pan if needed
-    _checkSelectedDeviceVisibility();
+    return markers;
   }
 
-  Future<void> _updateLayersVisibility() async {
-    if (mapController == null) return;
-
-    final visible = !widget.showingRoute;
-    await mapController!.setLayerVisibility(MapStyles.layerId, visible);
-    await mapController!.setLayerVisibility(MapStyles.clusterLayerId, visible);
-    await mapController!.setLayerVisibility(MapStyles.clusterCountLayerId, visible);
+  List<Marker> _buildSelectedDeviceMarker() {
+    if (widget.showingRoute || widget.selectedDevice == null) return [];
+    final position = widget.positions[widget.selectedDevice!];
+    final device = widget.devices[widget.selectedDevice!];
+    if (position == null || device == null) return [];
+    return [_buildMarkerFor(widget.selectedDevice!, position, device)];
   }
 
-  Future<void> _updateRouteSource({forceUpdate = false}) async {
-    if (mapController == null) return;
+  List<Polygon> _buildGeofencePolygons() {
+    final polygons = <Polygon>[];
+    for (final geofence in widget.geofences.values) {
+      final geometry = geofence.areaToGeometry();
+      if (geometry == null || geometry['type'] != 'Polygon') continue;
 
-    // Check if route positions have changed
-    if (!forceUpdate && _routePositionsEqual(widget.routePositions, _lastRoutePositions)) {
-      return;
+      final rawCoords =
+          (geometry['coordinates'][0] as List).cast<List<dynamic>>();
+      final points = rawCoords
+          .map((c) => LatLng(c[1] as double, c[0] as double))
+          .toList();
+
+      polygons.add(Polygon(
+        points: points,
+        color: const Color(0x4D3FABC9),
+        borderColor: const Color(0x993FABC9),
+        borderStrokeWidth: 2,
+      ));
     }
-
-    if (widget.routePositions.length < 2 ) {
-      await mapController!.setGeoJsonSource(
-        MapStyles.routeLineSourceId,
-        {'type': 'FeatureCollection', 'features': []},
-      );
-      await mapController!.setGeoJsonSource(
-        MapStyles.routePointsSourceId,
-        {'type': 'FeatureCollection', 'features': []},
-      );
-      _lastRoutePositions = [];
-      return;
-    }
-
-    // Build LineString from route positions
-    final coordinates = widget.routePositions
-        .map((p) => [p.longitude, p.latitude])
-        .toList();
-
-    final lineString = {
-      'type': 'Feature',
-      'geometry': {
-        'type': 'LineString',
-        'coordinates': coordinates,
-      },
-      'properties': {},
-    };
-
-
-    dev.log('updating route ${coordinates.length}');
-    await mapController!.setGeoJsonSource(
-      MapStyles.routeLineSourceId,
-      {'type': 'FeatureCollection', 'features': [lineString]},
-    );
-
-    // Calculate min and max speeds for color normalization
-    final speeds = widget.routePositions.map((p) => p.speed).toList();
-    final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
-
-    // Create speed point features
-    final List<Map<String, dynamic>> routePoints = [];
-    for (final position in widget.routePositions) {
-      final colorHex = TurboColormap.getSpeedColorHex(position.speed, 0, maxSpeed);
-
-      final point = {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [position.longitude, position.latitude],
-        },
-        'properties': {
-          'speed': position.speed,
-          'color': colorHex,
-        },
-      };
-
-      routePoints.add(point);
-    }
-
-    dev.log('updating speed points with ${routePoints.length} points (speed range: 0 - $maxSpeed km/h)');
-    await mapController!.setGeoJsonSource(
-      MapStyles.routePointsSourceId,
-      {'type': 'FeatureCollection', 'features': routePoints},
-    );
-
-    // Add start and end position markers
-    await _addRouteStartEndMarkers();
-
-    // Store current positions for next comparison
-    _lastRoutePositions = List.from(widget.routePositions);
-
-    // Fit map to route
-    _fitMapToRoute();
+    return polygons;
   }
 
-  Future<void> _addRouteStartEndMarkers() async {
-    if (mapController == null || widget.routePositions.isEmpty) return;
+  List<Polyline> _buildGeofenceLines() {
+    final lines = <Polyline>[];
+    for (final geofence in widget.geofences.values) {
+      final geometry = geofence.areaToGeometry();
+      if (geometry == null || geometry['type'] != 'LineString') continue;
 
-    // Only show start/end markers when no other markers are active
-    if (widget.movingSegmentPositions.isNotEmpty ||
-        widget.eventPositionToCenter != null) {
-      return;
+      final rawCoords = (geometry['coordinates'] as List).cast<List<dynamic>>();
+      final points = rawCoords
+          .map((c) => LatLng(c[1] as double, c[0] as double))
+          .toList();
+
+      lines.add(Polyline(
+        points: points,
+        color: const Color(0x993FABC9),
+        strokeWidth: 2,
+      ));
     }
-
-    final startPos = widget.routePositions.first;
-    final endPos = widget.routePositions.last;
-
-    // Add icons for start and end positions
-    try {
-      await addImageFromIcon(
-        'route-start-marker',
-        Icons.flag,
-        const Color(0xFF4CAF50), // Green
-        size: 48,
-      );
-      await addImageFromIcon(
-        'route-end-marker',
-        Icons.flag_outlined,
-        const Color(0xFFF44336), // Red
-        size: 48,
-      );
-    } catch (e) {
-      dev.log('Error adding route start/end icons: $e');
-    }
-
-    final markers = [
-      {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [startPos.longitude, startPos.latitude],
-        },
-        'properties': {
-          'icon': 'route-start-marker',
-        },
-      },
-      {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [endPos.longitude, endPos.latitude],
-        },
-        'properties': {
-          'icon': 'route-end-marker',
-        },
-      },
-    ];
-
-    await mapController!.setGeoJsonSource(
-      MapStyles.eventMarkerSourceId,
-      {'type': 'FeatureCollection', 'features': markers},
-    );
+    return lines;
   }
 
-  bool _routePositionsEqual(List<Position> a, List<Position> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i].id != b[i].id) return false;
-    }
-    return true;
-  }
+  List<Marker> _buildGeofenceLabels() {
+    final markers = <Marker>[];
+    for (final geofence in widget.geofences.values) {
+      final geometry = geofence.areaToGeometry();
+      if (geometry == null) continue;
 
-  Future<void> _updateMovingSegmentSource() async {
-    if (mapController == null) return;
-
-    // Check if moving segment positions have changed
-    if (_routePositionsEqual(widget.movingSegmentPositions, _lastMovingSegmentPositions)) {
-      return;
-    }
-
-    if (widget.movingSegmentPositions.length < 2 ) {
-      // If we're clearing a previously highlighted segment, fit back to full route
-      final wasHighlighted = _lastMovingSegmentPositions.isNotEmpty;
-
-      await mapController!.setGeoJsonSource(
-        MapStyles.movingSegmentSourceId,
-        {'type': 'FeatureCollection', 'features': []},
-      );
-      _lastMovingSegmentPositions = [];
-
-      // Restore start/end markers and fit map back to route
-      if (wasHighlighted && widget.routePositions.isNotEmpty) {
-        await _addRouteStartEndMarkers();
-        _fitMapToRoute();
-      }
-      return;
-    }
-
-    // Get the event icons and colors before any async operations
-    final startIcon = widget.segmentStartEvent != null
-        ? _getEventIcon(widget.segmentStartEvent!.displayType)
-        : null;
-    final endIcon = widget.segmentEndEvent != null
-        ? _getEventIcon(widget.segmentEndEvent!.displayType)
-        : null;
-    final startColor = widget.segmentStartEvent != null
-        ? _getEventColor(widget.segmentStartEvent!.displayType, context)
-        : null;
-    final endColor = widget.segmentEndEvent != null
-        ? _getEventColor(widget.segmentEndEvent!.displayType, context)
-        : null;
-
-    // Build LineString from moving segment positions
-    final coordinates = widget.movingSegmentPositions
-        .map((p) => [p.longitude, p.latitude])
-        .toList();
-
-    final lineString = {
-      'type': 'Feature',
-      'geometry': {
-        'type': 'LineString',
-        'coordinates': coordinates,
-      },
-      'properties': {},
-    };
-
-    await mapController!.setGeoJsonSource(
-      MapStyles.movingSegmentSourceId,
-      {'type': 'FeatureCollection', 'features': [lineString]},
-    );
-
-    // Add start and end markers for the segment
-    final startPos = widget.movingSegmentPositions.first;
-    final endPos = widget.movingSegmentPositions.last;
-
-    // Add the event icons if available
-    if (startIcon != null && endIcon != null && startColor != null && endColor != null) {
-
-      await addImageFromIcon('segment-start', startIcon, startColor, size: 48);
-      await addImageFromIcon('segment-end', endIcon, endColor, size: 48);
-
-      final markers = [
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'Point',
-            'coordinates': [startPos.longitude, startPos.latitude],
-          },
-          'properties': {
-            'icon': 'segment-start',
-          },
-        },
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'Point',
-            'coordinates': [endPos.longitude, endPos.latitude],
-          },
-          'properties': {
-            'icon': 'segment-end',
-          },
-        },
-      ];
-
-      await mapController!.setGeoJsonSource(
-        MapStyles.eventMarkerSourceId,
-        {'type': 'FeatureCollection', 'features': markers},
-      );
-    }
-
-    // Store current positions for next comparison
-    _lastMovingSegmentPositions = List.from(widget.movingSegmentPositions);
-
-    // Fit map to moving segment
-    _fitMapToMovingSegment();
-  }
-
-  void _fitMapToRoute() {
-    if (mapController == null || widget.routePositions.isEmpty) return;
-
-    final positions = widget.routePositions;
-    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-    mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat, minLng),
-          northeast: LatLng(maxLat, maxLng),
-        ),
-        left: 50,
-        top: 50,
-        right: 50,
-        bottom: 50,
-      ),
-    );
-  }
-
-  void _fitMapToMovingSegment() {
-    if (mapController == null || widget.movingSegmentPositions.isEmpty) return;
-
-    final positions = widget.movingSegmentPositions;
-    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-    mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat, minLng),
-          northeast: LatLng(maxLat, maxLng),
-        ),
-        left: 50,
-        top: 50,
-        right: 50,
-        bottom: 100,
-      ),
-      duration: const Duration(milliseconds: 500),
-    );
-  }
-
-  Future<void> _checkSelectedDeviceVisibility() async {
-    // Don't auto-pan if showing route view
-    if (mapController == null || widget.selectedDevice == null || widget.showingRoute) return;
-
-    final position = widget.positions[widget.selectedDevice];
-    if (position == null) return;
-
-    final visibleRegion = await mapController!.getVisibleRegion();
-
-    // Check if selected device is within visible bounds
-    final lat = position.latitude;
-    final lng = position.longitude;
-
-    final isVisible = lat >= visibleRegion.southwest.latitude &&
-        lat <= visibleRegion.northeast.latitude &&
-        lng >= visibleRegion.southwest.longitude &&
-        lng <= visibleRegion.northeast.longitude;
-
-    // If selected device is not visible, pan to it
-    if (!isVisible) {
-      _centerOnDevice(widget.selectedDevice!, changeZoom: false);
-    }
-  }
-
-  void _fitMapToDevices() {
-    if (mapController == null || widget.positions.isEmpty) return;
-    final positions = widget.positions.values.toList();
-
-    final minLat = positions.map((p) => p.latitude).reduce((a, b) => a < b ? a : b);
-    final maxLat = positions.map((p) => p.latitude).reduce((a, b) => a > b ? a : b);
-    final minLng = positions.map((p) => p.longitude).reduce((a, b) => a < b ? a : b);
-    final maxLng = positions.map((p) => p.longitude).reduce((a, b) => a > b ? a : b);
-
-    // Add some padding
-    final latPadding = (maxLat - minLat) * 0.1;
-    final lngPadding = (maxLng - minLng) * 0.1;
-
-    mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat - latPadding, minLng - lngPadding),
-          northeast: LatLng(maxLat + latPadding, maxLng + lngPadding),
-        ),
-        left: 50,
-        top: 50,
-        right: 50,
-        bottom: 150, // Extra padding for bottom nav
-      ),
-    );
-  }
-
-  Future<void> _onStyleLoaded() async {
-    try {
-      for (final vehicle in categoryIcons) {
-        for (final color in colors) {
-          for (int i = 0; i < rotationFrames; i++) {
-            final frame = (i * (360 / rotationFrames))
-                .toStringAsFixed(1)
-                .padLeft(5, '0');
-            await addImageFromAsset(
-              "${vehicle}_${color}_$frame",
-              "assets/map/icons/${vehicle}_${color}_$frame.png",
-            );
-          }
+      List<double>? centroid;
+      if (geometry['type'] == 'Polygon') {
+        final rawCoords =
+            (geometry['coordinates'][0] as List).cast<List<dynamic>>();
+        final coords =
+            rawCoords.map((c) => [c[0] as double, c[1] as double]).toList();
+        centroid = geofence.polygonCentroid(coords);
+      } else if (geometry['type'] == 'LineString') {
+        final rawCoords =
+            (geometry['coordinates'] as List).cast<List<dynamic>>();
+        if (rawCoords.isNotEmpty) {
+          centroid = [rawCoords[0][0] as double, rawCoords[0][1] as double];
         }
       }
 
-      setState(() { _mapReady = true; });
-      _update(forceUpdateVisibility: true);
-    } catch (e) {
-      dev.log('_onStyleLoaded', error: e);
+      if (centroid == null) continue;
+
+      markers.add(Marker(
+        point: LatLng(centroid[1], centroid[0]),
+        width: 120,
+        height: 22,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(204),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            geofence.name,
+            style: const TextStyle(fontSize: 11, color: Colors.black),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ));
     }
+    return markers;
+  }
+
+  bool get _hasSelectedPosition =>
+      widget.eventPositionToCenter != null ||
+      widget.movingSegmentPositions.length >= 2;
+
+  List<Polyline> _buildRouteLines() {
+    if (widget.routePositions.length < 2) return [];
+    final points = widget.routePositions
+        .map((p) => LatLng(p.latitude, p.longitude))
+        .toList();
+    final fade = _hasSelectedPosition ? 0.25 : 1.0;
+    return [
+      // White casing (wider, drawn first)
+      Polyline(points: points, color: Colors.white.withValues(alpha: fade), strokeWidth: 9),
+      // Blue route (narrower, on top)
+      Polyline(points: points, color: const Color(0xFF2196F3).withValues(alpha: fade), strokeWidth: 5),
+    ];
+  }
+
+  List<CircleMarker> _buildSpeedCircles() {
+    if (widget.routePositions.isEmpty) return [];
+    final speeds = widget.routePositions.map((p) => p.speed).toList();
+    final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+    final fade = _hasSelectedPosition ? 0.2 : 1.0;
+    return widget.routePositions.map((p) {
+      final color = TurboColormap.getSpeedColor(p.speed, 0, maxSpeed);
+      return CircleMarker(
+        point: LatLng(p.latitude, p.longitude),
+        radius: 2.5,
+        color: color.withValues(alpha: fade),
+        useRadiusInMeter: false,
+      );
+    }).toList();
+  }
+
+  List<Polyline> _buildMovingSegmentLine() {
+    if (widget.movingSegmentPositions.length < 2) return [];
+    final points = widget.movingSegmentPositions
+        .map((p) => LatLng(p.latitude, p.longitude))
+        .toList();
+    return [
+      // White casing
+      Polyline(points: points, color: Colors.white, strokeWidth: 10),
+      // Green segment on top
+      Polyline(points: points, color: const Color(0xFF4CAF50), strokeWidth: 6),
+    ];
+  }
+
+  Marker _buildEventIconMarker(
+      LatLng point, IconData icon, Color color) {
+    return Marker(
+      point: point,
+      width: 36,
+      height: 36,
+      alignment: Alignment.center,
+      child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: color, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(64),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: color, size: 22),
+      ),
+    );
+  }
+
+  List<Marker> _buildEventMarkers() {
+    final markers = <Marker>[];
+
+    // Event/position marker
+    if (widget.eventPositionToCenter != null) {
+      final pos = widget.eventPositionToCenter!;
+      final point = LatLng(pos.latitude, pos.longitude);
+      IconData icon;
+      Color color;
+
+      if (widget.selectedEvent != null) {
+        icon = _getEventIcon(widget.selectedEvent!.displayType);
+        color = const Color(0xFFFF5722);
+      } else if (widget.positionLabel == 'Movement Start') {
+        icon = Icons.play_arrow;
+        color = Theme.of(context).colorScheme.tertiary;
+      } else if (widget.positionLabel == 'Stop') {
+        icon = Icons.stop;
+        color = Theme.of(context).colorScheme.error;
+      } else if (widget.positionLabel == 'AirTag Location') {
+        icon = Icons.location_on;
+        color = Theme.of(context).colorScheme.primary;
+      } else {
+        final isFirst = widget.isFirstPosition ?? true;
+        icon = isFirst ? Icons.flag : Icons.flag_outlined;
+        color = isFirst
+            ? Theme.of(context).colorScheme.tertiary
+            : Theme.of(context).colorScheme.error;
+      }
+      markers.add(_buildEventIconMarker(point, icon, color));
+    }
+
+    // Moving segment start/end markers
+    if (widget.movingSegmentPositions.length >= 2) {
+      if (widget.segmentStartEvent != null) {
+        markers.add(_buildEventIconMarker(
+          LatLng(widget.movingSegmentPositions.first.latitude,
+              widget.movingSegmentPositions.first.longitude),
+          _getEventIcon(widget.segmentStartEvent!.displayType),
+          _getEventColor(widget.segmentStartEvent!.displayType),
+        ));
+      }
+      if (widget.segmentEndEvent != null) {
+        markers.add(_buildEventIconMarker(
+          LatLng(widget.movingSegmentPositions.last.latitude,
+              widget.movingSegmentPositions.last.longitude),
+          _getEventIcon(widget.segmentEndEvent!.displayType),
+          _getEventColor(widget.segmentEndEvent!.displayType),
+        ));
+      }
+      return markers;
+    }
+
+    // Route start/end markers (only when no segment highlight or event marker)
+    if (widget.routePositions.isNotEmpty &&
+        widget.eventPositionToCenter == null) {
+      final startPos = widget.routePositions.first;
+      final endPos = widget.routePositions.last;
+      markers.add(_buildEventIconMarker(
+        LatLng(startPos.latitude, startPos.longitude),
+        Icons.flag,
+        const Color(0xFF4CAF50),
+      ));
+      markers.add(_buildEventIconMarker(
+        LatLng(endPos.latitude, endPos.longitude),
+        Icons.flag_outlined,
+        const Color(0xFFF44336),
+      ));
+    }
+
+    return markers;
   }
 
   @override
   Widget build(BuildContext context) {
-    scrollOffset = MediaQuery.of(context).size.height / 4;
-    return Scaffold(
-      body: FutureBuilder<String>(
-        future: _initialStyleFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return Stack(
-            children: [
-              MapLibreMap(
-                onMapCreated: _onMapCreated,
-                onStyleLoadedCallback: _onStyleLoaded,
-                onMapClick: Platform.isIOS ? null: _onMapClick,
-                initialCameraPosition: CameraPosition(target: LatLng(0, 0)),
-                styleString: snapshot.data!,
-                myLocationEnabled: true,
-                trackCameraPosition: true,
-              ),
-              if (Platform.isIOS)
-                Positioned.fill(
-                  child: GestureDetector(
-                      onTapUp: (event) =>
-                          _onMapClick(
-                              Point(event.localPosition.dx,
-                                  event.localPosition.dy),
-                              null
-                          ),
-                      behavior: HitTestBehavior.translucent
-                  ),
-                ),
-              MapStyleSelector(
-                  selectedStyleIndex: _styleIndex,
-                  mapReady: _mapReady,
-                  onStyleSelected: _applyStyle,
-                  geofencesLayer: _geofencesSelected,
-                  onLayerSelected: _layerSelected,
-                  onZoomIn: _zoomIn,
-                  onZoomOut: _zoomOut,
-                )
+    final style = MapStyles.configs[_styleIndex];
+
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: const LatLng(0, 0),
+            initialZoom: 2,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
+            onTap: (_, __) => widget.onMapBackgroundTap?.call(),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: style.urlTemplate,
+              subdomains: style.subdomains,
+              userAgentPackageName: 'com.frotaweb.manager',
+              tileProvider: CancellableNetworkTileProvider(),
+            ),
+            if (_geofencesSelected) ...[
+              PolygonLayer(polygons: _buildGeofencePolygons()),
+              PolylineLayer(polylines: _buildGeofenceLines()),
+              MarkerLayer(markers: _buildGeofenceLabels()),
             ],
-          );
-        },
+            PolylineLayer(polylines: _buildRouteLines()),
+            CircleLayer(circles: _buildSpeedCircles()),
+            PolylineLayer(polylines: _buildMovingSegmentLine()),
+            MarkerClusterLayerWidget(
+              options: MarkerClusterLayerOptions(
+                maxClusterRadius: 60,
+                padding: const EdgeInsets.all(80),
+                disableClusteringAtZoom: _clusterDisableZoom,
+                animationsOptions: const AnimationsOptions(
+                  zoom: Duration(milliseconds: 300),
+                  fitBound: Duration(milliseconds: 300),
+                  spiderfy: Duration(milliseconds: 300),
+                ),
+                markers: _buildDeviceMarkers(),
+                size: const Size(48, 48),
+                builder: (context, markers) {
+                  final count = markers.length;
+                  final size = count > 99 ? 56.0 : 48.0;
+                  return Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(64),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        count.toString(),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.bold,
+                          fontSize: count > 99 ? 14 : 16,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            MarkerLayer(markers: _buildSelectedDeviceMarker()),
+            MarkerLayer(markers: _buildEventMarkers()),
+          ],
+        ),
+        if (widget.positions.isEmpty)
+          const Center(
+            child: CircularProgressIndicator(),
+          ),
+        MapStyleSelector(
+          selectedStyleIndex: _styleIndex,
+          mapReady: true,
+          onStyleSelected: (index) => setState(() => _styleIndex = index),
+          geofencesLayer: _geofencesSelected,
+          onLayerSelected: () =>
+              setState(() => _geofencesSelected = !_geofencesSelected),
+          onZoomIn: () => _mapController.move(
+            _mapController.camera.center,
+            _mapController.camera.zoom + 1,
+          ),
+          onZoomOut: () => _mapController.move(
+            _mapController.camera.center,
+            _mapController.camera.zoom - 1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnimatedDeviceMarker extends StatelessWidget {
+  final int deviceId;
+  final String url;
+  final Color statusColor;
+  final double rotationRemainder;
+  final String deviceName;
+  final IconData fallbackIcon;
+  final VoidCallback? onTap;
+
+  const _AnimatedDeviceMarker({
+    required this.deviceId,
+    required this.url,
+    required this.statusColor,
+    required this.rotationRemainder,
+    required this.deviceName,
+    required this.fallbackIcon,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TweenAnimationBuilder<double>(
+            key: ValueKey('rot_$deviceId'),
+            tween: Tween(end: rotationRemainder),
+            duration: const Duration(seconds: 2),
+            curve: Curves.easeOut,
+            builder: (context, angle, child) => Transform.rotate(
+              angle: angle,
+              child: child,
+            ),
+            child: _SvgIcon(url: url, statusColor: statusColor, fallbackIcon: fallbackIcon),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(204),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              deviceName,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  getMapIcon(String? category) {
-    if (category != null && categoryIcons.contains(category)) {
-      return category;
-    }
-    return 'truck';
+class _SvgIcon extends StatefulWidget {
+  final String url;
+  final Color statusColor;
+  final IconData fallbackIcon;
+
+  const _SvgIcon({
+    required this.url,
+    required this.statusColor,
+    this.fallbackIcon = Icons.navigation,
+  });
+
+  @override
+  State<_SvgIcon> createState() => _SvgIconState();
+}
+
+class _SvgIconState extends State<_SvgIcon> {
+  String? _svgData;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _svgData = SvgCache.getSync(widget.url);
+    if (_svgData == null) _load();
   }
 
-  Future<void> _updateGeofencesSource() async {
-    final List<Map<String, dynamic>> geofenceFeatures = [];
-    for (var entry in widget.geofences.entries) {
-      final geofence = entry.value;
-      final geometry = geofence.areaToGeometry();
-
-      // Skip geofences without valid geometry (null area)
-      if (geometry == null) continue;
-
-      final feature = {
-        'type': 'Feature',
-        'id': geofence.id,
-        "geometry": geometry,
-        "properties": {
-          "name": geofence.name
-        },
-      };
-      geofenceFeatures.add(feature);
-
-      final centroid = geometry["type"] == "Polygon" ? geofence.polygonCentroid(geometry["coordinates"][0]) : geometry["coordinates"][0];
-      final labelFeature = {
-        "type": "Feature",
-        "geometry": {
-          "type": "Point",
-          "coordinates": centroid,
-        },
-        "properties": {
-          "name": geofence.name
-        },
-      };
-      geofenceFeatures.add(labelFeature);
-
+  @override
+  void didUpdateWidget(_SvgIcon old) {
+    super.didUpdateWidget(old);
+    if (old.url != widget.url) {
+      _svgData = SvgCache.getSync(widget.url);
+      _failed = false;
+      if (_svgData == null) _load();
     }
-    await mapController!.setGeoJsonSource(MapStyles.geofencesSourceId, {'type': 'FeatureCollection', 'features': geofenceFeatures});
+  }
+
+  Future<void> _load() async {
+    final svg = await SvgCache.get(widget.url);
+    if (!mounted) return;
+    setState(() {
+      _svgData = svg;
+      _failed = svg == null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_svgData != null) {
+      return SvgPicture.string(_svgData!, width: 72, height: 72);
+    }
+    if (_failed) {
+      return Icon(widget.fallbackIcon, color: widget.statusColor, size: 56);
+    }
+    return const SizedBox(width: 72, height: 72);
   }
 }
