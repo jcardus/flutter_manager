@@ -206,7 +206,7 @@ class _PositionDetailState extends State<PositionDetail> {
               child: _InfoRow(
                 icon: PlatformIcons.lastLocationTime,
                 label: '',
-                value: _formatLastUpdate(context, widget.device.lastUpdate),
+                value: _formatLastUpdate(context, _effectiveLastUpdate()),
               ),
             ),
           ],
