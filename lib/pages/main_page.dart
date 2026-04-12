@@ -525,6 +525,7 @@ class _MainPageState extends State<MainPage> {
             selectedDeviceId: _selectedDeviceId,
             devices: _devices,
             positions: _effectivePositions,
+            deviceMerges: _deviceMerges,
             onClose: _closeBottomSheet,
             onRouteToggle: _onRouteToggle,
             showingRoute: _showingRoute,
@@ -629,6 +630,7 @@ class _BottomSheetBuilder extends StatefulWidget {
   final int? selectedDeviceId;
   final Map<int, Device> devices;
   final Map<int, Position> positions;
+  final List<DeviceMerge> deviceMerges;
   final VoidCallback? onClose;
   final ValueChanged<bool>? onRouteToggle;
   final bool showingRoute;
@@ -643,6 +645,7 @@ class _BottomSheetBuilder extends StatefulWidget {
     required this.selectedDeviceId,
     required this.devices,
     required this.positions,
+    this.deviceMerges = const [],
     this.onClose,
     this.onRouteToggle,
     this.showingRoute = false,
@@ -708,6 +711,10 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             key: ValueKey(selectedDeviceId),
             device: device!,
             position: position,
+            mergedDeviceId: widget.deviceMerges
+                .where((m) => m.primaryDeviceId == selectedDeviceId)
+                .map((m) => m.secondaryDeviceId)
+                .firstOrNull,
             onClose: widget.onClose,
             onRouteToggle: widget.onRouteToggle,
             showingRoute: widget.showingRoute,
