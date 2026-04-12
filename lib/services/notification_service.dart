@@ -46,19 +46,22 @@ class NotificationService {
         return;
       }
 
-      // Get FCM token
-      _fcmToken = await _fcm.getToken();
-      if (_fcmToken != null) {
-        dev.log('FCM Token: $_fcmToken', name: 'FCM');
-        // TODO: Send token to backend to register device
-      }
-
-      // Listen to token refresh
+      // Listen to token refresh — catches token even if initial fetch fails
       _fcm.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         dev.log('FCM Token refreshed: $newToken', name: 'FCM');
         // TODO: Send new token to backend
       });
+
+      // Try to get FCM token, but don't block if APNS isn't ready
+      try {
+        _fcmToken = await _fcm.getToken();
+        if (_fcmToken != null) {
+          dev.log('FCM Token: $_fcmToken', name: 'FCM');
+        }
+      } catch (e) {
+        dev.log('FCM token not available yet, will get via onTokenRefresh', name: 'FCM');
+      }
 
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);

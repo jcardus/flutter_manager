@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:manager/models/position.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/constants.dart';
 import '../utils/google_url_signer.dart';
@@ -29,9 +30,34 @@ class StreetView extends StatelessWidget {
     );
   }
 
+  Future<void> _openStreetView(double latitude, double longitude, double heading) async {
+    final h = heading.toStringAsFixed(0);
+    // Try Google Street View app first
+    final svUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
+    if (await canLaunchUrl(svUri)) {
+      await launchUrl(svUri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    // Try Google Maps app with Street View layer
+    final mapsUri = Uri.parse('comgooglemaps://?center=$latitude,$longitude&mapmode=streetview');
+    if (await canLaunchUrl(mapsUri)) {
+      await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    // Fallback: web URL in Street View mode
+    final webUri = Uri.parse('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$latitude,$longitude&heading=$h');
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return GestureDetector(
+      onTap: () => _openStreetView(
+        position!.latitude,
+        position!.longitude,
+        position!.course,
+      ),
+      child: SizedBox(
       height: 200,
       child: Image.network(
         _getStreetViewUrl(
@@ -75,6 +101,7 @@ class StreetView extends StatelessWidget {
           );
         },
       ),
+    ),
     );
   }
 }

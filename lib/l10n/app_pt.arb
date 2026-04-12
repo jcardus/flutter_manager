@@ -61,15 +61,13 @@
 
   "cancel": "Cancelar",
 
-  "mapStyleMapbox": "Mapbox",
-
-  "mapStyleGoogle": "Google",
+  "mapStyleRoads": "Estradas",
 
   "mapStyleSatellite": "Satélite",
 
-  "mapStyleDark": "Escuro",
+  "mapStyleHybrid": "Híbrido",
 
-  "mapStyleLight": "Claro",
+  "mapStyleTraffic": "Trânsito",
 
   "loading": "A carregar...",
 
