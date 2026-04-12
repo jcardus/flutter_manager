@@ -283,162 +283,162 @@ class DeviceDetail extends StatelessWidget {
 
     return
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        child: Column(
-          children: [
-            const HandleBar(),
-            if (hasCameras || pos != null) Container(
-              margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
-              child: Column(children: [
-              // Camera or Street View with Title Overlay
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Stack(
-                      children: [
-                        if (hasCameras)
-                          SizedBox(
-                            height: 200,
-                            width: constraints.maxWidth,
-                            child: CameraFeed(url: cameraUrls[0], label: device.name),
-                          )
-                        else
-                          StreetView(
-                            position: pos!,
-                            width: constraints.maxWidth,
-                          ),
-                        // Title overlay with gradient background
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.7),
-                                  Colors.black.withValues(alpha: 0.3),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 16,
-                            ),
-                            child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          child: Column(
+              children: [
+                const HandleBar(),
+                if (hasCameras || pos != null) Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 10),
+                    child: Column(children: [
+                      // Camera or Street View with Title Overlay
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Stack(
                               children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: deviceColor.withValues(alpha: 0.9),
-                                  child: Icon(
-                                    _getDeviceIcon(),
-                                    color: Colors.white,
-                                    size: 24,
+                                if (hasCameras)
+                                  SizedBox(
+                                    height: 200,
+                                    width: constraints.maxWidth,
+                                    child: CameraFeed(url: cameraUrls[0], label: device.name),
+                                  )
+                                else
+                                  StreetView(
+                                    position: pos!,
+                                    width: constraints.maxWidth,
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        device.name,
-                                        style: textTheme.titleLarge?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                          shadows: [
-                                            Shadow(
-                                              blurRadius: 8,
-                                              color: Colors.black.withValues(alpha: 0.5),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.circle, size: 10, color: statusColor),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            device.status?.toUpperCase() ??
-                                                l10n.statusUnknown,
-                                            style: textTheme.bodyMedium?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w600,
-                                              shadows: [
-                                                Shadow(
-                                                  blurRadius: 4,
-                                                  color: Colors.black.withValues(alpha: 0.5),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
+                                // Title overlay with gradient background
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.black.withValues(alpha: 0.7),
+                                          Colors.black.withValues(alpha: 0.3),
+                                          Colors.transparent,
                                         ],
                                       ),
-                                    ],
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 24,
+                                          backgroundColor: deviceColor.withValues(alpha: 0.9),
+                                          child: Icon(
+                                            _getDeviceIcon(),
+                                            color: Colors.white,
+                                            size: 24,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                device.name,
+                                                style: textTheme.titleLarge?.copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                  shadows: [
+                                                    Shadow(
+                                                      blurRadius: 8,
+                                                      color: Colors.black.withValues(alpha: 0.5),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.circle, size: 10, color: statusColor),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    device.status?.toUpperCase() ??
+                                                        l10n.statusUnknown,
+                                                    style: textTheme.bodyMedium?.copyWith(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.w600,
+                                                      shadows: [
+                                                        Shadow(
+                                                          blurRadius: 4,
+                                                          color: Colors.black.withValues(alpha: 0.5),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.close, color: Colors.white),
+                                          onPressed: onClose,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close, color: Colors.white),
-                                  onPressed: onClose,
                                 ),
                               ],
                             ),
-                          ),
+                          );
+                        },
+                      ),
+                      if (pos != null) ...[
+                        const SizedBox(height: 12),
+                        PositionDetail(pos: pos, device: device),
+                        const SizedBox(height: 16),
+                        // Action buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Icons.directions,
+                                label: l10n.directions,
+                                onPressed: () => _openDirections(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _ActionButton(
+                                icon: PlatformIcons.route,
+                                label: l10n.route,
+                                onPressed: () => _showRoute(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Platform.isIOS ? Icons.ios_share : Icons.share,
+                                label: l10n.share,
+                                onPressed: () => _shareLocation(context),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _ActionButton(
+                                icon: Icons.lock,
+                                label: l10n.block,
+                                onPressed: () => _sendBlockCommand(context),
+                              ),
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 12),
                       ],
-                    ),
-                  );
-                },
-              ),
-              if (pos != null) ...[
-              const SizedBox(height: 12),
-              PositionDetail(pos: pos, device: device),
-              const SizedBox(height: 16),
-              // Action buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.directions,
-                      label: l10n.directions,
-                      onPressed: () => _openDirections(context),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: PlatformIcons.route,
-                      label: l10n.route,
-                      onPressed: () => _showRoute(context),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Platform.isIOS ? Icons.ios_share : Icons.share,
-                      label: l10n.share,
-                      onPressed: () => _shareLocation(context),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.lock,
-                      label: l10n.block,
-                      onPressed: () => _sendBlockCommand(context),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ],
-            ]))
-      ]));
+                    ]))
+              ]));
   }
 }
 

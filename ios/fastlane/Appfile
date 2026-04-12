@@ -1,4 +1,4 @@
-app_identifier("com.fleetmap.fleetmanager") # The bundle identifier of your app
+app_identifier("com.fleetmap.moviflotte") # The bundle identifier of your app
 apple_id("admin@fleetmap.io") # Your Apple Developer Portal username
 itc_team_id("122303819") # App Store Connect Team ID
 team_id("57X9MD32BX") # Developer Portal Team ID
