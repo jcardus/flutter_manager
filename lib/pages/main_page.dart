@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -9,6 +10,7 @@ import 'package:in_app_update/in_app_update.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/constants.dart';
 import '../models/geofence.dart';
 import '../models/device_merge.dart';
 import '../services/socket_service.dart';
@@ -329,22 +331,27 @@ class _MainPageState extends State<MainPage> {
   Future<void> _checkForUpdateIos() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
+      dev.log('Bundle: ${packageInfo.packageName}, local: ${packageInfo.version}', name: 'UPDATE');
       final response = await http
           .get(Uri.parse(
-              'https://itunes.apple.com/lookup?bundleId=${packageInfo.packageName}'))
+              'https://itunes.apple.com/lookup?bundleId=${packageInfo.packageName}&country=$appStoreCountry'))
           .timeout(const Duration(seconds: 10));
+      dev.log('App Store response: ${response.statusCode}', name: 'UPDATE');
       if (response.statusCode != 200) return;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final results = data['results'] as List?;
+      dev.log('Results count: ${results?.length ?? 0}', name: 'UPDATE');
       if (results == null || results.isEmpty) return;
       final storeVersion = results[0]['version'] as String?;
       final storeUrl = results[0]['trackViewUrl'] as String?;
+      dev.log('Store: $storeVersion, local: ${packageInfo.version}, newer: ${storeVersion != null ? _isNewerVersion(storeVersion, packageInfo.version) : false}', name: 'UPDATE');
       if (storeVersion == null || storeUrl == null) return;
       if (_isNewerVersion(storeVersion, packageInfo.version)) {
+        dev.log('Update available! Showing snackbar', name: 'UPDATE');
         if (mounted) _showIosUpdateSnackbar(storeUrl);
       }
-    } catch (_) {
-      // Update check is non-critical, ignore errors
+    } catch (e) {
+      dev.log('Update check error: $e', name: 'UPDATE');
     }
   }
 
