@@ -14,6 +14,7 @@ import '../l10n/app_localizations.dart';
 class DeviceRoute extends StatefulWidget {
   final Device device;
   final Position? position;
+  final int? mergedDeviceId;
   final VoidCallback? onBack;
   final ValueChanged<List<Position>>? onRoutePositionsLoaded;
   final Function(Position position, Event event)? onEventTap;
@@ -25,6 +26,7 @@ class DeviceRoute extends StatefulWidget {
     super.key,
     required this.device,
     required this.position,
+    this.mergedDeviceId,
     this.onBack,
     this.onRoutePositionsLoaded,
     this.onEventTap,
@@ -82,28 +84,28 @@ class _DeviceRouteState extends State<DeviceRoute> {
     final startOfDay = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    final tripsFuture = _apiService.fetchTrips(
-      deviceId: widget.device.id,
-      from: startOfDay,
-      to: endOfDay,
-    );
+    final deviceIds = [widget.device.id, if (widget.mergedDeviceId != null) widget.mergedDeviceId!];
 
-    final stopsFuture = _apiService.fetchStops(
-      deviceId: widget.device.id,
-      from: startOfDay,
-      to: endOfDay,
-    );
+    final futures = <Future>[];
+    for (final id in deviceIds) {
+      futures.add(_apiService.fetchTrips(deviceId: id, from: startOfDay, to: endOfDay));
+      futures.add(_apiService.fetchStops(deviceId: id, from: startOfDay, to: endOfDay));
+      futures.add(_apiService.fetchDevicePositions(deviceId: id, from: startOfDay, to: endOfDay));
+    }
 
-    final positionsFuture = _apiService.fetchDevicePositions(
-      deviceId: widget.device.id,
-      from: startOfDay,
-      to: endOfDay,
-    );
-
-    final results = await Future.wait([tripsFuture, stopsFuture, positionsFuture]);
-    final trips = results[0] as List<Trip>;
-    final stops = results[1] as List<Stop>;
-    final positions = results[2] as List<Position>;
+    final results = await Future.wait(futures);
+    final trips = <Trip>[];
+    final stops = <Stop>[];
+    final positions = <Position>[];
+    for (var i = 0; i < deviceIds.length; i++) {
+      trips.addAll(results[i * 3] as List<Trip>);
+      stops.addAll(results[i * 3 + 1] as List<Stop>);
+      positions.addAll(results[i * 3 + 2] as List<Position>);
+    }
+    // Sort merged data by time
+    trips.sort((a, b) => a.startTime.compareTo(b.startTime));
+    stops.sort((a, b) => a.startTime.compareTo(b.startTime));
+    positions.sort((a, b) => a.fixTime.compareTo(b.fixTime));
 
     // Notify parent about route positions
     widget.onRoutePositionsLoaded?.call(positions);

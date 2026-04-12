@@ -41,3 +41,9 @@ String get googleMapsClientId {
 
 const double selectedZoomLevel=14;
 const int maxGeofences=100;
+
+String get appStoreCountry {
+  const envValue = String.fromEnvironment('APP_STORE_COUNTRY');
+  if (envValue.isNotEmpty) { return envValue; }
+  return 'br';
+}

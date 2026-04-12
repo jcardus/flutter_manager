@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:manager/models/position.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:manager/utils/constants.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../services/mapillary_service.dart';
@@ -208,18 +209,52 @@ class _StreetViewState extends State<StreetView> {
     }
   }
 
+  Future<void> _openStreetView(double latitude, double longitude, double heading) async {
+    final h = heading.toStringAsFixed(0);
+    // Try Google Street View app first
+    final svUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
+    if (await canLaunchUrl(svUri)) {
+      await launchUrl(svUri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    // Try Google Maps app with Street View layer
+    final mapsUri = Uri.parse('comgooglemaps://?center=$latitude,$longitude&mapmode=streetview');
+    if (await canLaunchUrl(mapsUri)) {
+      await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    // Fallback: web URL in Street View mode
+    final webUri = Uri.parse('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$latitude,$longitude&heading=$h');
+    await launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: _isLoading
-          ? Container(
-              color: Colors.black,
-              child: const Center(
-                child: CircularProgressIndicator(),
+    return GestureDetector(
+      onTap: () => _openStreetView(
+        position!.latitude,
+        position!.longitude,
+        position!.course,
+      ),
+      child: SizedBox(
+      height: 200,
+      child: Image.network(
+        _getStreetViewUrl(
+          position!.latitude,
+          position!.longitude,
+          position!.course,
+        ),
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: Theme.of(context).primaryColor,
+            child: Center(
+              child: CircularProgressIndicator(
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded /
+                    loadingProgress.expectedTotalBytes!
+                    : null,
               ),
             )
           : _hasImage
@@ -245,7 +280,17 @@ class _StreetViewState extends State<StreetView> {
                       ],
                     ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Street View unavailable',
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ),
     );
   }
 }
