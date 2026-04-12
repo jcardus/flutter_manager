@@ -172,7 +172,14 @@ class DeviceDetail extends StatelessWidget {
     if (pickedDate == null) return;
     if (!context.mounted) return;
 
-    final expiration = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, 23, 59, 59);
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 23, minute: 59),
+    );
+    if (pickedTime == null) return;
+    if (!context.mounted) return;
+
+    final expiration = DateTime(pickedDate.year, pickedDate.month, pickedDate.day, pickedTime.hour, pickedTime.minute, 59);
 
     final apiService = ApiService();
 
