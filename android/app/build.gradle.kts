@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.fleetmap.fleetmanager"
+    namespace = "com.fleetmap.wuizy"
     compileSdk = 36  // Explicitly set for Android 16 compatibility
     ndkVersion = "28.1.13356709"
 
@@ -32,12 +32,12 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.fleetmap.fleetmanager"
+        applicationId = "com.fleetmap.wuizy"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion  // Android 5.0+
         targetSdk = 36  // Android 16
-        versionCode = flutter.versionCode
+        versionCode = 2100002253
         versionName = flutter.versionName
     }
 
