@@ -3,6 +3,7 @@ import 'package:manager/l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../utils/device_colors.dart';
+import '../utils/device_icons.dart';
 import 'position_detail.dart';
 
 class DevicesListView extends StatefulWidget {
@@ -319,25 +320,7 @@ class _DeviceListItem extends StatelessWidget {
     this.onTap,
   });
 
-  IconData _getDeviceIcon() {
-    switch (device.category?.toLowerCase()) {
-      case 'car':
-      case 'vehicle':
-        return Icons.directions_car;
-      case 'truck':
-        return Icons.local_shipping;
-      case 'bus':
-        return Icons.directions_bus;
-      case 'motorcycle':
-        return Icons.two_wheeler;
-      case 'bicycle':
-        return Icons.pedal_bike;
-      case 'person':
-        return Icons.person;
-      default:
-        return Icons.navigation;
-    }
-  }
+  IconData _getDeviceIcon() => DeviceIcons.getCategoryIcon(device);
 
   @override
   Widget build(BuildContext context) {

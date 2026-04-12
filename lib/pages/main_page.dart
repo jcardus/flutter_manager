@@ -15,6 +15,7 @@ import '../models/geofence.dart';
 import '../models/device_merge.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
@@ -110,8 +111,14 @@ class _MainPageState extends State<MainPage> {
     final geofences = await _apiService.fetchGeofences();
     final geofenceMap = <int, Geofence>{};
     for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
-    final merges = await _apiService.fetchDeviceMerges();
+    // Only apply device merges for customers (userLimit == 0).
+    // Resellers/managers see both primary and secondary devices.
+    final user = await AuthService().getUser();
+    final isCustomer = (user?['userLimit'] as int? ?? 0) == 0
+        && (user?['administrator'] as bool? ?? false) == false;
+    final merges = isCustomer ? await _apiService.fetchDeviceMerges() : <DeviceMerge>[];
     final secondaryIds = merges.map((m) => m.secondaryDeviceId).toSet();
+    if (!mounted) return;
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
@@ -119,7 +126,6 @@ class _MainPageState extends State<MainPage> {
       _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
     });
-    if (!mounted) return;
     await _connectSocket();
     _checkForUpdate();
   }
@@ -173,6 +179,11 @@ class _MainPageState extends State<MainPage> {
       _movingSegmentPositions = positions;
       _segmentStartEvent = startEvent;
       _segmentEndEvent = endEvent;
+      // Clear position marker when selecting a segment
+      _eventPositionToCenter = null;
+      _selectedEvent = null;
+      _isFirstPosition = null;
+      _positionLabel = null;
     });
   }
 
@@ -221,16 +232,6 @@ class _MainPageState extends State<MainPage> {
       _movingSegmentPositions = [];
       _segmentStartEvent = null;
       _segmentEndEvent = null;
-    });
-    // Reset after next frame to allow MapView to process it
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _eventPositionToCenter = null;
-          _isFirstPosition = null;
-          _positionLabel = null;
-        });
-      }
     });
   }
 
