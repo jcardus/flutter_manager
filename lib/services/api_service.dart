@@ -12,6 +12,7 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../models/trip.dart';
 import '../models/stop.dart';
+import '../models/summary.dart';
 import 'web_helper_stub.dart'
     if (dart.library.html) 'web_helper_web.dart' as web_helper;
 
@@ -158,6 +159,19 @@ class ApiService {
     );
   }
 
+  Future<List<Summary>> fetchSummary({
+    required List<int> deviceIds,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final fromParam = from.toUtc().toIso8601String();
+    final toParam = to.toUtc().toIso8601String();
+    final deviceIdParams = deviceIds.map((id) => 'deviceId=$id').join('&');
+    return _fetchList(
+      endpoint: '/api/reports/summary?$deviceIdParams&from=$fromParam&to=$toParam',
+      fromJson: Summary.fromJson
+    );
+  }
 
   Future<Map<String, String>> _getAuthHeaders([Map<String, String>? extraHeaders]) async {
     final headers = <String, String>{
