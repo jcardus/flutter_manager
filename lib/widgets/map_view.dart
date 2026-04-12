@@ -10,6 +10,7 @@ import '../models/geofence.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../utils/device_colors.dart';
+import '../utils/device_icons.dart';
 import '../utils/svg_cache.dart';
 import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
@@ -361,12 +362,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         return Icons.check_circle;
       case 'devicemoving':
       case 'tripstart':
-        return platform_icons.PlatformIcons.play;
+        return Icons.play_arrow;
       case 'devicestopped':
       case 'tripend':
       case 'stopstart':
       case 'stopend':
-        return Icons.stop_circle;
+        return Icons.stop;
       case 'deviceoverspeed':
         return Icons.speed;
       default:
@@ -410,6 +411,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         statusColor: statusColor,
         rotationRemainder: remainder,
         deviceName: device.name,
+        fallbackIcon: DeviceIcons.getCategoryIcon(device),
         onTap: () => widget.onDeviceSelected?.call(deviceId),
       ),
     );
@@ -528,14 +530,21 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     return markers;
   }
 
+  bool get _hasSelectedPosition =>
+      widget.eventPositionToCenter != null ||
+      widget.movingSegmentPositions.length >= 2;
+
   List<Polyline> _buildRouteLines() {
     if (widget.routePositions.length < 2) return [];
     final points = widget.routePositions
         .map((p) => LatLng(p.latitude, p.longitude))
         .toList();
+    final fade = _hasSelectedPosition ? 0.25 : 1.0;
     return [
-      Polyline(points: points, color: Colors.white, strokeWidth: 5),
-      Polyline(points: points, color: const Color(0xFF2196F3), strokeWidth: 8),
+      // White casing (wider, drawn first)
+      Polyline(points: points, color: Colors.white.withValues(alpha: fade), strokeWidth: 9),
+      // Blue route (narrower, on top)
+      Polyline(points: points, color: const Color(0xFF2196F3).withValues(alpha: fade), strokeWidth: 5),
     ];
   }
 
@@ -543,12 +552,13 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (widget.routePositions.isEmpty) return [];
     final speeds = widget.routePositions.map((p) => p.speed).toList();
     final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+    final fade = _hasSelectedPosition ? 0.2 : 1.0;
     return widget.routePositions.map((p) {
       final color = TurboColormap.getSpeedColor(p.speed, 0, maxSpeed);
       return CircleMarker(
         point: LatLng(p.latitude, p.longitude),
         radius: 2.5,
-        color: color,
+        color: color.withValues(alpha: fade),
         useRadiusInMeter: false,
       );
     }).toList();
@@ -560,11 +570,10 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         .map((p) => LatLng(p.latitude, p.longitude))
         .toList();
     return [
-      Polyline(
-        points: points,
-        color: const Color(0x804CAF50),
-        strokeWidth: 6,
-      ),
+      // White casing
+      Polyline(points: points, color: Colors.white, strokeWidth: 10),
+      // Green segment on top
+      Polyline(points: points, color: const Color(0xFF4CAF50), strokeWidth: 6),
     ];
   }
 
@@ -574,7 +583,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       point: point,
       width: 36,
       height: 36,
+      alignment: Alignment.center,
       child: Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.white,
@@ -587,7 +600,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
             ),
           ],
         ),
-        child: Icon(icon, color: color, size: 18),
+        child: Icon(icon, color: color, size: 22),
       ),
     );
   }
@@ -606,10 +619,10 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         icon = _getEventIcon(widget.selectedEvent!.displayType);
         color = const Color(0xFFFF5722);
       } else if (widget.positionLabel == 'Movement Start') {
-        icon = platform_icons.PlatformIcons.play;
+        icon = Icons.play_arrow;
         color = Theme.of(context).colorScheme.tertiary;
       } else if (widget.positionLabel == 'Stop') {
-        icon = Icons.stop_circle;
+        icon = Icons.stop;
         color = Theme.of(context).colorScheme.error;
       } else if (widget.positionLabel == 'AirTag Location') {
         icon = Icons.location_on;
@@ -650,18 +663,15 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         widget.eventPositionToCenter == null) {
       final startPos = widget.routePositions.first;
       final endPos = widget.routePositions.last;
-      markers.add(Marker(
-        point: LatLng(startPos.latitude, startPos.longitude),
-        width: 36,
-        height: 36,
-        child: const Icon(Icons.flag, color: Color(0xFF4CAF50), size: 36),
+      markers.add(_buildEventIconMarker(
+        LatLng(startPos.latitude, startPos.longitude),
+        Icons.flag,
+        const Color(0xFF4CAF50),
       ));
-      markers.add(Marker(
-        point: LatLng(endPos.latitude, endPos.longitude),
-        width: 36,
-        height: 36,
-        child: const Icon(Icons.flag_outlined,
-            color: Color(0xFFF44336), size: 36),
+      markers.add(_buildEventIconMarker(
+        LatLng(endPos.latitude, endPos.longitude),
+        Icons.flag_outlined,
+        const Color(0xFFF44336),
       ));
     }
 
@@ -702,6 +712,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
             MarkerClusterLayerWidget(
               options: MarkerClusterLayerOptions(
                 maxClusterRadius: 60,
+                padding: const EdgeInsets.all(80),
                 disableClusteringAtZoom: _clusterDisableZoom,
                 animationsOptions: const AnimationsOptions(
                   zoom: Duration(milliseconds: 300),
@@ -776,6 +787,7 @@ class _AnimatedDeviceMarker extends StatelessWidget {
   final Color statusColor;
   final double rotationRemainder;
   final String deviceName;
+  final IconData fallbackIcon;
   final VoidCallback? onTap;
 
   const _AnimatedDeviceMarker({
@@ -784,6 +796,7 @@ class _AnimatedDeviceMarker extends StatelessWidget {
     required this.statusColor,
     required this.rotationRemainder,
     required this.deviceName,
+    required this.fallbackIcon,
     this.onTap,
   });
 
@@ -803,7 +816,7 @@ class _AnimatedDeviceMarker extends StatelessWidget {
               angle: angle,
               child: child,
             ),
-            child: _SvgIcon(url: url, statusColor: statusColor),
+            child: _SvgIcon(url: url, statusColor: statusColor, fallbackIcon: fallbackIcon),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -831,8 +844,13 @@ class _AnimatedDeviceMarker extends StatelessWidget {
 class _SvgIcon extends StatefulWidget {
   final String url;
   final Color statusColor;
+  final IconData fallbackIcon;
 
-  const _SvgIcon({required this.url, required this.statusColor});
+  const _SvgIcon({
+    required this.url,
+    required this.statusColor,
+    this.fallbackIcon = Icons.navigation,
+  });
 
   @override
   State<_SvgIcon> createState() => _SvgIconState();
@@ -874,7 +892,7 @@ class _SvgIconState extends State<_SvgIcon> {
       return SvgPicture.string(_svgData!, width: 72, height: 72);
     }
     if (_failed) {
-      return Icon(Icons.error_outline, color: widget.statusColor, size: 56);
+      return Icon(widget.fallbackIcon, color: widget.statusColor, size: 56);
     }
     return const SizedBox(width: 72, height: 72);
   }

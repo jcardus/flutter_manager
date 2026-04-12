@@ -112,6 +112,7 @@ class _MainPageState extends State<MainPage> {
     for (var geofence in geofences) { geofenceMap[geofence.id] = geofence; }
     final merges = await _apiService.fetchDeviceMerges();
     final secondaryIds = merges.map((m) => m.secondaryDeviceId).toSet();
+    if (!mounted) return;
     setState(() {
       _devices.addAll(devicesMap);
       _positions.addAll(positionsMap);
@@ -119,7 +120,6 @@ class _MainPageState extends State<MainPage> {
       _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
     });
-    if (!mounted) return;
     await _connectSocket();
     _checkForUpdate();
   }
@@ -173,6 +173,11 @@ class _MainPageState extends State<MainPage> {
       _movingSegmentPositions = positions;
       _segmentStartEvent = startEvent;
       _segmentEndEvent = endEvent;
+      // Clear position marker when selecting a segment
+      _eventPositionToCenter = null;
+      _selectedEvent = null;
+      _isFirstPosition = null;
+      _positionLabel = null;
     });
   }
 
@@ -221,16 +226,6 @@ class _MainPageState extends State<MainPage> {
       _movingSegmentPositions = [];
       _segmentStartEvent = null;
       _segmentEndEvent = null;
-    });
-    // Reset after next frame to allow MapView to process it
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _eventPositionToCenter = null;
-          _isFirstPosition = null;
-          _positionLabel = null;
-        });
-      }
     });
   }
 
