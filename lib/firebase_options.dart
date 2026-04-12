@@ -68,18 +68,7 @@ class DefaultFirebaseOptions {
     projectId: 'fleetmap-fe45f',
     storageBucket: 'fleetmap-fe45f.firebasestorage.app',
     androidClientId: '218052201497-nrml7ledfljhbpa05flmofap6laetkga.apps.googleusercontent.com',
-    iosBundleId: 'com.fleetmap.fleetmanager',
-  );
-
-  // Reuses iOS config until a dedicated macOS Firebase app is configured.
-  // Run `flutterfire configure` after adding a macOS app in the Firebase console.
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBgJjh0hPL1hUpGd2wlKiKTt2MKM5UO23k',
-    appId: '1:218052201497:ios:0d02e81f62b32d28766e88',
-    messagingSenderId: '218052201497',
-    projectId: 'fleetmap-fe45f',
-    storageBucket: 'fleetmap-fe45f.firebasestorage.app',
-    iosBundleId: 'com.fleetmap.fleetmanager',
+    iosBundleId: 'com.nogartel.manager',
   );
 
 }
