@@ -696,7 +696,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
           ),
           children: [
             TileLayer(
-              urlTemplate: style.urlTemplate,
+              urlTemplate: style.urlTemplateFor(context),
               subdomains: style.subdomains,
               userAgentPackageName: 'com.frotaweb.manager',
               tileProvider: CancellableNetworkTileProvider(),
