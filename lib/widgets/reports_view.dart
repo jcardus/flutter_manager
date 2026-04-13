@@ -31,8 +31,14 @@ class ReportsView extends StatefulWidget {
 class _ReportsViewState extends State<ReportsView> {
   ReportType _reportType = ReportType.trips;
   int? _selectedDeviceId;
-  DateTime _dateFrom = DateTime.now().subtract(const Duration(days: 1));
-  DateTime _dateTo = DateTime.now();
+  late DateTime _dateFrom = () {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return DateTime(yesterday.year, yesterday.month, yesterday.day, 0, 0);
+  }();
+  late DateTime _dateTo = () {
+    final today = DateTime.now();
+    return DateTime(today.year, today.month, today.day, 23, 59);
+  }();
   bool _isLoading = false;
 
   // Report data
@@ -65,8 +71,8 @@ class _ReportsViewState extends State<ReportsView> {
     });
 
     try {
-      final from = DateTime(_dateFrom.year, _dateFrom.month, _dateFrom.day);
-      final to = DateTime(_dateTo.year, _dateTo.month, _dateTo.day, 23, 59, 59);
+      final from = _dateFrom;
+      final to = _dateTo;
 
       switch (_reportType) {
         case ReportType.trips:
@@ -136,30 +142,48 @@ class _ReportsViewState extends State<ReportsView> {
   }
 
   Future<void> _pickDateFrom() async {
-    final picked = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: _dateFrom,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _dateFrom = picked);
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_dateFrom),
+    );
+    if (!mounted) return;
+    setState(() => _dateFrom = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime?.hour ?? _dateFrom.hour, pickedTime?.minute ?? _dateFrom.minute,
+    ));
   }
 
   Future<void> _pickDateTo() async {
-    final picked = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: _dateTo,
       firstDate: _dateFrom,
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _dateTo = picked);
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_dateTo),
+    );
+    if (!mounted) return;
+    setState(() => _dateTo = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime?.hour ?? _dateTo.hour, pickedTime?.minute ?? _dateTo.minute,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
-    final dateFmt = DateFormat('dd/MM/yyyy');
+    final dateFmt = DateFormat('dd/MM/yyyy HH:mm');
     final sortedDevices = widget.devices.values.toList()
       ..sort((a, b) => a.name.compareTo(b.name));
 
