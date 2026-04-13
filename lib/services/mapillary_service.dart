@@ -8,11 +8,13 @@ class MapillaryImage {
   final String id;
   final double compassAngle;
   final bool isPano;
+  final String? thumbUrl;
 
   MapillaryImage({
     required this.id,
     required this.compassAngle,
     required this.isPano,
+    this.thumbUrl,
   });
 }
 
@@ -46,7 +48,7 @@ class MapillaryService {
       final url = Uri.parse(
         'https://graph.mapillary.com/images'
         '?access_token=$mapillaryToken'
-        '&fields=id,computed_compass_angle,is_pano'
+        '&fields=id,computed_compass_angle,is_pano,thumb_1024_url'
         '&bbox=${bbox.join(',')}',
       );
 
@@ -75,6 +77,7 @@ class MapillaryService {
           id: best['id'] as String,
           compassAngle: (best['computed_compass_angle'] ?? 0.0).toDouble(),
           isPano: best['is_pano'] as bool? ?? false,
+          thumbUrl: best['thumb_1024_url'] as String?,
         );
       }
 

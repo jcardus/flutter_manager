@@ -1,296 +1,182 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:manager/models/position.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:manager/utils/constants.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+
 import '../services/mapillary_service.dart';
+import '../utils/constants.dart';
+import '../utils/google_url_signer.dart';
 
 class StreetView extends StatefulWidget {
-  final Position position;
+  final Position? position;
+  final double width;
 
-  const StreetView({super.key, required this.position, required double width});
+  const StreetView({super.key, required this.position, required this.width});
 
   @override
   State<StreetView> createState() => _StreetViewState();
 }
 
 class _StreetViewState extends State<StreetView> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
-  bool _hasImage = false;
-  bool _pageLoaded = false;
-  String? _pendingImageId;
+  bool _googleAvailable = true;
+  bool _googleChecked = false;
+  MapillaryImage? _mapillaryImage;
+  bool _mapillaryFetched = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.black)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (String url) {
-            _pageLoaded = true;
-            // If we already have an image ID, load it now
-            if (_pendingImageId != null && mounted) {
-              final parts = _pendingImageId!.split('|');
-              final imageId = parts[0];
-              final bearingDiff = double.parse(parts[1]);
-              _loadImage(imageId, bearingDiff);
-            }
-          },
-        ),
-      )
-      ..loadHtmlString(_buildHtml());
-
-    // Fetch image ID immediately (in parallel with page load)
-    _fetchImageId();
+    _checkGoogleAvailability();
   }
 
-  @override
-  void didUpdateWidget(StreetView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Check if position has changed significantly
-    if (_hasPositionChanged(oldWidget.position, widget.position)) {
-      _fetchImageId();
-    }
-  }
-
-  bool _hasPositionChanged(Position oldPos, Position newPos) {
-    // Consider position changed if lat/lon/course differ
-    const double latLonThreshold = 0.0001; // ~11 meters
-    const double courseThreshold = 10.0; // 10 degrees
-
-    return (oldPos.latitude - newPos.latitude).abs() > latLonThreshold ||
-           (oldPos.longitude - newPos.longitude).abs() > latLonThreshold ||
-           (oldPos.course - newPos.course).abs() > courseThreshold;
-  }
-
-  String _buildHtml() {
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Mapillary Viewer</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background-color: #000;
-    }
-    #mly {
-      width: 100vw;
-      height: 100vh;
-    }
-  </style>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css"
-  />
-</head>
-<body>
-  <div id="mly"></div>
-
-  <script src="https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"></script>
-  <script>
-    let viewer = null;
-    const accessToken = '$mapillaryToken';
-
-    function updateImage(imageId, bearingDiff) {
-      if (viewer === null) {
-        viewer = new mapillary.Viewer({
-          accessToken: accessToken,
-          container: 'mly',
-          imageId: imageId,
-          component: {
-            cover: false,
-            zoom: false,
-            direction: false,
-            sequence: false
-          }
-        });
-
-        // Pan to the vehicle's bearing after image loads
-        if (bearingDiff !== undefined && bearingDiff !== 0) {
-          viewer.on('image', function() {
-            // Convert bearing difference to pan amount (normalized 0-1)
-            // bearingDiff is in degrees, normalize to 0-1 range for panning
-            var panAmount = bearingDiff / 360;
-            viewer.getCenter().then(function(center) {
-              viewer.setCenter([center[0] + panAmount, center[1]]);
-            });
-          });
-        }
-      } else {
-        viewer.moveTo(imageId).then(function() {
-          // Pan after moving to new image
-          if (bearingDiff !== undefined && bearingDiff !== 0) {
-            var panAmount = bearingDiff / 360;
-            viewer.getCenter().then(function(center) {
-              viewer.setCenter([center[0] + panAmount, center[1]]);
-            });
-          }
-        }).catch(function(error) {
-          console.error('Error moving to image:', error);
-        });
-      }
-    }
-  </script>
-</body>
-</html>
-''';
-  }
-
-  Future<void> _fetchImageId() async {
+  Future<void> _checkGoogleAvailability() async {
+    final pos = widget.position;
+    if (pos == null) return;
     try {
-      // Use local Mapillary service to get image data
-      final imageData = await MapillaryService.getImageData(
-        latitude: widget.position.latitude,
-        longitude: widget.position.longitude,
-        course: widget.position.course,
+      final metadataUrl = GoogleUrlSigner.signUrl(
+        'https://maps.googleapis.com/maps/api/streetview/metadata'
+        '?location=${pos.latitude},${pos.longitude}',
+        googleMapsSigningSecret,
+        clientId: googleMapsClientId,
       );
-
-      if (imageData != null && mounted) {
-        // Calculate bearing difference (how much to pan)
-        // Only rotate if the image is panoramic
-        double bearingDiff = 0;
-        if (imageData.isPano) {
-          bearingDiff = widget.position.course - imageData.compassAngle;
-
-          // Normalize to -180 to 180 range
-          while (bearingDiff > 180) {
-            bearingDiff -= 360;
-          }
-          while (bearingDiff < -180) {
-            bearingDiff += 360;
-          }
-        }
-
-        if (_pageLoaded) {
-          // Page is ready, load the image immediately
-          _loadImage(imageData.id, bearingDiff);
-        } else {
-          // Page not ready yet, store for later
-          _pendingImageId = '${imageData.id}|$bearingDiff';
-          setState(() {
-            _hasImage = true;
-          });
-        }
-      } else {
-        // No image ID available
+      final resp = await http.get(Uri.parse(metadataUrl));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final available = data['status'] == 'OK';
         if (mounted) {
           setState(() {
-            _isLoading = false;
-            _hasImage = false;
+            _googleAvailable = available;
+            _googleChecked = true;
           });
+          if (!available) _fetchMapillary();
         }
       }
-    } catch (e) {
-      // Error
+    } catch (_) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasImage = false;
-        });
+        setState(() => _googleChecked = true);
+        _fetchMapillary();
       }
     }
   }
 
-  Future<void> _loadImage(String imageId, double bearingDiff) async {
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _hasImage = true;
-      });
-      await _controller.runJavaScript('updateImage("$imageId", $bearingDiff);');
-    }
+  String _getStreetViewUrl(double latitude, double longitude, double heading) {
+    final size = '${widget.width.toInt()}x200';
+    const fov = '90';
+    const pitch = '0';
+
+    final baseUrl =
+        'https://maps.googleapis.com/maps/api/streetview'
+        '?size=$size'
+        '&location=$latitude,$longitude'
+        '&heading=${heading.toStringAsFixed(0)}'
+        '&fov=$fov'
+        '&pitch=$pitch';
+
+    return GoogleUrlSigner.signUrl(
+      baseUrl,
+      googleMapsSigningSecret,
+      clientId: googleMapsClientId,
+    );
+  }
+
+  Future<void> _fetchMapillary() async {
+    if (_mapillaryFetched || widget.position == null) return;
+    _mapillaryFetched = true;
+    final image = await MapillaryService.getImageData(
+      latitude: widget.position!.latitude,
+      longitude: widget.position!.longitude,
+      course: widget.position!.course,
+    );
+    if (mounted) setState(() => _mapillaryImage = image);
   }
 
   Future<void> _openStreetView(double latitude, double longitude, double heading) async {
     final h = heading.toStringAsFixed(0);
-    // Try Google Street View app first
     final svUri = Uri.parse('google.streetview://cbll=$latitude,$longitude&cbp=12,$h,0,0,0');
     if (await canLaunchUrl(svUri)) {
       await launchUrl(svUri, mode: LaunchMode.externalApplication);
       return;
     }
-    // Try Google Maps app with Street View layer
     final mapsUri = Uri.parse('comgooglemaps://?center=$latitude,$longitude&mapmode=streetview');
     if (await canLaunchUrl(mapsUri)) {
       await launchUrl(mapsUri, mode: LaunchMode.externalApplication);
       return;
     }
-    // Fallback: web URL in Street View mode
     final webUri = Uri.parse('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=$latitude,$longitude&heading=$h');
     await launchUrl(webUri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _openMapillary(String imageId) async {
+    final uri = Uri.parse('https://www.mapillary.com/app/?focus=photo&pKey=$imageId');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _buildPlaceholder({String? message}) {
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.streetview, size: 48),
+            const SizedBox(height: 8),
+            Text(message ?? 'Street View unavailable'),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _openStreetView(
-        position!.latitude,
-        position!.longitude,
-        position!.course,
-      ),
-      child: SizedBox(
+    final pos = widget.position;
+    if (pos == null) return const SizedBox.shrink();
+
+    return SizedBox(
       height: 200,
-      child: Image.network(
-        _getStreetViewUrl(
-          position!.latitude,
-          position!.longitude,
-          position!.course,
-        ),
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            color: Theme.of(context).primaryColor,
-            child: Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                    loadingProgress.expectedTotalBytes!
-                    : null,
-              ),
-            )
-          : _hasImage
-              ? WebViewWidget(controller: _controller)
-              : Container(
-                  color: colors.surfaceContainerHighest,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.streetview,
-                          size: 48,
-                          color: colors.onSurfaceVariant,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Street View unavailable',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colors.onSurfaceVariant,
+      child: GestureDetector(
+        onTap: () {
+          if (!_googleAvailable && _mapillaryImage != null) {
+            _openMapillary(_mapillaryImage!.id);
+          } else if (_googleAvailable) {
+            _openStreetView(pos.latitude, pos.longitude, pos.course);
+          }
+        },
+        child: !_googleChecked
+            ? _buildPlaceholder(message: 'Loading...')
+            : _googleAvailable
+                ? Image.network(
+                    _getStreetViewUrl(pos.latitude, pos.longitude, pos.course),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        color: Theme.of(context).primaryColor,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                : null,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Street View unavailable',
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                  )
+                : _mapillaryImage?.thumbUrl != null
+                    ? Image.network(
+                        _mapillaryImage!.thumbUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                      )
+                    : _mapillaryFetched
+                        ? _buildPlaceholder()
+                        : _buildPlaceholder(message: 'Loading...'),
       ),
-    ),
     );
   }
 }
