@@ -188,10 +188,20 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         widget.eventPositionToCenter != oldWidget.eventPositionToCenter) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final pos = widget.eventPositionToCenter!;
-        _mapController.move(
-          LatLng(pos.latitude, pos.longitude),
-          _mapController.camera.zoom < 14 ? 14 : _mapController.camera.zoom,
-        );
+        final target = LatLng(pos.latitude, pos.longitude);
+        final isScrub = widget.positionLabel == 'Scrub';
+        if (isScrub) {
+          // Keep current zoom; only recenter if vehicle leaves viewport.
+          final bounds = _mapController.camera.visibleBounds;
+          if (!bounds.contains(target)) {
+            _mapController.move(target, _mapController.camera.zoom);
+          }
+        } else {
+          _mapController.move(
+            target,
+            _mapController.camera.zoom < 14 ? 14 : _mapController.camera.zoom,
+          );
+        }
       });
     }
 
@@ -566,15 +576,42 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
   List<Polyline> _buildMovingSegmentLine() {
     if (widget.movingSegmentPositions.length < 2) return [];
-    final points = widget.movingSegmentPositions
-        .map((p) => LatLng(p.latitude, p.longitude))
-        .toList();
-    return [
+    final seg = widget.movingSegmentPositions;
+    final points = seg.map((p) => LatLng(p.latitude, p.longitude)).toList();
+    final speeds = seg.map((p) => p.speed).toList();
+    final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+
+    final lines = <Polyline>[
       // White casing
       Polyline(points: points, color: Colors.white, strokeWidth: 10),
-      // Green segment on top
-      Polyline(points: points, color: const Color(0xFF4CAF50), strokeWidth: 6),
     ];
+    // Per-segment speed-colored lines on top
+    for (int i = 0; i < points.length - 1; i++) {
+      final avg = (speeds[i] + speeds[i + 1]) / 2;
+      final color = TurboColormap.getSpeedColor(avg, 0, maxSpeed > 0 ? maxSpeed : 1);
+      lines.add(Polyline(
+        points: [points[i], points[i + 1]],
+        color: color,
+        strokeWidth: 6,
+      ));
+    }
+    return lines;
+  }
+
+  List<CircleMarker> _buildMovingSegmentCircles() {
+    if (widget.movingSegmentPositions.length < 2) return [];
+    final seg = widget.movingSegmentPositions;
+    final speeds = seg.map((p) => p.speed).toList();
+    final maxSpeed = speeds.reduce((a, b) => a > b ? a : b);
+    return seg.map((p) {
+      final color = TurboColormap.getSpeedColor(p.speed, 0, maxSpeed > 0 ? maxSpeed : 1);
+      return CircleMarker(
+        point: LatLng(p.latitude, p.longitude),
+        radius: 2.5,
+        color: color,
+        useRadiusInMeter: false,
+      );
+    }).toList();
   }
 
   Marker _buildEventIconMarker(
@@ -612,6 +649,32 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (widget.eventPositionToCenter != null) {
       final pos = widget.eventPositionToCenter!;
       final point = LatLng(pos.latitude, pos.longitude);
+
+      if (widget.positionLabel == 'Scrub' && widget.selectedDevice != null) {
+        final device = widget.devices[widget.selectedDevice!];
+        if (device != null) {
+          final statusColor = DeviceColors.getDeviceColor(device, pos, context);
+          final colorName = DeviceColors.getDeviceColorName(device, pos);
+          final url = _iconUrl(device.category, colorName, pos.course);
+          final remainder = _rotationRemainder(pos.course) * pi / 180;
+          markers.add(Marker(
+            point: point,
+            width: 96,
+            height: 110,
+            alignment: Alignment.center,
+            child: Transform.rotate(
+              angle: remainder,
+              child: _SvgIcon(
+                url: url,
+                statusColor: statusColor,
+                fallbackIcon: DeviceIcons.getCategoryIcon(device),
+              ),
+            ),
+          ));
+          return markers;
+        }
+      }
+
       IconData icon;
       Color color;
 
@@ -709,6 +772,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
             PolylineLayer(polylines: _buildRouteLines()),
             CircleLayer(circles: _buildSpeedCircles()),
             PolylineLayer(polylines: _buildMovingSegmentLine()),
+            CircleLayer(circles: _buildMovingSegmentCircles()),
             MarkerClusterLayerWidget(
               options: MarkerClusterLayerOptions(
                 maxClusterRadius: 60,

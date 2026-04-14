@@ -223,15 +223,18 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _onPositionTap(Position position, bool isFirst, String? label) {
+    final isScrub = label == 'Scrub';
     setState(() {
       _eventPositionToCenter = position;
       _selectedEvent = null;
       _isFirstPosition = isFirst;
       _positionLabel = label;
-      // Clear moving segment highlight when tapping a position
-      _movingSegmentPositions = [];
-      _segmentStartEvent = null;
-      _segmentEndEvent = null;
+      if (!isScrub) {
+        // Clear moving segment highlight when tapping a position
+        _movingSegmentPositions = [];
+        _segmentStartEvent = null;
+        _segmentEndEvent = null;
+      }
     });
   }
 
