@@ -4,4 +4,5 @@ flutter build $1 \
           --dart-define GOOGLE_MAPS_CLIENT_ID="$GOOGLE_MAPS_CLIENT_ID" \
           --dart-define GOOGLE_MAPS_SIGNING_SECRET="$GOOGLE_MAPS_SIGNING_SECRET" \
           --dart-define TRACCAR_BASE_URL="$TRACCAR_BASE_URL" \
-          --dart-define MAPILLARY_TOKEN="$MAPILLARY_TOKEN"
+          --dart-define MAPILLARY_TOKEN="$MAPILLARY_TOKEN" \
+          --dart-define APP_STORE_COUNTRY=ma
