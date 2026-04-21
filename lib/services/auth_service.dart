@@ -11,6 +11,8 @@ class AuthService {
   static const String _userKey = 'traccar_user';
   static const String _savedEmailKey = 'saved_email';
   static const String _savedPasswordKey = 'saved_password';
+  static const String _sessionTokenKey = 'traccar_session_token';
+  static const String _sessionTokenExpKey = 'traccar_session_token_exp';
 
   static String get baseUrl => traccarBaseUrl;
 
@@ -137,6 +139,52 @@ class AuthService {
     }
   }
 
+  /// Returns a Traccar session token, reusing a cached one when still valid.
+  /// Used to authenticate external webviews (e.g. the reports dashboard)
+  /// without re-entering credentials.
+  Future<String?> fetchSessionToken({
+    Duration validity = const Duration(days: 7),
+    Duration refreshBuffer = const Duration(minutes: 5),
+  }) async {
+    final p = await _prefs;
+    final cached = p.getString(_sessionTokenKey);
+    final expMs = p.getInt(_sessionTokenExpKey);
+    if (cached != null && expMs != null) {
+      final exp = DateTime.fromMillisecondsSinceEpoch(expMs, isUtc: true);
+      if (exp.isAfter(DateTime.now().toUtc().add(refreshBuffer))) {
+        return cached;
+      }
+    }
+
+    final headers = await _effectiveHeaders();
+    headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+    final expiration = DateTime.now().toUtc().add(validity);
+    try {
+      final resp = await http.post(
+        Uri.parse('$baseUrl/api/session/token'),
+        headers: headers,
+        body: 'expiration=${Uri.encodeComponent(expiration.toIso8601String())}',
+      );
+      if (resp.statusCode == 200) {
+        final token = resp.body.trim();
+        if (token.isEmpty) return null;
+        await p.setString(_sessionTokenKey, token);
+        await p.setInt(_sessionTokenExpKey, expiration.millisecondsSinceEpoch);
+        return token;
+      }
+      return null;
+    } catch (e) {
+      dev.log('Token fetch error: $e', name: 'Auth');
+      return null;
+    }
+  }
+
+  Future<void> _clearSessionToken() async {
+    final p = await _prefs;
+    await p.remove(_sessionTokenKey);
+    await p.remove(_sessionTokenExpKey);
+  }
+
   Future<void> saveCredentials(String email, String password) async {
     final p = await _prefs;
     await p.setString(_savedEmailKey, email);
@@ -176,6 +224,7 @@ class AuthService {
     if (baseUrl.isEmpty) {
       await _clearCookie();
       await _clearUser();
+      await _clearSessionToken();
       return;
     }
     final uri = Uri.parse('$baseUrl/api/session');
@@ -187,5 +236,6 @@ class AuthService {
     }
     await _clearCookie();
     await _clearUser();
+    await _clearSessionToken();
   }
 }

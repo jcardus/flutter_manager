@@ -22,7 +22,7 @@ import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
-import '../widgets/reports_view.dart';
+import '../widgets/reports_webview.dart';
 import '../widgets/device_bottom_sheet.dart';
 
 class MainPage extends StatefulWidget {
@@ -33,6 +33,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
+  bool _reportsMounted = false;
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
   StreamSubscription? _wsSub;
@@ -283,10 +284,12 @@ class _MainPageState extends State<MainPage> {
             positions: _effectivePositions,
             onDeviceTap: _onDeviceTap,
           ),
-        if (_selectedIndex == 2)
-          ReportsView(
-            devices: _visibleDevices,
-            onBack: () => setState(() => _selectedIndex = 0),
+        if (_reportsMounted)
+          Offstage(
+            offstage: _selectedIndex != 2,
+            child: ReportsWebView(
+              onBack: () => setState(() => _selectedIndex = 0),
+            ),
           ),
         if (_selectedIndex == 3)
           ProfileView(
@@ -584,6 +587,7 @@ class _MainPageState extends State<MainPage> {
       onTap: () {
         setState(() {
           _selectedIndex = index;
+          if (index == 2) _reportsMounted = true;
         });
       },
       behavior: HitTestBehavior.opaque,
