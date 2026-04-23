@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../l10n/app_localizations.dart';
@@ -63,9 +64,10 @@ class _ReportsWebViewState extends State<ReportsWebView> {
     }
 
     final defaultUa = await InAppWebViewController.getDefaultUserAgent();
+    final packageInfo = await PackageInfo.fromPlatform();
     if (!mounted) return;
     setState(() {
-      _userAgent = '$defaultUa com.fleetmap.jsrastreamento';
+      _userAgent = '$defaultUa ${packageInfo.packageName}';
       _initialUri = WebUri('$traccarBaseUrl/reports');
     });
   }
