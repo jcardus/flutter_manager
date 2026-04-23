@@ -49,6 +49,24 @@ class Device {
     );
   }
 
+  Device copyWith({String? status}) {
+    return Device(
+      id: id,
+      name: name,
+      uniqueId: uniqueId,
+      status: status ?? this.status,
+      disabled: disabled,
+      lastUpdate: lastUpdate,
+      positionId: positionId,
+      groupId: groupId,
+      phone: phone,
+      model: model,
+      contact: contact,
+      category: category,
+      attributes: attributes,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
