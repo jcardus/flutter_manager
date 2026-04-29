@@ -292,6 +292,16 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
     try {
       final bounds = LatLngBounds.fromPoints(points);
+      // Degenerate bounds (all points identical or colinear at sub-meter scale)
+      // make CameraFit.bounds compute log2(viewport/0) -> Infinity, poisoning
+      // MapCamera.zoom and crashing every subsequent layer build.
+      const eps = 1e-7;
+      final span = (bounds.north - bounds.south).abs() +
+          (bounds.east - bounds.west).abs();
+      if (span < eps) {
+        _mapController.move(bounds.center, 14);
+        return;
+      }
       _mapController.fitCamera(
         CameraFit.bounds(
           bounds: bounds,
