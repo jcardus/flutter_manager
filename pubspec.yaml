@@ -54,6 +54,7 @@ flutter:
 
   assets:
     - assets/marker.png
+    - assets/app_icon.png
   fonts:
     - family: platform-font
       fonts:
