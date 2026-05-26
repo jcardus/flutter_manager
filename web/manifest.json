@@ -1,6 +1,6 @@
 {
-    "name": "fleetmanager",
-    "short_name": "fleetmanager",
+    "name": "jsrastreamento",
+    "short_name": "jsrastreamento",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
