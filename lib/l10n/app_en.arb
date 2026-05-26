@@ -211,6 +211,31 @@
     "description": "Block command action button label"
   },
 
+  "unblock": "Unblock",
+  "@unblock": {
+    "description": "Unblock command action button label"
+  },
+
+  "unblockCommandConfirmTitle": "Unblock vehicle?",
+  "@unblockCommandConfirmTitle": {
+    "description": "Title for unblock command confirmation dialog"
+  },
+
+  "unblockCommandConfirmMessage": "This will resume the engine remotely. Are you sure?",
+  "@unblockCommandConfirmMessage": {
+    "description": "Body text for unblock command confirmation dialog"
+  },
+
+  "unblockCommandSent": "Unblock command sent",
+  "@unblockCommandSent": {
+    "description": "Snackbar message when unblock command is sent"
+  },
+
+  "unblockCommandFailed": "Failed to send unblock command",
+  "@unblockCommandFailed": {
+    "description": "Snackbar message when unblock command fails"
+  },
+
   "locationCopied": "Location copied to clipboard",
   "@locationCopied": {
     "description": "Snackbar message when location is copied"

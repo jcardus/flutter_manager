@@ -77,6 +77,16 @@
 
   "block": "Bloquer",
 
+  "unblock": "Débloquer",
+
+  "unblockCommandConfirmTitle": "Débloquer le véhicule ?",
+
+  "unblockCommandConfirmMessage": "Cela relancera le moteur à distance. Êtes-vous sûr ?",
+
+  "unblockCommandSent": "Commande de déblocage envoyée",
+
+  "unblockCommandFailed": "Échec de l'envoi de la commande de déblocage",
+
   "locationCopied": "Emplacement copié dans le presse-papiers",
 
   "blockCommandConfirmTitle": "Bloquer le véhicule ?",
