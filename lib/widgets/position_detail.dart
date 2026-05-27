@@ -41,11 +41,8 @@ class _PositionDetailState extends State<PositionDetail> {
     return l10n.speedKmh(kmh.round());
   }
 
-  DateTime? _effectiveLastUpdate() {
-    final deviceTime = widget.device.lastUpdate;
-    final posTime = widget.pos.fixTime;
-    if (deviceTime == null) return posTime;
-    return posTime.isAfter(deviceTime) ? posTime : deviceTime;
+  DateTime _effectiveLastUpdate() {
+    return widget.pos.fixTime;
   }
 
   String _formatLastUpdate(BuildContext context, DateTime? lastUpdate) {
