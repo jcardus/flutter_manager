@@ -323,6 +323,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     'tractor':         'tractor_v2',
     'crane':           'grua_v2',
     'trailer':         'remolque_caja_70',
+    'trailer2':        'remolque_jaula',
     'motorcycle':      'moto_50',
     'scooter':         'motoneta_45',
     'construction':    'retroex',
