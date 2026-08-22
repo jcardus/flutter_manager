@@ -184,4 +184,8 @@
   "device": "Dispositivo",
   "duration": "Duração",
   "reportExported": "Relatório exportado"
+  ,"myLocation": "A minha localização",
+  "locationServicesDisabled": "Os serviços de localização estão desativados",
+  "locationPermissionDenied": "A permissão de localização foi recusada",
+  "locationUnavailable": "A sua localização não está disponível neste momento"
 }

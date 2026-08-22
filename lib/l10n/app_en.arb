@@ -435,5 +435,13 @@
   "duration": "Duration",
   "@duration": { "description": "Duration column header" },
   "reportExported": "Report exported",
-  "@reportExported": { "description": "Export success message" }
+  "@reportExported": { "description": "Export success message" },
+  "myLocation": "My location",
+  "@myLocation": { "description": "Map control for showing the user's current location" },
+  "locationServicesDisabled": "Location services are disabled",
+  "@locationServicesDisabled": { "description": "Message shown when device location services are off" },
+  "locationPermissionDenied": "Location permission was denied",
+  "@locationPermissionDenied": { "description": "Message shown when location access is denied" },
+  "locationUnavailable": "Your location is currently unavailable",
+  "@locationUnavailable": { "description": "Message shown when the current location cannot be obtained" }
 }

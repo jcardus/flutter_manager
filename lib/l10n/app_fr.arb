@@ -184,4 +184,8 @@
   "device": "Appareil",
   "duration": "Durée",
   "reportExported": "Rapport exporté"
+  ,"myLocation": "Ma position",
+  "locationServicesDisabled": "Les services de localisation sont désactivés",
+  "locationPermissionDenied": "L’autorisation de localisation a été refusée",
+  "locationUnavailable": "Votre position est actuellement indisponible"
 }
