@@ -206,14 +206,17 @@ class DeviceDetail extends StatelessWidget {
     }
   }
 
+  bool get _isBlocked => position?.attributes?['blocked'] == true;
+
   Future<void> _sendBlockCommand(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
+    final isBlocked = _isBlocked;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l10n.blockCommandConfirmTitle),
-        content: Text(l10n.blockCommandConfirmMessage),
+        title: Text(isBlocked ? l10n.unblockCommandConfirmTitle : l10n.blockCommandConfirmTitle),
+        content: Text(isBlocked ? l10n.unblockCommandConfirmMessage : l10n.blockCommandConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -221,7 +224,7 @@ class DeviceDetail extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.block),
+            child: Text(isBlocked ? l10n.unblock : l10n.block),
           ),
         ],
       ),
@@ -232,7 +235,7 @@ class DeviceDetail extends StatelessWidget {
     final canCheck = await auth.canCheckBiometrics || await auth.isDeviceSupported();
     if (canCheck) {
       final authenticated = await auth.authenticate(
-        localizedReason: 'Authenticate to send the block command',
+        localizedReason: 'Authenticate to send the ${isBlocked ? 'unblock' : 'block'} command',
         options: const AuthenticationOptions(biometricOnly: false),
       );
       if (!authenticated) return;
@@ -241,22 +244,27 @@ class DeviceDetail extends StatelessWidget {
     final apiService = ApiService();
 
     try {
-      final success = await apiService.sendCommand(device.id, 'engineStop');
+      final success = await apiService.sendCommand(
+        device.id,
+        isBlocked ? 'engineResume' : 'engineStop',
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? l10n.blockCommandSent : l10n.blockCommandFailed),
+            content: Text(isBlocked
+                ? (success ? l10n.unblockCommandSent : l10n.unblockCommandFailed)
+                : (success ? l10n.blockCommandSent : l10n.blockCommandFailed)),
             duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      dev.log('Error sending block command: $e');
+      dev.log('Error sending ${isBlocked ? 'unblock' : 'block'} command: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(l10n.blockCommandFailed),
+            content: Text(isBlocked ? l10n.unblockCommandFailed : l10n.blockCommandFailed),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -428,8 +436,8 @@ class DeviceDetail extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _ActionButton(
-                      icon: Icons.lock,
-                      label: l10n.block,
+                      icon: _isBlocked ? Icons.lock_open : Icons.lock,
+                      label: _isBlocked ? l10n.unblock : l10n.block,
                       onPressed: () => _sendBlockCommand(context),
                     ),
                   ),

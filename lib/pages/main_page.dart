@@ -22,7 +22,7 @@ import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
-import '../widgets/reports_view.dart';
+import '../widgets/reports_webview.dart';
 import '../widgets/device_bottom_sheet.dart';
 
 class MainPage extends StatefulWidget {
@@ -33,6 +33,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
+  bool _reportsMounted = false;
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
   StreamSubscription? _wsSub;
@@ -64,41 +65,55 @@ class _MainPageState extends State<MainPage> {
 
   Map<int, Device> get _visibleDevices {
     if (_mergeSecondaryIds.isEmpty) return _devices;
-    return Map.fromEntries(
+    final result = Map<int, Device>.fromEntries(
       _devices.entries.where((e) => !_mergeSecondaryIds.contains(e.key)),
     );
+    for (final merge in _deviceMerges) {
+      if (_useSecondary(merge)) {
+        final primary = result[merge.primaryDeviceId];
+        final secondary = _devices[merge.secondaryDeviceId];
+        if (primary != null && secondary != null) {
+          result[merge.primaryDeviceId] = primary.copyWith(status: secondary.status);
+        }
+      }
+    }
+    return result;
   }
 
   Map<int, Position> get _effectivePositions {
     if (_deviceMerges.isEmpty) return _positions;
     final result = Map<int, Position>.from(_positions);
     for (final merge in _deviceMerges) {
-      final primaryPos = _positions[merge.primaryDeviceId];
-      final secondaryPos = _positions[merge.secondaryDeviceId];
-      if (secondaryPos != null) {
-        final primaryTime = primaryPos?.fixTime ?? DateTime.fromMillisecondsSinceEpoch(0);
-        if (secondaryPos.fixTime.isAfter(primaryTime)) {
-          result[merge.primaryDeviceId] = Position(
-            id: secondaryPos.id,
-            deviceId: merge.primaryDeviceId,
-            fixTime: secondaryPos.fixTime,
-            serverTime: secondaryPos.serverTime,
-            valid: secondaryPos.valid,
-            latitude: secondaryPos.latitude,
-            longitude: secondaryPos.longitude,
-            altitude: secondaryPos.altitude,
-            speed: secondaryPos.speed,
-            course: secondaryPos.course,
-            address: secondaryPos.address,
-            accuracy: secondaryPos.accuracy,
-            network: secondaryPos.network,
-            batteryLevel: secondaryPos.batteryLevel,
-            attributes: secondaryPos.attributes,
-          );
-        }
+      if (_useSecondary(merge)) {
+        final secondaryPos = _positions[merge.secondaryDeviceId]!;
+        result[merge.primaryDeviceId] = Position(
+          id: secondaryPos.id,
+          deviceId: merge.primaryDeviceId,
+          fixTime: secondaryPos.fixTime,
+          serverTime: secondaryPos.serverTime,
+          valid: secondaryPos.valid,
+          latitude: secondaryPos.latitude,
+          longitude: secondaryPos.longitude,
+          altitude: secondaryPos.altitude,
+          speed: secondaryPos.speed,
+          course: secondaryPos.course,
+          address: secondaryPos.address,
+          accuracy: secondaryPos.accuracy,
+          network: secondaryPos.network,
+          batteryLevel: secondaryPos.batteryLevel,
+          attributes: secondaryPos.attributes,
+        );
       }
     }
     return result;
+  }
+
+  bool _useSecondary(DeviceMerge merge) {
+    final secondaryPos = _positions[merge.secondaryDeviceId];
+    if (secondaryPos == null) return false;
+    final primaryPos = _positions[merge.primaryDeviceId];
+    final primaryTime = primaryPos?.fixTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return secondaryPos.fixTime.isAfter(primaryTime);
   }
 
   Future<void> _init() async {
@@ -223,15 +238,18 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _onPositionTap(Position position, bool isFirst, String? label) {
+    final isScrub = label == 'Scrub';
     setState(() {
       _eventPositionToCenter = position;
       _selectedEvent = null;
       _isFirstPosition = isFirst;
       _positionLabel = label;
-      // Clear moving segment highlight when tapping a position
-      _movingSegmentPositions = [];
-      _segmentStartEvent = null;
-      _segmentEndEvent = null;
+      if (!isScrub) {
+        // Clear moving segment highlight when tapping a position
+        _movingSegmentPositions = [];
+        _segmentStartEvent = null;
+        _segmentEndEvent = null;
+      }
     });
   }
 
@@ -280,10 +298,12 @@ class _MainPageState extends State<MainPage> {
             positions: _effectivePositions,
             onDeviceTap: _onDeviceTap,
           ),
-        if (_selectedIndex == 2)
-          ReportsView(
-            devices: _visibleDevices,
-            onBack: () => setState(() => _selectedIndex = 0),
+        if (_reportsMounted)
+          Offstage(
+            offstage: _selectedIndex != 2,
+            child: ReportsWebView(
+              onBack: () => setState(() => _selectedIndex = 0),
+            ),
           ),
         if (_selectedIndex == 3)
           ProfileView(
@@ -533,7 +553,7 @@ class _MainPageState extends State<MainPage> {
           // Device Bottom Sheet
           _BottomSheetBuilder(
             selectedDeviceId: _selectedDeviceId,
-            devices: _devices,
+            devices: _visibleDevices,
             positions: _effectivePositions,
             deviceMerges: _deviceMerges,
             onClose: _closeBottomSheet,
@@ -581,6 +601,7 @@ class _MainPageState extends State<MainPage> {
       onTap: () {
         setState(() {
           _selectedIndex = index;
+          if (index == 2) _reportsMounted = true;
         });
       },
       behavior: HitTestBehavior.opaque,
@@ -674,6 +695,7 @@ class _BottomSheetBuilder extends StatefulWidget {
 class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
   int? _lastDeviceId;
   int? _lastPositionId;
+  String? _lastDeviceStatus;
   bool? _lastShowingRoute;
   int? _lastHighlightedSegmentFirstId;
   Widget? _cachedSheet;
@@ -693,13 +715,15 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       // Check if device, position, or route view changed
       final deviceChanged = selectedDeviceId != _lastDeviceId;
       final positionChanged = currentPositionId != _lastPositionId;
+      final statusChanged = device?.status != _lastDeviceStatus;
       final routeViewChanged = widget.showingRoute != _lastShowingRoute;
       final highlightedSegmentChanged = currentHighlightedFirstId != _lastHighlightedSegmentFirstId;
 
       // Only rebuild if selected device's data or view actually changed
-      if (deviceChanged || positionChanged || routeViewChanged || highlightedSegmentChanged || _cachedSheet == null) {
+      if (deviceChanged || positionChanged || statusChanged || routeViewChanged || highlightedSegmentChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
+        _lastDeviceStatus = device?.status;
         _lastShowingRoute = widget.showingRoute;
         _lastHighlightedSegmentFirstId = currentHighlightedFirstId;
 
@@ -742,6 +766,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
     } else {
       _lastDeviceId = null;
       _lastPositionId = null;
+      _lastDeviceStatus = null;
       _lastShowingRoute = null;
       _lastHighlightedSegmentFirstId = null;
       _cachedSheet = null;

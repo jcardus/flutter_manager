@@ -40,3 +40,9 @@ String get appStoreCountry {
   if (envValue.isNotEmpty) { return envValue; }
   return 'br';
 }
+
+String get mapillaryToken {
+  const envValue = String.fromEnvironment('MAPILLARY_TOKEN');
+  if (envValue.isNotEmpty) { return envValue; }
+  return '';
+}

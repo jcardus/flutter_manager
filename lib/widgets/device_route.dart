@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/device.dart';
@@ -483,6 +484,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
                         maxSpeed: item.maxSpeed,
                         positions: item.positions,
                         isHighlighted: isHighlighted,
+                        onScrub: (p) => widget.onPositionTap?.call(p, false, 'Scrub'),
                         onTap: item.state.toLowerCase() == 'moving' && item.positions.isNotEmpty
                             ? () {
                                 // Toggle off if already highlighted, otherwise highlight this segment
@@ -514,7 +516,7 @@ class _DeviceRouteState extends State<DeviceRoute> {
   }
 }
 
-class _StateRow extends StatelessWidget {
+class _StateRow extends StatefulWidget {
   final String state;
   final Duration duration;
   final double? distance; // Distance in kilometers
@@ -522,6 +524,7 @@ class _StateRow extends StatelessWidget {
   final List<Position> positions; // Positions for speed graph
   final bool isHighlighted;
   final VoidCallback? onTap;
+  final ValueChanged<Position>? onScrub;
 
   const _StateRow({
     required this.state,
@@ -531,7 +534,23 @@ class _StateRow extends StatelessWidget {
     this.positions = const [],
     this.isHighlighted = false,
     this.onTap,
+    this.onScrub,
   });
+
+  @override
+  State<_StateRow> createState() => _StateRowState();
+}
+
+class _StateRowState extends State<_StateRow> {
+  double _scrubIndex = 0;
+
+  @override
+  void didUpdateWidget(_StateRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.positions != oldWidget.positions) {
+      _scrubIndex = 0;
+    }
+  }
 
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
@@ -548,7 +567,16 @@ class _StateRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final localizations = AppLocalizations.of(context)!;
-    final isMoving = state.toLowerCase() == 'moving';
+    final isMoving = widget.state.toLowerCase() == 'moving';
+    final isHighlighted = widget.isHighlighted;
+    final positions = widget.positions;
+    final maxSpeed = widget.maxSpeed;
+    final distance = widget.distance;
+    final canScrub = isHighlighted && isMoving && positions.length > 1;
+    final scrubIdx = canScrub
+        ? _scrubIndex.clamp(0, positions.length - 1).toInt()
+        : 0;
+    final scrubSpeedKmh = canScrub ? positions[scrubIdx].speed * 1.852 : 0.0;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -561,22 +589,29 @@ class _StateRow extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: InkWell(
-              onTap: onTap,
+            padding: EdgeInsets.symmetric(horizontal: isHighlighted ? 4.0 : 12.0),
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+              child: Material(
+                color: Colors.transparent,
                 child: CustomPaint(
                   painter: isMoving && positions.length > 1
                       ? SpeedGraphPainter(
                           positions: positions,
                           maxSpeed: maxSpeed ?? 0,
-                          color: colors.tertiary.withValues(alpha: 0.5),
+                          color: colors.tertiary.withValues(alpha: isHighlighted ? 0.9 : 0.5),
+                          showScale: isHighlighted,
+                          scaleColor: Colors.white,
                         )
                       : null,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOut,
+                    width: isHighlighted ? 320 : null,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isHighlighted ? 0 : 12,
+                      vertical: isHighlighted ? 28 : 6,
+                    ),
                     decoration: BoxDecoration(
                       color: isHighlighted
                           ? colors.primary.withValues(alpha: 0.3)
@@ -600,23 +635,33 @@ class _StateRow extends StatelessWidget {
                             ]
                           : null,
                     ),
-                    child: Row(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
-                          size: 14,
-                          color: isHighlighted
-                              ? Colors.white
-                              : isMoving ? colors.primary : colors.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 6),
+                    InkWell(
+                      onTap: widget.onTap,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: isHighlighted ? 12 : 0),
+                      child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isHighlighted) ...[
+                          Icon(
+                            isMoving ? platform_icons.PlatformIcons.play : Icons.stop_circle,
+                            size: 14,
+                            color: isMoving ? colors.primary : colors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(duration)}',
+                              isHighlighted
+                                  ? '${_formatDuration(widget.duration)}${distance != null ? ' · ${distance.toStringAsFixed(1)} km' : ''}${maxSpeed != null ? ' · max ${maxSpeed.toStringAsFixed(0)} km/h' : ''}'
+                                  : '${isMoving ? localizations.stateMoving : localizations.stateStopped} - ${_formatDuration(widget.duration)}',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: isHighlighted
                                     ? Colors.white
@@ -632,9 +677,9 @@ class _StateRow extends StatelessWidget {
                                 ] : null,
                               ),
                             ),
-                            if (distance != null || maxSpeed != null)
+                            if (!isHighlighted && (distance != null || maxSpeed != null))
                               Text(
-                                '${distance != null ? '${distance!.toStringAsFixed(1)} km' : ''}${distance != null && maxSpeed != null ? ' · ' : ''}${maxSpeed != null ? 'max: ${maxSpeed!.toStringAsFixed(0)} km/h' : ''}',
+                                '${distance != null ? '${distance.toStringAsFixed(1)} km' : ''}${distance != null && maxSpeed != null ? ' · ' : ''}${maxSpeed != null ? 'max: ${maxSpeed.toStringAsFixed(0)} km/h' : ''}',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: isHighlighted
                                       ? Colors.white
@@ -653,6 +698,59 @@ class _StateRow extends StatelessWidget {
                               ),
                           ],
                         ),
+                      ],
+                    ),
+                    ),
+                    ),
+                        if (canScrub) ...[
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${scrubSpeedKmh.toStringAsFixed(0)} km/h · ${DateFormat.jms(Localizations.localeOf(context).toString()).format(positions[scrubIdx].fixTime.toLocal())}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (positions[scrubIdx].address != null)
+                                  Text(
+                                    positions[scrubIdx].address!,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 2,
+                              trackShape: const _FullWidthTrackShape(),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                            ),
+                            child: Slider(
+                              value: _scrubIndex.clamp(0, (positions.length - 1).toDouble()),
+                              min: 0,
+                              max: (positions.length - 1).toDouble(),
+                              activeColor: Colors.white,
+                              inactiveColor: Colors.white.withValues(alpha: 0.3),
+                              onChanged: (v) {
+                                setState(() => _scrubIndex = v);
+                                final idx = v.clamp(0, positions.length - 1).toInt();
+                                widget.onScrub?.call(positions[idx]);
+                              },
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -764,11 +862,15 @@ class SpeedGraphPainter extends CustomPainter {
   final List<Position> positions;
   final double maxSpeed;
   final Color color;
+  final bool showScale;
+  final Color scaleColor;
 
   SpeedGraphPainter({
     required this.positions,
     required this.maxSpeed,
     required this.color,
+    this.showScale = false,
+    this.scaleColor = const Color(0xFFFFFFFF),
   });
 
   @override
@@ -819,13 +921,52 @@ class SpeedGraphPainter extends CustomPainter {
     path.close();
 
     canvas.drawPath(path, paint);
+
+    if (showScale) {
+      final y = size.height - (actualMaxSpeed / normalizer) * size.height;
+
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '${actualMaxSpeed.toStringAsFixed(0)} km/h',
+          style: TextStyle(
+            color: scaleColor,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      )..layout();
+      final labelY = (y + 2).clamp(0.0, size.height - tp.height);
+      tp.paint(canvas, Offset(2, labelY));
+    }
   }
 
   @override
   bool shouldRepaint(SpeedGraphPainter oldDelegate) {
     return oldDelegate.positions != positions ||
         oldDelegate.maxSpeed != maxSpeed ||
-        oldDelegate.color != color;
+        oldDelegate.color != color ||
+        oldDelegate.showScale != showScale ||
+        oldDelegate.scaleColor != scaleColor;
+  }
+}
+
+class _FullWidthTrackShape extends RoundedRectSliderTrackShape {
+  const _FullWidthTrackShape();
+
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final trackHeight = sliderTheme.trackHeight ?? 2.0;
+    final trackLeft = offset.dx;
+    final trackTop = offset.dy + (parentBox.size.height - trackHeight) / 2;
+    final trackWidth = parentBox.size.width;
+    return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
   }
 }
 

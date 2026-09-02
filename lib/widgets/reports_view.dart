@@ -31,8 +31,14 @@ class ReportsView extends StatefulWidget {
 class _ReportsViewState extends State<ReportsView> {
   ReportType _reportType = ReportType.trips;
   int? _selectedDeviceId;
-  DateTime _dateFrom = DateTime.now().subtract(const Duration(days: 1));
-  DateTime _dateTo = DateTime.now();
+  late DateTime _dateFrom = () {
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    return DateTime(yesterday.year, yesterday.month, yesterday.day, 0, 0);
+  }();
+  late DateTime _dateTo = () {
+    final today = DateTime.now();
+    return DateTime(today.year, today.month, today.day, 23, 59);
+  }();
   bool _isLoading = false;
 
   // Report data
@@ -65,8 +71,8 @@ class _ReportsViewState extends State<ReportsView> {
     });
 
     try {
-      final from = DateTime(_dateFrom.year, _dateFrom.month, _dateFrom.day);
-      final to = DateTime(_dateTo.year, _dateTo.month, _dateTo.day, 23, 59, 59);
+      final from = _dateFrom;
+      final to = _dateTo;
 
       switch (_reportType) {
         case ReportType.trips:
@@ -135,31 +141,73 @@ class _ReportsViewState extends State<ReportsView> {
     }
   }
 
+  String _selectedDeviceLabel(AppLocalizations l10n) {
+    if (_selectedDeviceId == null) {
+      return _reportType == ReportType.summary ? l10n.allDevices : l10n.selectDevice;
+    }
+    return widget.devices[_selectedDeviceId]?.name ?? l10n.selectDevice;
+  }
+
+  Future<void> _pickDevice(List<Device> sortedDevices) async {
+    final l10n = AppLocalizations.of(context)!;
+    final selected = await showModalBottomSheet<_DevicePick>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => _DevicePickerSheet(
+        devices: sortedDevices,
+        showAllOption: _reportType == ReportType.summary,
+        allLabel: l10n.allDevices,
+        searchHint: l10n.searchDevices,
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedDeviceId = selected.deviceId);
+  }
+
   Future<void> _pickDateFrom() async {
-    final picked = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: _dateFrom,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _dateFrom = picked);
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_dateFrom),
+    );
+    if (!mounted) return;
+    setState(() => _dateFrom = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime?.hour ?? _dateFrom.hour, pickedTime?.minute ?? _dateFrom.minute,
+    ));
   }
 
   Future<void> _pickDateTo() async {
-    final picked = await showDatePicker(
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: _dateTo,
       firstDate: _dateFrom,
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _dateTo = picked);
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_dateTo),
+    );
+    if (!mounted) return;
+    setState(() => _dateTo = DateTime(
+      pickedDate.year, pickedDate.month, pickedDate.day,
+      pickedTime?.hour ?? _dateTo.hour, pickedTime?.minute ?? _dateTo.minute,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colors = Theme.of(context).colorScheme;
-    final dateFmt = DateFormat('dd/MM/yyyy');
+    final dateFmt = DateFormat('dd/MM/yyyy HH:mm');
     final sortedDevices = widget.devices.values.toList()
       ..sort((a, b) => a.name.compareTo(b.name));
 
@@ -208,23 +256,22 @@ class _ReportsViewState extends State<ReportsView> {
           // Device selector
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: DropdownButtonFormField<int?>(
-              initialValue: _selectedDeviceId,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: l10n.selectDevice,
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                isDense: true,
-              ),
-              items: [
-                if (_reportType == ReportType.summary)
-                  DropdownMenuItem<int?>(value: null, child: Text(l10n.allDevices)),
-                ...sortedDevices.map((d) =>
-                  DropdownMenuItem<int?>(value: d.id, child: Text(d.name, overflow: TextOverflow.ellipsis)),
+            child: InkWell(
+              onTap: () => _pickDevice(sortedDevices),
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: l10n.selectDevice,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                  suffixIcon: const Icon(Icons.arrow_drop_down),
                 ),
-              ],
-              onChanged: (v) => setState(() => _selectedDeviceId = v),
+                child: Text(
+                  _selectedDeviceLabel(l10n),
+                  style: const TextStyle(fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ),
           ),
 
@@ -335,5 +382,97 @@ class _ReportsViewState extends State<ReportsView> {
       case ReportType.activity: return ActivityReport(trips: _trips, stops: _stops);
       case ReportType.route: return RouteReport(positions: _positions);
     }
+  }
+}
+
+class _DevicePick {
+  final int? deviceId;
+  const _DevicePick(this.deviceId);
+}
+
+class _DevicePickerSheet extends StatefulWidget {
+  final List<Device> devices;
+  final bool showAllOption;
+  final String allLabel;
+  final String searchHint;
+
+  const _DevicePickerSheet({
+    required this.devices,
+    required this.showAllOption,
+    required this.allLabel,
+    required this.searchHint,
+  });
+
+  @override
+  State<_DevicePickerSheet> createState() => _DevicePickerSheetState();
+}
+
+class _DevicePickerSheetState extends State<_DevicePickerSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _query.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? widget.devices
+        : widget.devices.where((d) => d.name.toLowerCase().contains(q)).toList();
+    final viewInsets = MediaQuery.of(context).viewInsets.bottom;
+    final maxHeight = MediaQuery.of(context).size.height * 0.8;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: viewInsets),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  hintText: widget.searchHint,
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () => setState(() => _query = ''),
+                        )
+                      : null,
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: filtered.length + (widget.showAllOption && q.isEmpty ? 1 : 0),
+                itemBuilder: (ctx, i) {
+                  if (widget.showAllOption && q.isEmpty && i == 0) {
+                    return ListTile(
+                      leading: const Icon(Icons.select_all),
+                      title: Text(widget.allLabel),
+                      onTap: () => Navigator.of(ctx).pop(const _DevicePick(null)),
+                    );
+                  }
+                  final idx = widget.showAllOption && q.isEmpty ? i - 1 : i;
+                  final d = filtered[idx];
+                  return ListTile(
+                    title: Text(d.name, overflow: TextOverflow.ellipsis),
+                    onTap: () => Navigator.of(ctx).pop(_DevicePick(d.id)),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

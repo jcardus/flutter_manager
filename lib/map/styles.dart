@@ -5,27 +5,27 @@ class MapStyles {
   static const List<MapStyleConfig> configs = [
     MapStyleConfig(
       nameKey: 'roads',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&scale=2',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&gl=MA&hl={lang}',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
     ),
     MapStyleConfig(
       nameKey: 'satellite',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&scale=2',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}&gl=MA&hl={lang}',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
       isDark: true,
     ),
     MapStyleConfig(
       nameKey: 'hybrid',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&gl=MA&hl={lang}',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
       isDark: true,
     ),
     MapStyleConfig(
       nameKey: 'traffic',
-      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}&scale=2',
+      urlTemplate: 'https://mt{s}.google.com/vt/lyrs=m,traffic&x={x}&y={y}&z={z}&gl=MA&hl={lang}',
       subdomains: ['0', '1', '2', '3'],
       attribution: '© Google Maps',
     ),
@@ -46,6 +46,11 @@ class MapStyleConfig {
     required this.attribution,
     this.isDark = false,
   });
+
+  String urlTemplateFor(BuildContext context) {
+    final lang = Localizations.localeOf(context).languageCode;
+    return urlTemplate.replaceAll('{lang}', lang);
+  }
 
   String getLocalizedName(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;

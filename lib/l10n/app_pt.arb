@@ -7,7 +7,7 @@
 
   "emailOrUsername": "Email ou Nome de Utilizador",
 
-  "password": "Palavra-passe",
+  "password": "Senha",
 
   "required": "Obrigatório",
 
@@ -76,6 +76,16 @@
   "share": "Compartilhar",
 
   "block": "Bloquear",
+
+  "unblock": "Desbloquear",
+
+  "unblockCommandConfirmTitle": "Desbloquear veículo?",
+
+  "unblockCommandConfirmMessage": "Isto irá retomar o motor remotamente. Tem a certeza?",
+
+  "unblockCommandSent": "Comando de desbloqueio enviado",
+
+  "unblockCommandFailed": "Falha ao enviar comando de desbloqueio",
 
   "locationCopied": "Localização copiada para a área de transferência",
 
@@ -174,4 +184,8 @@
   "device": "Dispositivo",
   "duration": "Duração",
   "reportExported": "Relatório exportado"
+  ,"myLocation": "A minha localização",
+  "locationServicesDisabled": "Os serviços de localização estão desativados",
+  "locationPermissionDenied": "A permissão de localização foi recusada",
+  "locationUnavailable": "A sua localização não está disponível neste momento"
 }
