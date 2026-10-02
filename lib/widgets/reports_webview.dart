@@ -36,31 +36,38 @@ class _ReportsWebViewState extends State<ReportsWebView> {
   }
 
   Future<void> _load() async {
-    final token = await AuthService().fetchSessionToken();
-    if (!mounted) return;
-    if (token == null) {
-      setState(() => _error = 'Could not obtain session token');
+    // The cached token may have been revoked or expired server-side, so on
+    // failure retry once with a freshly issued token.
+    List<io.Cookie>? cookies;
+    for (final forceRefresh in [false, true]) {
+      final token =
+          await AuthService().fetchSessionToken(forceRefresh: forceRefresh);
+      if (!mounted) return;
+      if (token == null) continue;
+      try {
+        cookies = await _exchangeSessionCookies(token);
+        break;
+      } catch (e) {
+        debugPrint('Reports session exchange failed: $e');
+      }
+    }
+    if (cookies == null) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not open reports session');
       return;
     }
 
-    try {
-      final cookies = await _exchangeSessionCookies(token);
-      final cookieManager = CookieManager.instance();
-      for (final c in cookies) {
-        await cookieManager.setCookie(
-          url: WebUri(traccarBaseUrl),
-          name: c.name,
-          value: c.value,
-          path: c.path ?? '/',
-          domain: c.domain,
-          isSecure: c.secure,
-          isHttpOnly: c.httpOnly,
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _error = 'Could not exchange session');
-      return;
+    final cookieManager = CookieManager.instance();
+    for (final c in cookies) {
+      await cookieManager.setCookie(
+        url: WebUri(traccarBaseUrl),
+        name: c.name,
+        value: c.value,
+        path: c.path ?? '/',
+        domain: c.domain,
+        isSecure: c.secure,
+        isHttpOnly: c.httpOnly,
+      );
     }
 
     final defaultUa = await InAppWebViewController.getDefaultUserAgent();
