@@ -106,9 +106,6 @@ class AuthService {
         body: 'email=${Uri.encodeComponent(email)}&password=${Uri.encodeComponent(password)}'
       );
       if (resp.statusCode == 200) {
-        // A token cached for a previous session may belong to another user
-        // or have been revoked server-side.
-        await _clearSessionToken();
         final setCookie = resp.headers['set-cookie'];
         if (setCookie != null && setCookie.isNotEmpty) {
           final cookiePair = setCookie.split(',').first.split(';').first.trim();
@@ -119,6 +116,14 @@ class AuthService {
             final data = jsonDecode(resp.body) as Map<String, dynamic>;
             await _saveUser(data);
             await saveCredentials(email, password);
+            final headers = await _effectiveHeaders();
+            headers['content-type'] = 'application/x-www-form-urlencoded;charset=UTF-8';
+           dev.log((await http.post(
+                Uri.parse('$baseUrl/api/session/token'),
+                headers: headers,
+                body: 'expiration=${Uri.encodeComponent(DateTime.now().add(Duration(days: 1)).toIso8601String())}Z'
+            )) as String);
+
           } catch (_) {}
         }
         return (true, null);
@@ -137,15 +142,11 @@ class AuthService {
   /// Returns a Traccar session token, reusing a cached one when still valid.
   /// Used to authenticate external webviews (e.g. the reports dashboard)
   /// without re-entering credentials.
-  /// Pass [forceRefresh] to discard the cached token (e.g. after the server
-  /// rejected it) and request a new one.
   Future<String?> fetchSessionToken({
     Duration validity = const Duration(days: 7),
     Duration refreshBuffer = const Duration(minutes: 5),
-    bool forceRefresh = false,
   }) async {
     final p = await _prefs;
-    if (forceRefresh) await _clearSessionToken();
     final cached = p.getString(_sessionTokenKey);
     final expMs = p.getInt(_sessionTokenExpKey);
     if (cached != null && expMs != null) {
@@ -171,7 +172,6 @@ class AuthService {
         await p.setInt(_sessionTokenExpKey, expiration.millisecondsSinceEpoch);
         return token;
       }
-      dev.log('Token fetch failed: HTTP ${resp.statusCode}', name: 'Auth');
       return null;
     } catch (e) {
       dev.log('Token fetch error: $e', name: 'Auth');
