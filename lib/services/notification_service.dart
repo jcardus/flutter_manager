@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
+import 'auth_service.dart';
 
 /// Top-level function to handle background messages
 @pragma('vm:entry-point')
@@ -50,7 +53,7 @@ class NotificationService {
       _fcm.onTokenRefresh.listen((newToken) {
         _fcmToken = newToken;
         dev.log('FCM Token refreshed: $newToken', name: 'FCM');
-        // TODO: Send new token to backend
+        registerTokenWithBackend();
       });
 
       // Try to get FCM token, but don't block if APNS isn't ready
@@ -58,6 +61,7 @@ class NotificationService {
         _fcmToken = await _fcm.getToken();
         if (_fcmToken != null) {
           dev.log('FCM Token: $_fcmToken', name: 'FCM');
+          registerTokenWithBackend();
         }
       } catch (e) {
         dev.log('FCM token not available yet, will get via onTokenRefresh', name: 'FCM');
@@ -127,13 +131,51 @@ class NotificationService {
     }
   }
 
-  /// Send FCM token to backend
+  /// Adds the FCM token to the Traccar user's `notificationTokens`
+  /// attribute, which the server's firebase notificator sends pushes to.
+  /// No-op when there is no token yet or no logged-in session.
   Future<void> registerTokenWithBackend() async {
-    if (_fcmToken == null) return;
+    final token = _fcmToken;
+    if (kIsWeb || token == null) return;
 
-    // TODO: Implement API call to send token to backend
-    // Example:
-    // await ApiService().registerFcmToken(_fcmToken!);
-    dev.log('TODO: Send FCM token to backend: $_fcmToken', name: 'FCM');
+    try {
+      final headers = <String, String>{'accept': 'application/json'};
+      final cookie = await AuthService().getCookie();
+      if (cookie == null || cookie.isEmpty) return;
+      headers['Cookie'] = cookie;
+
+      final baseUrl = AuthService.baseUrl;
+      final sessionResp =
+          await http.get(Uri.parse('$baseUrl/api/session'), headers: headers);
+      if (sessionResp.statusCode != 200) return;
+      final user = jsonDecode(sessionResp.body) as Map<String, dynamic>;
+
+      final attributes =
+          Map<String, dynamic>.from((user['attributes'] as Map?) ?? {});
+      final tokens = ((attributes['notificationTokens'] as String?) ?? '')
+          .split(',')
+          .map((t) => t.trim())
+          .where((t) => t.isNotEmpty)
+          .toList();
+      if (tokens.contains(token)) return;
+      tokens.add(token);
+      attributes['notificationTokens'] = tokens.join(',');
+      user['attributes'] = attributes;
+
+      headers['content-type'] = 'application/json';
+      final resp = await http.put(
+        Uri.parse('$baseUrl/api/users/${user['id']}'),
+        headers: headers,
+        body: jsonEncode(user),
+      );
+      if (resp.statusCode == 200) {
+        dev.log('FCM token registered with server', name: 'FCM');
+      } else {
+        dev.log('FCM token registration failed: ${resp.statusCode} ${resp.body}',
+            name: 'FCM');
+      }
+    } catch (e) {
+      dev.log('Error registering FCM token', name: 'FCM', error: e);
+    }
   }
 }
