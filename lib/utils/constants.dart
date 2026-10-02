@@ -17,7 +17,7 @@ String get traccarBaseUrl {
 String get reportsBaseUrl {
   const envValue = String.fromEnvironment('REPORTS_BASE_URL');
   if (envValue.isNotEmpty) { return envValue; }
-  return 'https://clientes.frotaweb.com/traccar';
+  return 'https://clientes.frotaweb.com';
 }
 
 String get resellerApiUrl {
