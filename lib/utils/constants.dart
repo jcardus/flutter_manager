@@ -11,7 +11,7 @@ const rotationFrames = 16;
 String get traccarBaseUrl {
   const envValue = String.fromEnvironment('TRACCAR_BASE_URL');
   if (envValue.isNotEmpty) { return envValue; }
-  return 'https://dash.frotaweb.com/traccar';
+  return 'https://clientes.frotaweb.com/traccar';
 }
 
 String get resellerApiUrl {
