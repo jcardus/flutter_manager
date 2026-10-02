@@ -14,6 +14,12 @@ String get traccarBaseUrl {
   return 'https://dash.frotaweb.com/traccar';
 }
 
+String get reportsBaseUrl {
+  const envValue = String.fromEnvironment('REPORTS_BASE_URL');
+  if (envValue.isNotEmpty) { return envValue; }
+  return 'https://clientes.frotaweb.com';
+}
+
 String get resellerApiUrl {
   const envValue = String.fromEnvironment('SUPABASE_URL');
   if (envValue.isNotEmpty) { return '$envValue/functions/v1/reseller-api'; }
