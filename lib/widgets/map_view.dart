@@ -2,7 +2,6 @@ import 'dart:developer' as dev;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
@@ -908,7 +907,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               urlTemplate: style.urlTemplateFor(context),
               subdomains: style.subdomains,
               userAgentPackageName: 'com.frotaweb.manager',
-              tileProvider: CancellableNetworkTileProvider(),
             ),
             if (_geofencesSelected) ...[
               PolygonLayer(polygons: _buildGeofencePolygons()),
