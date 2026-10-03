@@ -330,6 +330,8 @@ class ProfileView extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      // Must run while the session is still valid.
+      await NotificationService().unregisterTokenFromBackend();
       await authService.logout();
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);

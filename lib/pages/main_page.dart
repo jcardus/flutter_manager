@@ -16,6 +16,7 @@ import '../models/device_merge.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
@@ -61,6 +62,9 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _init();
+    // Token may already be available from startup; register it now that
+    // the user is logged in.
+    if (!kIsWeb) NotificationService().registerTokenWithBackend();
   }
 
   Map<int, Device> get _visibleDevices {
