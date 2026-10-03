@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
@@ -56,17 +57,6 @@ class NotificationService {
         registerTokenWithBackend();
       });
 
-      // Try to get FCM token, but don't block if APNS isn't ready
-      try {
-        _fcmToken = await _fcm.getToken();
-        if (_fcmToken != null) {
-          dev.log('FCM Token: $_fcmToken', name: 'FCM');
-          registerTokenWithBackend();
-        }
-      } catch (e) {
-        dev.log('FCM token not available yet, will get via onTokenRefresh', name: 'FCM');
-      }
-
       // Handle foreground messages
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
@@ -83,9 +73,36 @@ class NotificationService {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       dev.log('Notification service initialized', name: 'FCM');
+
+      await ensureToken();
     } catch (e, stack) {
       dev.log('Error initializing notifications', name: 'FCM', error: e, stackTrace: stack);
     }
+  }
+
+  /// Returns the FCM token, fetching it if needed. On Apple platforms
+  /// getToken() fails until APNS has delivered its device token, and
+  /// onTokenRefresh does not reliably fire afterwards, so wait for it here.
+  Future<String?> ensureToken() async {
+    if (kIsWeb) return null;
+    if (_fcmToken != null) return _fcmToken;
+    try {
+      if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        for (var i = 0; i < 10 && await _fcm.getAPNSToken() == null; i++) {
+          await Future.delayed(const Duration(seconds: 1));
+        }
+      }
+      final token = await _fcm.getToken();
+      if (token != null && _fcmToken == null) {
+        _fcmToken = token;
+        dev.log('FCM Token: $token', name: 'FCM');
+        registerTokenWithBackend();
+      }
+    } catch (e) {
+      dev.log('FCM token not available yet', name: 'FCM', error: e);
+    }
+    return _fcmToken;
   }
 
   /// Handle messages received while app is in foreground

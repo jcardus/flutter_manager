@@ -251,8 +251,9 @@ class ProfileView extends StatelessWidget {
         : DateFormat('dd/MM HH:mm:ss').format(dt);
   }
 
-  void _showFcmToken(BuildContext context) {
-    final token = NotificationService().fcmToken;
+  Future<void> _showFcmToken(BuildContext context) async {
+    final token = await NotificationService().ensureToken();
+    if (!context.mounted) return;
 
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
