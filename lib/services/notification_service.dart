@@ -134,7 +134,13 @@ class NotificationService {
   /// Adds the FCM token to the Traccar user's `notificationTokens`
   /// attribute, which the server's firebase notificator sends pushes to.
   /// No-op when there is no token yet or no logged-in session.
-  Future<void> registerTokenWithBackend() async {
+  Future<void> registerTokenWithBackend() => _updateBackendToken(add: true);
+
+  /// Removes the FCM token from the Traccar user so this device stops
+  /// receiving their notifications. Call before the session is closed.
+  Future<void> unregisterTokenFromBackend() => _updateBackendToken(add: false);
+
+  Future<void> _updateBackendToken({required bool add}) async {
     final token = _fcmToken;
     if (kIsWeb || token == null) return;
 
@@ -157,9 +163,17 @@ class NotificationService {
           .map((t) => t.trim())
           .where((t) => t.isNotEmpty)
           .toList();
-      if (tokens.contains(token)) return;
-      tokens.add(token);
-      attributes['notificationTokens'] = tokens.join(',');
+      if (tokens.contains(token) == add) return;
+      if (add) {
+        tokens.add(token);
+      } else {
+        tokens.remove(token);
+      }
+      if (tokens.isEmpty) {
+        attributes.remove('notificationTokens');
+      } else {
+        attributes['notificationTokens'] = tokens.join(',');
+      }
       user['attributes'] = attributes;
 
       headers['content-type'] = 'application/json';
@@ -168,14 +182,15 @@ class NotificationService {
         headers: headers,
         body: jsonEncode(user),
       );
+      final action = add ? 'registration' : 'removal';
       if (resp.statusCode == 200) {
-        dev.log('FCM token registered with server', name: 'FCM');
+        dev.log('FCM token $action succeeded', name: 'FCM');
       } else {
-        dev.log('FCM token registration failed: ${resp.statusCode} ${resp.body}',
+        dev.log('FCM token $action failed: ${resp.statusCode} ${resp.body}',
             name: 'FCM');
       }
     } catch (e) {
-      dev.log('Error registering FCM token', name: 'FCM', error: e);
+      dev.log('Error updating FCM token on server', name: 'FCM', error: e);
     }
   }
 }
