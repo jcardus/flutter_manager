@@ -19,11 +19,11 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/notifications_controller.dart';
-import 'notifications_page.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
+import '../widgets/notifications_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
 import '../widgets/reports_webview.dart';
@@ -36,6 +36,10 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  /// Tab indexes. Notifications was added last, so it keeps its own index
+  /// while sitting between Devices and Reports in the menu.
+  static const _notificationsTab = 4;
+
   int _selectedIndex = 0;
   bool _reportsMounted = false;
   final SocketService _socketService = SocketService();
@@ -102,13 +106,17 @@ class _MainPageState extends State<MainPage> {
     _openNotifications();
   }
 
-  Future<void> _openNotifications() async {
-    final event = await Navigator.of(context).push<Event>(
-      MaterialPageRoute(
-        builder: (_) => NotificationsPage(devices: _devices, geofences: _geofences),
-      ),
-    );
-    if (event != null && mounted) await _showEventOnMap(event);
+  void _openNotifications() => _selectTab(_notificationsTab);
+
+  void _selectTab(int index) {
+    // Leaving the list counts as having seen what arrived while it was open.
+    if (_selectedIndex == _notificationsTab && index != _notificationsTab) {
+      _notifications.markAllSeen();
+    }
+    setState(() {
+      _selectedIndex = index;
+      if (index == 2) _reportsMounted = true;
+    });
   }
 
   /// Selects the event's device and centers the map on where it happened.
@@ -119,6 +127,7 @@ class _MainPageState extends State<MainPage> {
         .firstOrNull;
     final deviceId = merge?.primaryDeviceId ?? event.deviceId;
     if (!_visibleDevices.containsKey(deviceId)) return;
+    if (_selectedIndex == _notificationsTab) _notifications.markAllSeen();
     _onDeviceTap(deviceId);
     final positionId = event.positionId;
     if (positionId == null || positionId == 0) return;
@@ -371,6 +380,12 @@ class _MainPageState extends State<MainPage> {
               onBack: () => setState(() => _selectedIndex = 0),
             ),
           ),
+        if (_selectedIndex == _notificationsTab)
+          NotificationsView(
+            devices: _devices,
+            geofences: _geofences,
+            onEventTap: _showEventOnMap,
+          ),
         if (_selectedIndex == 3)
           ProfileView(
             deviceCount: _visibleDevices.length,
@@ -566,7 +581,7 @@ class _MainPageState extends State<MainPage> {
         } else if (_selectedDeviceId != null) {
           _closeBottomSheet();
         } else if (_selectedIndex != 0) {
-          setState(() => _selectedIndex = 0);
+          _selectTab(0);
         }
       },
       child: Scaffold(
@@ -613,6 +628,19 @@ class _MainPageState extends State<MainPage> {
                             const SizedBox(width: 4),
                             _buildNavItem(1, Icons.list_outlined, Icons.list, l10n.devices),
                             const SizedBox(width: 4),
+                            ListenableBuilder(
+                              listenable: _notifications,
+                              builder: (context, _) => _buildNavItem(
+                                _notificationsTab,
+                                Icons.notifications_outlined,
+                                Icons.notifications,
+                                l10n.notifications,
+                                badgeCount: _selectedIndex == _notificationsTab
+                                    ? 0
+                                    : _notifications.unreadCount,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                             _buildNavItem(2, Icons.assessment_outlined, Icons.assessment, l10n.reports),
                             const SizedBox(width: 4),
                             _buildNavItem(3, Icons.person_outline, Icons.person, l10n.profile),
@@ -641,40 +669,6 @@ class _MainPageState extends State<MainPage> {
             onStateSegmentTap: _onStateSegmentTap,
             highlightedSegmentPositions: _movingSegmentPositions,
           ),
-          // Notifications bell on the map
-          if (_selectedIndex == 0 && !_showingRoute)
-            Positioned(
-              top: 0,
-              left: 0,
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Material(
-                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(20),
-                    elevation: 4,
-                    child: ListenableBuilder(
-                      listenable: _notifications,
-                      builder: (context, _) {
-                        final unread = _notifications.unreadCount;
-                        return IconButton(
-                          tooltip: l10n.notifications,
-                          onPressed: _openNotifications,
-                          iconSize: 24,
-                          icon: Badge(
-                            isLabelVisible: unread > 0,
-                            label: Text(unread > 99 ? '99+' : '$unread'),
-                            child: Icon(unread > 0
-                                ? Icons.notifications
-                                : Icons.notifications_outlined),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
           // Back button when showing route
           if (_showingRoute)
             Positioned(
@@ -703,22 +697,23 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData outlinedIcon, IconData filledIcon, String label) {
+  Widget _buildNavItem(
+    int index,
+    IconData outlinedIcon,
+    IconData filledIcon,
+    String label, {
+    int badgeCount = 0,
+  }) {
     final isSelected = _selectedIndex == index;
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-          if (index == 2) _reportsMounted = true;
-        });
-      },
+      onTap: () => _selectTab(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 16 : 14,
+          horizontal: isSelected ? 14 : 10,
           vertical: 8,
         ),
         decoration: BoxDecoration(
@@ -731,13 +726,17 @@ class _MainPageState extends State<MainPage> {
           children: [
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isSelected ? filledIcon : outlinedIcon,
+              child: Badge(
                 key: ValueKey(isSelected),
-                size: 22,
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+                isLabelVisible: badgeCount > 0,
+                label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
+                child: Icon(
+                  isSelected ? filledIcon : outlinedIcon,
+                  size: 22,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             AnimatedSize(
