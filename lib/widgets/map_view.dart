@@ -17,7 +17,7 @@ import '../utils/svg_cache.dart';
 import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
-import '../icons/icons.dart' as platform_icons;
+import '../utils/event_display.dart';
 
 class MapView extends StatefulWidget {
   final Map<int, Device> devices;
@@ -463,52 +463,9 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     return (course % 360) - (course % 360 ~/ _rotationStep) * _rotationStep;
   }
 
-  IconData _getEventIcon(String type) {
-    switch (type.toLowerCase()) {
-      case 'ignitionon':
-        return platform_icons.PlatformIcons.ignitionOn;
-      case 'ignitionoff':
-        return platform_icons.PlatformIcons.ignitionOff;
-      case 'geofenceenter':
-        return Icons.login;
-      case 'geofenceexit':
-        return Icons.logout;
-      case 'alarm':
-        return Icons.warning;
-      case 'commandresult':
-        return Icons.check_circle;
-      case 'devicemoving':
-      case 'tripstart':
-        return Icons.play_arrow;
-      case 'devicestopped':
-      case 'tripend':
-      case 'stopstart':
-      case 'stopend':
-        return Icons.stop;
-      case 'deviceoverspeed':
-        return Icons.speed;
-      default:
-        return Icons.event;
-    }
-  }
+  IconData _getEventIcon(String type) => EventDisplay.icon(type);
 
-  Color _getEventColor(String type) {
-    final colors = Theme.of(context).colorScheme;
-    switch (type.toLowerCase()) {
-      case 'ignitionon':
-      case 'devicemoving':
-      case 'tripstart':
-        return colors.tertiary;
-      case 'ignitionoff':
-      case 'devicestopped':
-      case 'tripend':
-      case 'stopstart':
-      case 'stopend':
-        return colors.error;
-      default:
-        return colors.primary;
-    }
-  }
+  Color _getEventColor(String type) => EventDisplay.color(context, type);
 
   Marker _buildMarkerFor(int deviceId, Position position, Device device) {
     final statusColor = DeviceColors.getDeviceColor(device, position, context);
