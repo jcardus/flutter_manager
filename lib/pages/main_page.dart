@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
+import 'package:firebase_messaging/firebase_messaging.dart' show RemoteMessage;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -17,6 +18,8 @@ import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/notifications_controller.dart';
+import 'notifications_page.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
@@ -40,6 +43,8 @@ class _MainPageState extends State<MainPage> {
   StreamSubscription? _wsSub;
   bool _wsConnected = false;
   Timer? _updatePollTimer;
+  StreamSubscription? _pushSub;
+  final _notifications = NotificationsController.instance;
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
@@ -65,6 +70,62 @@ class _MainPageState extends State<MainPage> {
     // Token may already be available from startup; register it now that
     // the user is logged in.
     if (!kIsWeb) NotificationService().registerTokenWithBackend();
+    _pushSub = NotificationService().foregroundMessages.listen(_onForegroundPush);
+    NotificationService().openListRequested.addListener(_onOpenListRequested);
+    // The app may have been launched by tapping a notification.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onOpenListRequested());
+  }
+
+  void _onForegroundPush(RemoteMessage message) {
+    _notifications.refreshSoon();
+    final notification = message.notification;
+    if (!mounted || notification == null) return;
+    final l10n = AppLocalizations.of(context)!;
+    final text = [notification.title, notification.body]
+        .whereType<String>()
+        .where((t) => t.isNotEmpty)
+        .join('\n');
+    if (text.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(label: l10n.view, onPressed: _openNotifications),
+      ),
+    );
+  }
+
+  void _onOpenListRequested() {
+    final requested = NotificationService().openListRequested;
+    if (!requested.value || !mounted) return;
+    requested.value = false;
+    _openNotifications();
+  }
+
+  Future<void> _openNotifications() async {
+    final event = await Navigator.of(context).push<Event>(
+      MaterialPageRoute(
+        builder: (_) => NotificationsPage(devices: _devices, geofences: _geofences),
+      ),
+    );
+    if (event != null && mounted) await _showEventOnMap(event);
+  }
+
+  /// Selects the event's device and centers the map on where it happened.
+  Future<void> _showEventOnMap(Event event) async {
+    // Events of a merged secondary device are shown on its primary.
+    final merge = _deviceMerges
+        .where((m) => m.secondaryDeviceId == event.deviceId)
+        .firstOrNull;
+    final deviceId = merge?.primaryDeviceId ?? event.deviceId;
+    if (!_visibleDevices.containsKey(deviceId)) return;
+    _onDeviceTap(deviceId);
+    final positionId = event.positionId;
+    if (positionId == null || positionId == 0) return;
+    final position = await _apiService.fetchPosition(positionId);
+    if (position != null && mounted && _selectedDeviceId == deviceId) {
+      _onEventTap(position, event);
+    }
   }
 
   Map<int, Device> get _visibleDevices {
@@ -145,6 +206,7 @@ class _MainPageState extends State<MainPage> {
       _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
     });
+    _notifications.setDevices(_devices.keys);
     await _connectSocket();
     _checkForUpdate();
   }
@@ -461,7 +523,13 @@ class _MainPageState extends State<MainPage> {
       }
     }
 
+    if (data['events'] != null) {
+      _notifications.addLiveEvents((data['events'] as List)
+          .map((json) => Event.fromJson(json as Map<String, dynamic>)));
+    }
+
     if (newDevices.isNotEmpty || newPositions.isNotEmpty) {
+      final addedDevice = newDevices.keys.any((id) => !_devices.containsKey(id));
       setState(() {
         if (newDevices.isNotEmpty) {
           _devices.addAll(newDevices);
@@ -470,6 +538,7 @@ class _MainPageState extends State<MainPage> {
           _positions.addAll(newPositions);
         }
       });
+      if (addedDevice) _notifications.setDevices(_devices.keys);
     }
   }
 
@@ -477,6 +546,8 @@ class _MainPageState extends State<MainPage> {
   void dispose() {
     _updatePollTimer?.cancel();
     _wsSub?.cancel();
+    _pushSub?.cancel();
+    NotificationService().openListRequested.removeListener(_onOpenListRequested);
     _socketService.close();
     super.dispose();
   }
@@ -570,6 +641,40 @@ class _MainPageState extends State<MainPage> {
             onStateSegmentTap: _onStateSegmentTap,
             highlightedSegmentPositions: _movingSegmentPositions,
           ),
+          // Notifications bell on the map
+          if (_selectedIndex == 0 && !_showingRoute)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(20),
+                    elevation: 4,
+                    child: ListenableBuilder(
+                      listenable: _notifications,
+                      builder: (context, _) {
+                        final unread = _notifications.unreadCount;
+                        return IconButton(
+                          tooltip: l10n.notifications,
+                          onPressed: _openNotifications,
+                          iconSize: 24,
+                          icon: Badge(
+                            isLabelVisible: unread > 0,
+                            label: Text(unread > 99 ? '99+' : '$unread'),
+                            child: Icon(unread > 0
+                                ? Icons.notifications
+                                : Icons.notifications_outlined),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
           // Back button when showing route
           if (_showingRoute)
             Positioned(

@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, ValueNotifier, defaultTargetPlatform, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'auth_service.dart';
 
@@ -21,6 +22,16 @@ class NotificationService {
   String? _fcmToken;
 
   String? get fcmToken => _fcmToken;
+
+  final _foregroundMessages = StreamController<RemoteMessage>.broadcast();
+
+  /// Push messages received while the app is open. The system does not
+  /// display these, so the app shows them itself.
+  Stream<RemoteMessage> get foregroundMessages => _foregroundMessages.stream;
+
+  /// Set when the user opened the app by tapping a push notification; the
+  /// main page shows the notifications list and resets it.
+  final openListRequested = ValueNotifier<bool>(false);
 
   /// Initialize Firebase Cloud Messaging
   Future<void> initialize() async {
@@ -111,17 +122,14 @@ class NotificationService {
     dev.log('Title: ${message.notification?.title}', name: 'FCM');
     dev.log('Body: ${message.notification?.body}', name: 'FCM');
     dev.log('Data: ${message.data}', name: 'FCM');
-
-    // TODO: Show in-app notification or update UI
+    _foregroundMessages.add(message);
   }
 
   /// Handle notification tap (when user taps on notification)
   void _handleNotificationTap(RemoteMessage message) {
     dev.log('Notification tapped: ${message.messageId}', name: 'FCM');
     dev.log('Data: ${message.data}', name: 'FCM');
-
-    // TODO: Navigate to relevant screen based on notification data
-    // For example, if notification contains deviceId, navigate to device details
+    openListRequested.value = true;
   }
 
   /// Subscribe to a topic
