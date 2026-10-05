@@ -27,9 +27,10 @@ class NotificationsView extends StatefulWidget {
 class _NotificationsViewState extends State<NotificationsView> {
   final _controller = NotificationsController.instance;
 
-  /// Events newer than this are highlighted for as long as the tab is open,
-  /// even though the badge is cleared immediately.
-  late final DateTime? _unreadSince = _controller.lastSeen;
+  /// Read state when the tab was opened. Events unread at that point stay
+  /// highlighted while the tab is open, even after they are marked seen.
+  /// Taken on first build once the controller knows it.
+  int? _unreadAbove;
 
   @override
   void initState() {
@@ -38,9 +39,7 @@ class _NotificationsViewState extends State<NotificationsView> {
     // while this tab is being built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.markAllSeen();
-      if (_controller.events.isEmpty && !_controller.loading) {
-        _controller.refresh();
-      }
+      if (!_controller.loading) _controller.refresh();
     });
   }
 
@@ -71,6 +70,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   Widget _buildBody(BuildContext context, AppLocalizations l10n) {
+    _unreadAbove ??= _controller.lastSeenId;
     final events = _controller.events;
     if (events.isEmpty) {
       if (_controller.loading) {
@@ -148,7 +148,10 @@ class _NotificationsViewState extends State<NotificationsView> {
   ) {
     final colors = Theme.of(context).colorScheme;
     final color = EventDisplay.color(context, event.type);
-    final unread = _unreadSince != null && event.eventTime.isAfter(_unreadSince);
+    // Unread if it was unread when the tab opened, or arrived since.
+    final unread = _controller.isUnread(event) ||
+        (_unreadAbove != null && event.id > _unreadAbove!);
+    final mutedStyle = TextStyle(color: colors.onSurfaceVariant);
     final deviceName = widget.devices[event.deviceId]?.name ?? '#${event.deviceId}';
     final geofenceName = event.geofenceId != null && event.geofenceId != 0
         ? widget.geofences[event.geofenceId]?.name
@@ -156,27 +159,41 @@ class _NotificationsViewState extends State<NotificationsView> {
     final subtitle = [deviceName, ?geofenceName].join(' · ');
 
     return ListTile(
+      tileColor: unread ? colors.primaryContainer.withValues(alpha: 0.4) : null,
       leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.15),
+        backgroundColor: color.withValues(alpha: unread ? 0.25 : 0.12),
         child: Icon(EventDisplay.icon(event.type), color: color, size: 20),
       ),
       title: Text(
         EventDisplay.label(l10n, event),
-        style: unread ? const TextStyle(fontWeight: FontWeight.bold) : null,
+        style: TextStyle(fontWeight: unread ? FontWeight.bold : FontWeight.normal),
       ),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: unread ? null : mutedStyle,
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(DateFormat.Hm(locale).format(event.eventTime.toLocal())),
-          if (unread) ...[
-            const SizedBox(width: 8),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: colors.primary, shape: BoxShape.circle),
+          Text(
+            DateFormat.Hm(locale).format(event.eventTime.toLocal()),
+            style: unread
+                ? TextStyle(color: colors.primary, fontWeight: FontWeight.bold)
+                : mutedStyle,
+          ),
+          const SizedBox(width: 8),
+          // Keeps read and unread rows aligned.
+          Container(
+            key: unread ? const ValueKey('unreadDot') : null,
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: unread ? colors.primary : Colors.transparent,
+              shape: BoxShape.circle,
             ),
-          ],
+          ),
         ],
       ),
       onTap: () => widget.onEventTap?.call(event),

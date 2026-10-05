@@ -8,7 +8,11 @@ import 'api_service.dart';
 import 'auth_service.dart';
 
 /// Loads the events the user is notified about from the Traccar server and
-/// tracks which ones are new since the list was last opened on this phone.
+/// tracks which ones the user has seen on this phone.
+///
+/// Read state is the highest event id seen, not a time: event ids grow in
+/// the order the server stores events, while event times follow the
+/// device's clock and can arrive late (buffered data, delayed pushes).
 class NotificationsController extends ChangeNotifier with WidgetsBindingObserver {
   NotificationsController._() {
     WidgetsBinding.instance.addObserver(this);
@@ -17,7 +21,7 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   static final NotificationsController instance = NotificationsController._();
 
   static const _pageSpan = Duration(days: 1);
-  static const _lastSeenKeyPrefix = 'notifications_last_seen_';
+  static const _lastSeenKeyPrefix = 'notifications_last_seen_id_';
 
   final ApiService _api = ApiService();
 
@@ -25,7 +29,7 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   List<NotificationRule> _rules = [];
   List<Event> _events = [];
   DateTime? _loadedFrom;
-  DateTime? _lastSeen;
+  int? _lastSeenId;
   String? _lastSeenKey;
   bool _loading = false;
   bool _loadingOlder = false;
@@ -36,7 +40,8 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
 
   List<Event> get events => _events;
   DateTime? get loadedFrom => _loadedFrom;
-  DateTime? get lastSeen => _lastSeen;
+  /// Events with a higher id are unread. Null until the first load.
+  int? get lastSeenId => _lastSeenId;
   bool get loading => _loading;
   bool get loadingOlder => _loadingOlder;
   Object? get error => _error;
@@ -45,10 +50,12 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   bool get notConfigured => _rulesLoaded && _types.isEmpty;
 
   int get unreadCount {
-    final seen = _lastSeen;
+    final seen = _lastSeenId;
     if (seen == null) return 0;
-    return _events.where((e) => e.eventTime.isAfter(seen)).length;
+    return _events.where((e) => e.id > seen).length;
   }
+
+  bool isUnread(Event event) => _lastSeenId != null && event.id > _lastSeenId!;
 
   /// Alarm rules only fire for the alarms they list, so a rule without
   /// alarms never produces a notification.
@@ -96,6 +103,8 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
       if (generation != _generation) return;
       _events = events;
       _loadedFrom = from;
+      // First use on this phone: don't flag existing history as unread.
+      if (_lastSeenId == null) await _saveLastSeenId(_maxId(events));
     } catch (e) {
       dev.log('Notifications load failed', name: 'Notifications', error: e);
       if (generation != _generation) return;
@@ -139,14 +148,21 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     notifyListeners();
   }
 
+  /// Marks the events currently loaded as seen. Events that arrive later
+  /// stay unread until this is called again.
   Future<void> markAllSeen() async {
-    final now = DateTime.now();
-    _lastSeen = now;
+    if (_lastSeenId == null || _events.isEmpty) return;
+    final maxId = _maxId(_events);
+    if (maxId <= _lastSeenId!) return;
+    await _saveLastSeenId(maxId);
     notifyListeners();
-    final key = _lastSeenKey;
-    if (key == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(key, now.millisecondsSinceEpoch);
+  }
+
+  @visibleForTesting
+  void debugSetState({required List<Event> events, int? lastSeenId}) {
+    _events = events;
+    _lastSeenId = lastSeenId;
+    notifyListeners();
   }
 
   /// Clears everything on logout so the next user starts fresh.
@@ -158,7 +174,7 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     _rulesLoaded = false;
     _events = [];
     _loadedFrom = null;
-    _lastSeen = null;
+    _lastSeenId = null;
     _lastSeenKey = null;
     _loading = false;
     _loadingOlder = false;
@@ -181,22 +197,26 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     );
   }
 
-  /// Read status is kept per user on this phone. On first use start from
-  /// now so existing history doesn't all show up as unread.
+  /// Read status is kept per user on this phone.
   Future<void> _ensureLastSeen() async {
     if (_lastSeenKey != null) return;
     final user = await AuthService().getUser();
     final key = '$_lastSeenKeyPrefix${user?['id'] ?? 'unknown'}';
     final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getInt(key);
-    if (stored != null) {
-      _lastSeen = DateTime.fromMillisecondsSinceEpoch(stored);
-    } else {
-      _lastSeen = DateTime.now();
-      await prefs.setInt(key, _lastSeen!.millisecondsSinceEpoch);
-    }
+    _lastSeenId = prefs.getInt(key);
     _lastSeenKey = key;
   }
+
+  Future<void> _saveLastSeenId(int id) async {
+    _lastSeenId = id;
+    final key = _lastSeenKey;
+    if (key == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(key, id);
+  }
+
+  static int _maxId(List<Event> events) =>
+      events.fold(0, (max, e) => e.id > max ? e.id : max);
 
   static List<Event> _merge(List<Event> a, List<Event> b) {
     final byId = <int, Event>{for (final e in a) e.id: e};
