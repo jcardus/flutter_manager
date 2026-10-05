@@ -116,16 +116,16 @@ class _MainPageState extends State<MainPage> {
   Future<void> _openAlert(int? eventId) async {
     final event = eventId != null ? await _apiService.fetchEvent(eventId) : null;
     if (!mounted) return;
-    if (event == null || !await _showEventOnMap(event)) _openNotifications();
+    if (event == null || !await _showEventOnMap(event)) {
+      _openNotifications();
+    } else {
+      _notifications.markRead(event);
+    }
   }
 
   void _openNotifications() => _selectTab(_notificationsTab);
 
   void _selectTab(int index) {
-    // Leaving the list counts as having seen what arrived while it was open.
-    if (_selectedIndex == _notificationsTab && index != _notificationsTab) {
-      _notifications.markAllSeen();
-    }
     setState(() {
       _selectedIndex = index;
       if (index == 2) _reportsMounted = true;
@@ -141,7 +141,6 @@ class _MainPageState extends State<MainPage> {
         .firstOrNull;
     final deviceId = merge?.primaryDeviceId ?? event.deviceId;
     if (!_visibleDevices.containsKey(deviceId)) return false;
-    if (_selectedIndex == _notificationsTab) _notifications.markAllSeen();
     _onDeviceTap(deviceId);
     final positionId = event.positionId;
     if (positionId == null || positionId == 0) return true;
@@ -653,9 +652,7 @@ class _MainPageState extends State<MainPage> {
                                 Icons.notifications_outlined,
                                 Icons.notifications,
                                 l10n.notifications,
-                                badgeCount: _selectedIndex == _notificationsTab
-                                    ? 0
-                                    : _notifications.unreadCount,
+                                badgeCount: _notifications.unreadCount,
                               ),
                             ),
                             const SizedBox(width: 4),

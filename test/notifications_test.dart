@@ -85,21 +85,35 @@ void main() {
     final controller = NotificationsController.instance;
     tearDown(controller.reset);
 
-    test('counts events newer than the last seen id, regardless of time', () async {
+    test('tracks reads by event id, regardless of time', () async {
       // id 12 happened earlier but reached the server later (buffered).
+      final late = Event(
+          id: 12, type: 'ignitionOff', eventTime: DateTime(2026, 10, 1), deviceId: 1);
       controller.debugSetState(events: [
         _event('ignitionOn', id: 11),
-        Event(id: 12, type: 'ignitionOff', eventTime: DateTime(2026, 10, 1), deviceId: 1),
+        late,
         _event('ignitionOn', id: 9),
       ], lastSeenId: 10);
       expect(controller.unreadCount, 2);
 
-      await controller.markAllSeen();
+      await controller.markRead(late);
+      expect(controller.unreadCount, 1);
+      expect(controller.isUnread(late), isFalse);
+
+      await controller.markAllRead();
       expect(controller.unreadCount, 0);
       expect(controller.lastSeenId, 12);
     });
 
-    testWidgets('highlights only unread events', (tester) async {
+    test('keeps reads made before read state loads', () async {
+      // e.g. a push tapped at launch, before the first load.
+      final event = _event('ignitionOn', id: 5);
+      await controller.markRead(event);
+      controller.debugSetState(events: [event], lastSeenId: 1);
+      expect(controller.isUnread(event), isFalse);
+    });
+
+    testWidgets('opening the tab keeps alerts unread until tapped', (tester) async {
       controller.debugSetState(events: [
         _event('ignitionOn', id: 11),
         _event('ignitionOff', id: 10),
@@ -113,9 +127,19 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      // Opening the tab marks them seen, but they stay highlighted while open.
-      expect(controller.unreadCount, 0);
+      expect(controller.unreadCount, 2);
       expect(find.byKey(const ValueKey('unreadDot')), findsNWidgets(2));
+
+      await tester.tap(find.text('Ignition Off'));
+      await tester.pumpAndSettle();
+      expect(controller.unreadCount, 1);
+      expect(find.byKey(const ValueKey('unreadDot')), findsOneWidget);
+
+      await tester.tap(find.text('Mark all as read'));
+      await tester.pumpAndSettle();
+      expect(controller.unreadCount, 0);
+      expect(find.byKey(const ValueKey('unreadDot')), findsNothing);
+      expect(find.text('Mark all as read'), findsNothing);
     });
   });
 

@@ -27,18 +27,12 @@ class NotificationsView extends StatefulWidget {
 class _NotificationsViewState extends State<NotificationsView> {
   final _controller = NotificationsController.instance;
 
-  /// Read state when the tab was opened. Events unread at that point stay
-  /// highlighted while the tab is open, even after they are marked seen.
-  /// Taken on first build once the controller knows it.
-  int? _unreadAbove;
-
   @override
   void initState() {
     super.initState();
-    // These notify listeners (the badge in the menu), which must not happen
-    // while this tab is being built.
+    // Refreshing notifies listeners (the badge in the menu), which must not
+    // happen while this tab is being built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _controller.markAllSeen();
       if (!_controller.loading) _controller.refresh();
     });
   }
@@ -52,10 +46,30 @@ class _NotificationsViewState extends State<NotificationsView> {
         SafeArea(
           bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text(
-              l10n.notifications,
-              style: Theme.of(context).textTheme.titleLarge,
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.notifications,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                // Fixed height so the title doesn't jump when it appears.
+                SizedBox(
+                  height: 48,
+                  child: ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) => _controller.unreadCount > 0
+                        ? TextButton.icon(
+                            onPressed: _controller.markAllRead,
+                            icon: const Icon(Icons.done_all, size: 18),
+                            label: Text(l10n.markAllRead),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -70,7 +84,6 @@ class _NotificationsViewState extends State<NotificationsView> {
   }
 
   Widget _buildBody(BuildContext context, AppLocalizations l10n) {
-    _unreadAbove ??= _controller.lastSeenId;
     final events = _controller.events;
     if (events.isEmpty) {
       if (_controller.loading) {
@@ -148,9 +161,7 @@ class _NotificationsViewState extends State<NotificationsView> {
   ) {
     final colors = Theme.of(context).colorScheme;
     final color = EventDisplay.color(context, event.type);
-    // Unread if it was unread when the tab opened, or arrived since.
-    final unread = _controller.isUnread(event) ||
-        (_unreadAbove != null && event.id > _unreadAbove!);
+    final unread = _controller.isUnread(event);
     final mutedStyle = TextStyle(color: colors.onSurfaceVariant);
     final deviceName = widget.devices[event.deviceId]?.name ?? '#${event.deviceId}';
     final geofenceName = event.geofenceId != null && event.geofenceId != 0
@@ -196,7 +207,10 @@ class _NotificationsViewState extends State<NotificationsView> {
           ),
         ],
       ),
-      onTap: () => widget.onEventTap?.call(event),
+      onTap: () {
+        _controller.markRead(event);
+        widget.onEventTap?.call(event);
+      },
     );
   }
 

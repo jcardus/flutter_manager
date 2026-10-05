@@ -231,5 +231,6 @@
   "alarmGeneral": "Alarme générale",
   "today": "Aujourd'hui",
   "yesterday": "Hier",
-  "view": "Voir"
+  "view": "Voir",
+  "markAllRead": "Tout marquer comme lu"
 }
