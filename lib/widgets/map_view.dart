@@ -261,10 +261,12 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       );
     }
 
-    // Pan to selected device if it moves outside the visible map
+    // Pan to selected device if it moves outside the visible map, unless
+    // the user is looking at a past position (e.g. an opened alert).
     if (widget.selectedDevice != null &&
         widget.selectedDevice == oldWidget.selectedDevice &&
-        !widget.showingRoute) {
+        !widget.showingRoute &&
+        widget.eventPositionToCenter == null) {
       final pos = widget.positions[widget.selectedDevice!];
       if (pos != null) {
         final deviceLatLng = LatLng(pos.latitude, pos.longitude);
@@ -281,7 +283,11 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     if (widget.eventPositionToCenter != null &&
         widget.eventPositionToCenter != oldWidget.eventPositionToCenter) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final pos = widget.eventPositionToCenter!;
+        final pos = widget.eventPositionToCenter;
+        if (pos == null) return;
+        // Don't let a running pan (e.g. to the device just selected) carry
+        // the map away from this position.
+        _animController?.stop();
         final target = LatLng(pos.latitude, pos.longitude);
         final isScrub = widget.positionLabel == 'Scrub';
         if (isScrub) {

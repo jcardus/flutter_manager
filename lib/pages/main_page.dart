@@ -146,9 +146,32 @@ class _MainPageState extends State<MainPage> {
     if (positionId == null || positionId == 0) return true;
     final position = await _apiService.fetchPosition(positionId);
     if (position != null && mounted && _selectedDeviceId == deviceId) {
-      _onEventTap(position, event);
+      _focusEvent(position, event);
     }
     return true;
+  }
+
+  /// Keeps the map on where an alert happened, with its marker, until the
+  /// device is closed or another one is selected. Unlike [_onEventTap], the
+  /// position isn't cleared after centering: the map draws the marker from
+  /// it and stops following the vehicle while it is set.
+  void _focusEvent(Position position, Event event) {
+    setState(() {
+      _eventPositionToCenter = position;
+      _selectedEvent = event;
+      _isFirstPosition = null;
+      _positionLabel = null;
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
+    });
+  }
+
+  void _clearEventFocus() {
+    _eventPositionToCenter = null;
+    _selectedEvent = null;
+    _isFirstPosition = null;
+    _positionLabel = null;
   }
 
   Map<int, Device> get _visibleDevices {
@@ -239,6 +262,7 @@ class _MainPageState extends State<MainPage> {
 
   void _onDeviceTap(int deviceId) {
     setState(() {
+      if (deviceId != _selectedDeviceId) _clearEventFocus();
       _selectedDeviceId = deviceId;
       _selectedIndex = 0; // Switch to map view
     });
@@ -246,6 +270,7 @@ class _MainPageState extends State<MainPage> {
 
   void _closeBottomSheet() {
     setState(() {
+      _clearEventFocus();
       _selectedDeviceId = null;
       _showingRoute = false;
       _routePositions = [];
@@ -264,6 +289,7 @@ class _MainPageState extends State<MainPage> {
         _movingSegmentPositions = [];
         _segmentStartEvent = null;
         _segmentEndEvent = null;
+        _clearEventFocus();
       }
     });
   }
