@@ -7,34 +7,35 @@ import '../models/geofence.dart';
 import '../services/notifications_controller.dart';
 import '../utils/event_display.dart';
 
-/// Lists the events the user is notified about, newest first. Tapping one
-/// pops the page with that event so the caller can show it on the map.
-class NotificationsPage extends StatefulWidget {
+/// Notifications tab: the events the user is notified about, newest first.
+class NotificationsView extends StatefulWidget {
   final Map<int, Device> devices;
   final Map<int, Geofence> geofences;
+  final void Function(Event event)? onEventTap;
 
-  const NotificationsPage({
+  const NotificationsView({
     super.key,
     required this.devices,
     required this.geofences,
+    this.onEventTap,
   });
 
   @override
-  State<NotificationsPage> createState() => _NotificationsPageState();
+  State<NotificationsView> createState() => _NotificationsViewState();
 }
 
-class _NotificationsPageState extends State<NotificationsPage> {
+class _NotificationsViewState extends State<NotificationsView> {
   final _controller = NotificationsController.instance;
 
-  /// Events newer than this are highlighted for as long as the page is open,
+  /// Events newer than this are highlighted for as long as the tab is open,
   /// even though the badge is cleared immediately.
   late final DateTime? _unreadSince = _controller.lastSeen;
 
   @override
   void initState() {
     super.initState();
-    // These notify listeners (the badge on the map), which must not happen
-    // while this route is being built.
+    // These notify listeners (the badge in the menu), which must not happen
+    // while this tab is being built.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.markAllSeen();
       if (_controller.events.isEmpty && !_controller.loading) {
@@ -46,12 +47,26 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.notifications)),
-      body: ListenableBuilder(
-        listenable: _controller,
-        builder: (context, _) => _buildBody(context, l10n),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              l10n.notifications,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) => _buildBody(context, l10n),
+          ),
+        ),
+      ],
     );
   }
 
@@ -104,7 +119,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ));
     }
     items.add(Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       child: Center(
         child: _controller.loadingOlder
             ? const CircularProgressIndicator()
@@ -164,7 +179,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ],
         ],
       ),
-      onTap: () => Navigator.of(context).pop(event),
+      onTap: () => widget.onEventTap?.call(event),
     );
   }
 

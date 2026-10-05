@@ -5,7 +5,7 @@ import 'package:manager/l10n/app_localizations_en.dart';
 import 'package:manager/l10n/app_localizations_pt.dart';
 import 'package:manager/models/event.dart';
 import 'package:manager/models/notification_rule.dart';
-import 'package:manager/pages/notifications_page.dart';
+import 'package:manager/widgets/notifications_view.dart';
 import 'package:manager/utils/event_display.dart';
 
 Event _event(String type, {Map<String, dynamic>? attributes}) => Event(
@@ -63,11 +63,13 @@ void main() {
     });
   });
 
-  testWidgets('notifications page renders the empty state', (tester) async {
+  testWidgets('notifications tab renders the empty state', (tester) async {
     await tester.pumpWidget(MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const NotificationsPage(devices: {}, geofences: {}),
+      home: const Scaffold(
+        body: NotificationsView(devices: {}, geofences: {}),
+      ),
     ));
     await tester.pumpAndSettle();
     expect(find.text('Notifications'), findsOneWidget);
