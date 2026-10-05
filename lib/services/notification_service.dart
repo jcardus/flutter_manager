@@ -74,11 +74,16 @@ class NotificationService {
       // Handle notification taps when app is in background
       FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-      // Check if app was opened from a notification
-      final initialMessage = await _fcm.getInitialMessage();
-      if (initialMessage != null) {
-        _handleNotificationTap(initialMessage);
-      }
+      // Check if app was opened from a notification. Not awaited: on iOS
+      // with the UIScene lifecycle this has been known to never complete,
+      // and it must not hold up the token and handlers below.
+      _fcm.getInitialMessage().then(
+        (message) {
+          if (message != null) _handleNotificationTap(message);
+        },
+        onError: (Object e) =>
+            dev.log('getInitialMessage failed', name: 'FCM', error: e),
+      );
 
       // Register background message handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
