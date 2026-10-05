@@ -231,5 +231,6 @@
   "alarmGeneral": "Alarme geral",
   "today": "Hoje",
   "yesterday": "Ontem",
-  "view": "Ver"
+  "view": "Ver",
+  "markAllRead": "Marcar todas como lidas"
 }

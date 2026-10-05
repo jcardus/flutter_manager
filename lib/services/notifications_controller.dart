@@ -10,9 +10,11 @@ import 'auth_service.dart';
 /// Loads the events the user is notified about from the Traccar server and
 /// tracks which ones the user has seen on this phone.
 ///
-/// Read state is the highest event id seen, not a time: event ids grow in
-/// the order the server stores events, while event times follow the
-/// device's clock and can arrive late (buffered data, delayed pushes).
+/// An event is read once the user taps it or marks all as read. Read state
+/// is a watermark id (everything up to it is read) plus the ids read
+/// individually above it. Ids, not times: they grow in the order the server
+/// stores events, while event times follow the device's clock and can
+/// arrive late (buffered data, delayed pushes).
 class NotificationsController extends ChangeNotifier with WidgetsBindingObserver {
   NotificationsController._() {
     WidgetsBinding.instance.addObserver(this);
@@ -22,6 +24,8 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
 
   static const _pageSpan = Duration(days: 1);
   static const _lastSeenKeyPrefix = 'notifications_last_seen_id_';
+  static const _readIdsKeyPrefix = 'notifications_read_ids_';
+  static const _maxReadIds = 1000;
 
   final ApiService _api = ApiService();
 
@@ -30,7 +34,8 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   List<Event> _events = [];
   DateTime? _loadedFrom;
   int? _lastSeenId;
-  String? _lastSeenKey;
+  Set<int> _readIds = {};
+  String? _userKey;
   bool _loading = false;
   bool _loadingOlder = false;
   bool _rulesLoaded = false;
@@ -40,7 +45,7 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
 
   List<Event> get events => _events;
   DateTime? get loadedFrom => _loadedFrom;
-  /// Events with a higher id are unread. Null until the first load.
+  /// Events up to this id are read. Null until the first load.
   int? get lastSeenId => _lastSeenId;
   bool get loading => _loading;
   bool get loadingOlder => _loadingOlder;
@@ -49,13 +54,12 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   /// True once rules are known and the user has none that can fire.
   bool get notConfigured => _rulesLoaded && _types.isEmpty;
 
-  int get unreadCount {
-    final seen = _lastSeenId;
-    if (seen == null) return 0;
-    return _events.where((e) => e.id > seen).length;
-  }
+  int get unreadCount => _events.where(isUnread).length;
 
-  bool isUnread(Event event) => _lastSeenId != null && event.id > _lastSeenId!;
+  bool isUnread(Event event) =>
+      _lastSeenId != null &&
+      event.id > _lastSeenId! &&
+      !_readIds.contains(event.id);
 
   /// Alarm rules only fire for the alarms they list, so a rule without
   /// alarms never produces a notification.
@@ -92,7 +96,7 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     _error = null;
     notifyListeners();
     try {
-      await _ensureLastSeen();
+      await _loadReadState();
       _rules = await _api.fetchNotificationRules();
       _rulesLoaded = true;
       final now = DateTime.now();
@@ -104,7 +108,7 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
       _events = events;
       _loadedFrom = from;
       // First use on this phone: don't flag existing history as unread.
-      if (_lastSeenId == null) await _saveLastSeenId(_maxId(events));
+      if (_lastSeenId == null) await _saveReadState(lastSeenId: _maxId(events));
     } catch (e) {
       dev.log('Notifications load failed', name: 'Notifications', error: e);
       if (generation != _generation) return;
@@ -148,20 +152,38 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     notifyListeners();
   }
 
-  /// Marks the events currently loaded as seen. Events that arrive later
-  /// stay unread until this is called again.
-  Future<void> markAllSeen() async {
+  /// Works before read state has loaded (e.g. a push tapped at launch):
+  /// the id is kept and merged in when it loads.
+  Future<void> markRead(Event event) async {
+    final watermark = _lastSeenId;
+    if (watermark != null && event.id <= watermark) return;
+    if (_readIds.contains(event.id)) return;
+    _readIds = {..._readIds, event.id};
+    notifyListeners();
+    await _saveReadState();
+  }
+
+  /// Marks the events currently loaded as read. Events that arrive later
+  /// stay unread.
+  Future<void> markAllRead() async {
     if (_lastSeenId == null || _events.isEmpty) return;
     final maxId = _maxId(_events);
     if (maxId <= _lastSeenId!) return;
-    await _saveLastSeenId(maxId);
+    // Updates state before its first await, so listeners see it now.
+    final saving = _saveReadState(lastSeenId: maxId);
     notifyListeners();
+    await saving;
   }
 
   @visibleForTesting
-  void debugSetState({required List<Event> events, int? lastSeenId}) {
+  void debugSetState({
+    required List<Event> events,
+    int? lastSeenId,
+    Set<int>? readIds,
+  }) {
     _events = events;
     _lastSeenId = lastSeenId;
+    if (readIds != null) _readIds = readIds;
     notifyListeners();
   }
 
@@ -175,7 +197,8 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     _events = [];
     _loadedFrom = null;
     _lastSeenId = null;
-    _lastSeenKey = null;
+    _readIds = {};
+    _userKey = null;
     _loading = false;
     _loadingOlder = false;
     _error = null;
@@ -198,21 +221,44 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   }
 
   /// Read status is kept per user on this phone.
-  Future<void> _ensureLastSeen() async {
-    if (_lastSeenKey != null) return;
+  Future<void> _loadReadState() async {
+    if (_userKey != null) return;
     final user = await AuthService().getUser();
-    final key = '$_lastSeenKeyPrefix${user?['id'] ?? 'unknown'}';
+    final userKey = '${user?['id'] ?? 'unknown'}';
     final prefs = await SharedPreferences.getInstance();
-    _lastSeenId = prefs.getInt(key);
-    _lastSeenKey = key;
+    _lastSeenId = prefs.getInt('$_lastSeenKeyPrefix$userKey');
+    final stored = (prefs.getStringList('$_readIdsKeyPrefix$userKey') ?? [])
+        .map(int.tryParse)
+        .whereType<int>()
+        .toSet();
+    final markedEarly = _readIds.difference(stored);
+    _readIds = {...stored, ..._readIds};
+    _userKey = userKey;
+    if (markedEarly.isNotEmpty) await _saveReadState();
   }
 
-  Future<void> _saveLastSeenId(int id) async {
-    _lastSeenId = id;
-    final key = _lastSeenKey;
-    if (key == null) return;
+  /// Saves read state, optionally raising the watermark. Ids at or below the
+  /// watermark are dropped from the individual set, which keeps it small.
+  Future<void> _saveReadState({int? lastSeenId}) async {
+    if (lastSeenId != null) _lastSeenId = lastSeenId;
+    final watermark = _lastSeenId;
+    if (watermark != null) {
+      _readIds = _readIds.where((id) => id > watermark).toSet();
+    }
+    if (_readIds.length > _maxReadIds) {
+      // Never cleared by "mark all as read": keep only the newest.
+      _readIds = (_readIds.toList()..sort()).reversed.take(_maxReadIds).toSet();
+    }
+    final userKey = _userKey;
+    if (userKey == null) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(key, id);
+    if (watermark != null) {
+      await prefs.setInt('$_lastSeenKeyPrefix$userKey', watermark);
+    }
+    await prefs.setStringList(
+      '$_readIdsKeyPrefix$userKey',
+      _readIds.map((id) => '$id').toList(),
+    );
   }
 
   static int _maxId(List<Event> events) =>
