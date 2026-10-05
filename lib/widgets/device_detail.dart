@@ -1,6 +1,7 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:manager/widgets/cameras_view.dart';
@@ -13,16 +14,29 @@ import 'dart:io' show Platform;
 import '../icons/icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
+import '../models/event.dart';
 import '../models/position.dart';
 import '../utils/device_colors.dart';
+import '../utils/event_display.dart';
 import '../services/api_service.dart';
 import 'common/handle_bar.dart';
 
 class DeviceDetail extends StatelessWidget {
   final Device device;
+
+  /// The device's latest (live) position.
   final Position? position;
   final VoidCallback? onClose;
   final VoidCallback? onShowRoute;
+
+  /// When set, the panel describes this alert instead of the live device:
+  /// [alertPosition] is shown (Street View, address, speed, time, directions)
+  /// and the live-device actions (Route, Share, Block) are hidden.
+  final Event? alert;
+  final Position? alertPosition;
+
+  /// Leaves alert mode and shows the live device again.
+  final VoidCallback? onShowCurrent;
 
   const DeviceDetail({
     super.key,
@@ -30,7 +44,15 @@ class DeviceDetail extends StatelessWidget {
     required this.position,
     required this.onClose,
     this.onShowRoute,
+    this.alert,
+    this.alertPosition,
+    this.onShowCurrent,
   });
+
+  bool get _isAlert => alert != null && alertPosition != null;
+
+  /// The position the panel describes: the alert's, or the live one.
+  Position? get _shownPosition => _isAlert ? alertPosition : position;
 
   IconData _getDeviceIcon() {
     switch (device.category?.toLowerCase()) {
@@ -55,8 +77,8 @@ class DeviceDetail extends StatelessWidget {
   Future<void> _openDirections(BuildContext context) async {
     if (position == null) return;
 
-    final lat = position!.latitude;
-    final lng = position!.longitude;
+    final lat = _shownPosition!.latitude;
+    final lng = _shownPosition!.longitude;
     final color = Theme.of(context).primaryColor;
 
     if (Platform.isIOS) {
@@ -285,9 +307,10 @@ class DeviceDetail extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final deviceColor = DeviceColors.getDeviceColor(device, position, context);
     final statusColor = DeviceColors.getStatusColor(device, context);
-    final pos = position;
+    final pos = _shownPosition;
     final cameraUrls = getCameraUrls(device);
-    final hasCameras = cameraUrls.isNotEmpty;
+    // A live camera feed says nothing about where the alert happened.
+    final hasCameras = cameraUrls.isNotEmpty && !_isAlert;
 
     return
       Padding(
@@ -367,6 +390,9 @@ class DeviceDetail extends StatelessWidget {
                                         ),
                                       ),
                                       const SizedBox(height: 4),
+                                      if (_isAlert)
+                                        _AlertHeader(alert: alert!)
+                                      else
                                       Row(
                                         children: [
                                           Icon(Icons.circle, size: 10, color: statusColor),
@@ -418,35 +444,86 @@ class DeviceDetail extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: PlatformIcons.route,
-                      label: l10n.route,
-                      onPressed: () => _showRoute(context),
+                  if (_isAlert) ...[
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.my_location,
+                        label: l10n.currentPosition,
+                        onPressed: () => onShowCurrent?.call(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Platform.isIOS ? Icons.ios_share : Icons.share,
-                      label: l10n.share,
-                      onPressed: () => _shareLocation(context),
+                  ] else ...[
+                    Expanded(
+                      child: _ActionButton(
+                        icon: PlatformIcons.route,
+                        label: l10n.route,
+                        onPressed: () => _showRoute(context),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: _isBlocked ? Icons.lock_open : Icons.lock,
-                      label: _isBlocked ? l10n.unblock : l10n.block,
-                      onPressed: () => _sendBlockCommand(context),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Platform.isIOS ? Icons.ios_share : Icons.share,
+                        label: l10n.share,
+                        onPressed: () => _shareLocation(context),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ActionButton(
+                        icon: _isBlocked ? Icons.lock_open : Icons.lock,
+                        label: _isBlocked ? l10n.unblock : l10n.block,
+                        onPressed: () => _sendBlockCommand(context),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 12),
               ],
             ]))
       ]));
+  }
+}
+
+/// Replaces the live status line in alert mode: what happened and when.
+class _AlertHeader extends StatelessWidget {
+  final Event alert;
+
+  const _AlertHeader({required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).toString();
+    final time = alert.eventTime.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(time.year, time.month, time.day);
+    final dayLabel = day == today
+        ? l10n.today
+        : day == today.subtract(const Duration(days: 1))
+            ? l10n.yesterday
+            : DateFormat.yMMMd(locale).format(time);
+    const shadows = [Shadow(blurRadius: 4, color: Color(0x80000000))];
+    return Row(
+      children: [
+        Icon(EventDisplay.icon(alert.type), size: 16, color: Colors.white, shadows: shadows),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            '${EventDisplay.label(l10n, alert)} · $dayLabel ${DateFormat.Hm(locale).format(time)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  shadows: shadows,
+                ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -65,6 +65,9 @@ class _MainPageState extends State<MainPage> {
   double _bottomSheetSize = 0.0;
   Position? _eventPositionToCenter;
   Event? _selectedEvent;
+  /// An alert opened from Notifications or a push: the device panel shows
+  /// it instead of the live device until cleared.
+  Event? _openedAlert;
   bool? _isFirstPosition;
   String? _positionLabel;
 
@@ -141,15 +144,24 @@ class _MainPageState extends State<MainPage> {
         .firstOrNull;
     final deviceId = merge?.primaryDeviceId ?? event.deviceId;
     if (!_visibleDevices.containsKey(deviceId)) return false;
-    _onDeviceTap(deviceId);
+    // Load the alert's position first so the panel opens straight on the
+    // alert rather than flashing the live device.
     final positionId = event.positionId;
-    if (positionId == null || positionId == 0) return true;
-    final position = await _apiService.fetchPosition(positionId);
-    if (position != null && mounted && _selectedDeviceId == deviceId) {
+    final position = positionId != null && positionId != 0
+        ? await _apiService.fetchPosition(positionId)
+        : null;
+    if (!mounted) return true;
+    _onDeviceTap(deviceId);
+    if (position != null) {
       _focusEvent(position, event);
+    } else {
+      setState(_clearEventFocus);
     }
     return true;
   }
+
+  /// Leaves an opened alert and shows the device live again.
+  void _showCurrentPosition() => setState(_clearEventFocus);
 
   /// Keeps the map on where an alert happened, with its marker, until the
   /// device is closed or another one is selected. Unlike [_onEventTap], the
@@ -159,6 +171,7 @@ class _MainPageState extends State<MainPage> {
     setState(() {
       _eventPositionToCenter = position;
       _selectedEvent = event;
+      _openedAlert = event;
       _isFirstPosition = null;
       _positionLabel = null;
       _movingSegmentPositions = [];
@@ -170,6 +183,7 @@ class _MainPageState extends State<MainPage> {
   void _clearEventFocus() {
     _eventPositionToCenter = null;
     _selectedEvent = null;
+    _openedAlert = null;
     _isFirstPosition = null;
     _positionLabel = null;
   }
@@ -709,6 +723,9 @@ class _MainPageState extends State<MainPage> {
             onPositionTap: _onPositionTap,
             onStateSegmentTap: _onStateSegmentTap,
             highlightedSegmentPositions: _movingSegmentPositions,
+            alert: _openedAlert,
+            alertPosition: _openedAlert != null ? _eventPositionToCenter : null,
+            onShowCurrent: _showCurrentPosition,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -820,6 +837,9 @@ class _BottomSheetBuilder extends StatefulWidget {
   final Function(Position position, bool isFirst, String? label)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
+  final Event? alert;
+  final Position? alertPosition;
+  final VoidCallback? onShowCurrent;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -835,6 +855,9 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
+    this.alert,
+    this.alertPosition,
+    this.onShowCurrent,
   });
 
   @override
@@ -847,6 +870,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
   String? _lastDeviceStatus;
   bool? _lastShowingRoute;
   int? _lastHighlightedSegmentFirstId;
+  int? _lastAlertId;
   Widget? _cachedSheet;
 
   @override
@@ -867,14 +891,16 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       final statusChanged = device?.status != _lastDeviceStatus;
       final routeViewChanged = widget.showingRoute != _lastShowingRoute;
       final highlightedSegmentChanged = currentHighlightedFirstId != _lastHighlightedSegmentFirstId;
+      final alertChanged = widget.alert?.id != _lastAlertId;
 
       // Only rebuild if selected device's data or view actually changed
-      if (deviceChanged || positionChanged || statusChanged || routeViewChanged || highlightedSegmentChanged || _cachedSheet == null) {
+      if (deviceChanged || positionChanged || statusChanged || routeViewChanged || highlightedSegmentChanged || alertChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
         _lastDeviceStatus = device?.status;
         _lastShowingRoute = widget.showingRoute;
         _lastHighlightedSegmentFirstId = currentHighlightedFirstId;
+        _lastAlertId = widget.alert?.id;
 
         _cachedSheet = AnimatedSwitcher(
           duration: const Duration(milliseconds: 100),
@@ -907,6 +933,9 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onPositionTap: widget.onPositionTap,
             onStateSegmentTap: widget.onStateSegmentTap,
             highlightedSegmentPositions: widget.highlightedSegmentPositions,
+            alert: widget.alert,
+            alertPosition: widget.alertPosition,
+            onShowCurrent: widget.onShowCurrent,
           ),
         );
       }
@@ -918,6 +947,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       _lastDeviceStatus = null;
       _lastShowingRoute = null;
       _lastHighlightedSegmentFirstId = null;
+      _lastAlertId = null;
       _cachedSheet = null;
       return const SizedBox.shrink();
     }
