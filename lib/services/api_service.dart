@@ -162,6 +162,22 @@ class ApiService {
     return events;
   }
 
+  Future<Event?> fetchEvent(int eventId) async {
+    try {
+      final uri = Uri.parse('${AuthService.baseUrl}/api/events/$eventId');
+      final headers = await _getAuthHeaders({'accept': 'application/json'});
+      final resp = await http.get(uri, headers: headers);
+      if (resp.statusCode != 200) {
+        dev.log('Failed to fetch event $eventId: ${resp.statusCode}', name: 'API');
+        return null;
+      }
+      return Event.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    } catch (e) {
+      dev.log('Error fetching event $eventId', name: 'API', error: e);
+      return null;
+    }
+  }
+
   Future<Position?> fetchPosition(int positionId) async {
     final positions = await _fetchList(
       endpoint: '/api/positions?id=$positionId',

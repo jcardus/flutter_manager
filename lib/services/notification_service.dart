@@ -29,9 +29,9 @@ class NotificationService {
   /// display these, so the app shows them itself.
   Stream<RemoteMessage> get foregroundMessages => _foregroundMessages.stream;
 
-  /// Set when the user opened the app by tapping a push notification; the
-  /// main page shows the notifications list and resets it.
-  final openListRequested = ValueNotifier<bool>(false);
+  /// Set when the user taps a push notification. The main page opens the
+  /// alert it is about (or the notifications list) and resets it to null.
+  final pushTapped = ValueNotifier<PushTap?>(null);
 
   /// Initialize Firebase Cloud Messaging
   Future<void> initialize() async {
@@ -129,7 +129,7 @@ class NotificationService {
   void _handleNotificationTap(RemoteMessage message) {
     dev.log('Notification tapped: ${message.messageId}', name: 'FCM');
     dev.log('Data: ${message.data}', name: 'FCM');
-    openListRequested.value = true;
+    pushTapped.value = PushTap.fromMessage(message);
   }
 
   /// Subscribe to a topic
@@ -218,4 +218,15 @@ class NotificationService {
       dev.log('Error updating FCM token on server', name: 'FCM', error: e);
     }
   }
+}
+
+/// A tapped push notification. Traccar's Firebase notifier puts the id of
+/// the event that triggered it in the message data as `eventId`.
+class PushTap {
+  final int? eventId;
+
+  const PushTap(this.eventId);
+
+  factory PushTap.fromMessage(RemoteMessage message) =>
+      PushTap(int.tryParse('${message.data['eventId'] ?? ''}'));
 }

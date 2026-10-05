@@ -41,6 +41,7 @@ class _MainPageState extends State<MainPage> {
   static const _notificationsTab = 4;
 
   int _selectedIndex = 0;
+  bool _initDone = false;
   bool _reportsMounted = false;
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
@@ -75,9 +76,7 @@ class _MainPageState extends State<MainPage> {
     // the user is logged in.
     if (!kIsWeb) NotificationService().registerTokenWithBackend();
     _pushSub = NotificationService().foregroundMessages.listen(_onForegroundPush);
-    NotificationService().openListRequested.addListener(_onOpenListRequested);
-    // The app may have been launched by tapping a notification.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onOpenListRequested());
+    NotificationService().pushTapped.addListener(_onPushTapped);
   }
 
   void _onForegroundPush(RemoteMessage message) {
@@ -94,16 +93,30 @@ class _MainPageState extends State<MainPage> {
       SnackBar(
         content: Text(text),
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(label: l10n.view, onPressed: _openNotifications),
+        action: SnackBarAction(
+          label: l10n.view,
+          onPressed: () => _openAlert(PushTap.fromMessage(message).eventId),
+        ),
       ),
     );
   }
 
-  void _onOpenListRequested() {
-    final requested = NotificationService().openListRequested;
-    if (!requested.value || !mounted) return;
-    requested.value = false;
-    _openNotifications();
+  /// Handles a tapped push. If the app was launched by the tap, this runs
+  /// again once devices are loaded, since the alert's device must be known.
+  void _onPushTapped() {
+    final tapped = NotificationService().pushTapped;
+    final tap = tapped.value;
+    if (tap == null || !mounted || !_initDone) return;
+    tapped.value = null;
+    _openAlert(tap.eventId);
+  }
+
+  /// Shows the alert on the map, falling back to the notifications list
+  /// when it can't be loaded or its device isn't visible to this user.
+  Future<void> _openAlert(int? eventId) async {
+    final event = eventId != null ? await _apiService.fetchEvent(eventId) : null;
+    if (!mounted) return;
+    if (event == null || !await _showEventOnMap(event)) _openNotifications();
   }
 
   void _openNotifications() => _selectTab(_notificationsTab);
@@ -120,21 +133,23 @@ class _MainPageState extends State<MainPage> {
   }
 
   /// Selects the event's device and centers the map on where it happened.
-  Future<void> _showEventOnMap(Event event) async {
+  /// Returns false if the device isn't one this user can see.
+  Future<bool> _showEventOnMap(Event event) async {
     // Events of a merged secondary device are shown on its primary.
     final merge = _deviceMerges
         .where((m) => m.secondaryDeviceId == event.deviceId)
         .firstOrNull;
     final deviceId = merge?.primaryDeviceId ?? event.deviceId;
-    if (!_visibleDevices.containsKey(deviceId)) return;
+    if (!_visibleDevices.containsKey(deviceId)) return false;
     if (_selectedIndex == _notificationsTab) _notifications.markAllSeen();
     _onDeviceTap(deviceId);
     final positionId = event.positionId;
-    if (positionId == null || positionId == 0) return;
+    if (positionId == null || positionId == 0) return true;
     final position = await _apiService.fetchPosition(positionId);
     if (position != null && mounted && _selectedDeviceId == deviceId) {
       _onEventTap(position, event);
     }
+    return true;
   }
 
   Map<int, Device> get _visibleDevices {
@@ -214,8 +229,11 @@ class _MainPageState extends State<MainPage> {
       _geofences.addAll(geofenceMap);
       _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
+      _initDone = true;
     });
     _notifications.setDevices(_devices.keys);
+    // A push tapped to launch the app waits until devices are known.
+    _onPushTapped();
     await _connectSocket();
     _checkForUpdate();
   }
@@ -562,7 +580,7 @@ class _MainPageState extends State<MainPage> {
     _updatePollTimer?.cancel();
     _wsSub?.cancel();
     _pushSub?.cancel();
-    NotificationService().openListRequested.removeListener(_onOpenListRequested);
+    NotificationService().pushTapped.removeListener(_onPushTapped);
     _socketService.close();
     super.dispose();
   }
