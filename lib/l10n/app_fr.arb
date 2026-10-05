@@ -232,5 +232,6 @@
   "today": "Aujourd'hui",
   "yesterday": "Hier",
   "view": "Voir",
-  "markAllRead": "Tout marquer comme lu"
+  "markAllRead": "Tout marquer comme lu",
+  "currentPosition": "Position actuelle"
 }

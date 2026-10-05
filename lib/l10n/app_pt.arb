@@ -232,5 +232,6 @@
   "today": "Hoje",
   "yesterday": "Ontem",
   "view": "Ver",
-  "markAllRead": "Marcar todas como lidas"
+  "markAllRead": "Marcar todas como lidas",
+  "currentPosition": "Posição atual"
 }
