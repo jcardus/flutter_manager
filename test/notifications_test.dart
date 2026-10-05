@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:manager/l10n/app_localizations.dart';
@@ -5,6 +6,7 @@ import 'package:manager/l10n/app_localizations_en.dart';
 import 'package:manager/l10n/app_localizations_pt.dart';
 import 'package:manager/models/event.dart';
 import 'package:manager/models/notification_rule.dart';
+import 'package:manager/services/notification_service.dart' show PushTap;
 import 'package:manager/services/notifications_controller.dart';
 import 'package:manager/widgets/notifications_view.dart';
 import 'package:manager/utils/event_display.dart';
@@ -114,6 +116,17 @@ void main() {
       // Opening the tab marks them seen, but they stay highlighted while open.
       expect(controller.unreadCount, 0);
       expect(find.byKey(const ValueKey('unreadDot')), findsNWidgets(2));
+    });
+  });
+
+  group('PushTap', () {
+    test('reads the event id Traccar puts in the push', () {
+      expect(PushTap.fromMessage(const RemoteMessage(data: {'eventId': '42'})).eventId, 42);
+    });
+
+    test('has no event id when the push has none', () {
+      expect(PushTap.fromMessage(const RemoteMessage()).eventId, isNull);
+      expect(PushTap.fromMessage(const RemoteMessage(data: {'eventId': 'x'})).eventId, isNull);
     });
   });
 }
