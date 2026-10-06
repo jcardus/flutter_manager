@@ -312,8 +312,8 @@ class DeviceDetail extends StatelessWidget {
     // A live camera feed says nothing about where the alert happened.
     final hasCameras = cameraUrls.isNotEmpty && !_isAlert;
 
-    return
-      Padding(
+    return StreetViewAddressScope(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 15),
         child: Column(
           children: [
@@ -482,7 +482,7 @@ class DeviceDetail extends StatelessWidget {
               const SizedBox(height: 12),
               ],
             ]))
-      ]));
+      ])));
   }
 }
 

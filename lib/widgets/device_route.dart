@@ -69,6 +69,8 @@ class _DeviceRouteState extends State<DeviceRoute> {
   List<Stop> _stops = [];
   List<Position> _positions = [];
   bool _isLoading = false;
+  /// Shows the whole day with one slider instead of the trips and stops.
+  bool _fullDay = false;
   final ApiService _apiService = ApiService();
 
   @override
@@ -385,11 +387,33 @@ class _DeviceRouteState extends State<DeviceRoute> {
     return items;
   }
 
+  void _setFullDay(bool fullDay) {
+    if (fullDay == _fullDay) return;
+    if (fullDay) _clearSegmentHighlight();
+    setState(() => _fullDay = fullDay);
+  }
+
+  /// The full-day slider moves the marker over the whole route, so a
+  /// highlighted trip would only get in the way.
+  void _clearSegmentHighlight() {
+    final highlighted = widget.highlightedSegmentPositions;
+    if (highlighted == null || highlighted.isEmpty) return;
+    for (final item in _buildListItems()) {
+      if (item is _StateSeparator &&
+          item.positions.isNotEmpty &&
+          item.positions.first.id == highlighted.first.id) {
+        widget.onStateSegmentTap?.call([], item.startEvent, item.endEvent);
+        return;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final locale = Localizations.localeOf(context).toString();
+    final l10n = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: Column(
@@ -438,6 +462,19 @@ class _DeviceRouteState extends State<DeviceRoute> {
               ),
             ],
           ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(value: false, label: Text(l10n.routeViewTrips)),
+                ButtonSegment(value: true, label: Text(l10n.routeViewFullDay)),
+              ],
+              selected: {_fullDay},
+              showSelectedIcon: false,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              onSelectionChanged: (selection) => _setFullDay(selection.first),
+            ),
+          ),
           // Events list
           if (_isLoading)
             const Center(
@@ -449,7 +486,13 @@ class _DeviceRouteState extends State<DeviceRoute> {
           else
             Builder(
               builder: (context) {
-                final items = _buildListItems();
+                if (_fullDay && _positions.isNotEmpty) {
+                  return DayScrubber(
+                    positions: _positions,
+                    onScrub: (p) => widget.onPositionTap?.call(p, false, 'Scrub'),
+                  );
+                }
+                final items = _fullDay ? const <_ListItem>[] : _buildListItems();
                 if (items.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -510,6 +553,127 @@ class _DeviceRouteState extends State<DeviceRoute> {
               },
             ),
 
+        ],
+      ),
+    );
+  }
+}
+
+/// The whole day's route on one speed graph, with a slider that moves the
+/// marker along it.
+@visibleForTesting
+class DayScrubber extends StatefulWidget {
+  final List<Position> positions;
+  final ValueChanged<Position> onScrub;
+
+  const DayScrubber({super.key, required this.positions, required this.onScrub});
+
+  @override
+  State<DayScrubber> createState() => _DayScrubberState();
+}
+
+class _DayScrubberState extends State<DayScrubber> {
+  double _index = 0;
+  late double _distanceKm;
+  late double _maxSpeedKmh;
+
+  @override
+  void initState() {
+    super.initState();
+    _summarize();
+  }
+
+  @override
+  void didUpdateWidget(DayScrubber oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.positions != oldWidget.positions) {
+      _index = 0;
+      _summarize();
+    }
+  }
+
+  void _summarize() {
+    final positions = widget.positions;
+    _distanceKm = calculateTotalDistance(positions);
+    _maxSpeedKmh = positions.fold(0.0, (max, p) => p.speed > max ? p.speed : max) * 1.852;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final locale = Localizations.localeOf(context).toString();
+    final time = DateFormat.Hm(locale);
+    final positions = widget.positions;
+    final last = positions.length - 1;
+    final index = _index.clamp(0, last).toInt();
+    final current = positions[index];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${time.format(positions.first.fixTime.toLocal())} – '
+            '${time.format(positions.last.fixTime.toLocal())} · '
+            '${_distanceKm.toStringAsFixed(1)} km · '
+            'max ${_maxSpeedKmh.toStringAsFixed(0)} km/h',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              height: 72,
+              color: colors.primaryContainer.withValues(alpha: 0.5),
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: SpeedGraphPainter(
+                  positions: positions,
+                  maxSpeed: _maxSpeedKmh,
+                  color: colors.tertiary.withValues(alpha: 0.7),
+                  showScale: true,
+                  scaleColor: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+          if (last > 0)
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                trackShape: const _FullWidthTrackShape(),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              ),
+              child: Slider(
+                key: const ValueKey('daySlider'),
+                value: _index.clamp(0, last.toDouble()),
+                min: 0,
+                max: last.toDouble(),
+                onChanged: (v) {
+                  setState(() => _index = v);
+                  widget.onScrub(positions[v.clamp(0, last).toInt()]);
+                },
+              ),
+            ),
+          Text(
+            '${DateFormat.jms(locale).format(current.fixTime.toLocal())} · '
+            '${(current.speed * 1.852).toStringAsFixed(0)} km/h',
+            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          if (current.address != null && current.address!.isNotEmpty)
+            Text(
+              current.address!,
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
         ],
       ),
     );

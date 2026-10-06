@@ -535,5 +535,9 @@
   "markAllRead": "Mark all as read",
   "@markAllRead": { "description": "Button that marks every notification as read" },
   "currentPosition": "Current position",
-  "@currentPosition": { "description": "Button in an opened alert that returns to the vehicle's live position" }
+  "@currentPosition": { "description": "Button in an opened alert that returns to the vehicle's live position" },
+  "routeViewTrips": "Trips",
+  "@routeViewTrips": { "description": "Route view mode: list of trips and stops" },
+  "routeViewFullDay": "Full day",
+  "@routeViewFullDay": { "description": "Route view mode: the whole day's route with one slider" }
 }
