@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:manager/models/position.dart';
@@ -7,6 +8,50 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/mapillary_service.dart';
 import '../utils/constants.dart';
 import '../utils/google_url_signer.dart';
+
+/// Tells widgets below it whether the [StreetView] card is showing the
+/// address in place of a photo, so the panel doesn't show it twice.
+class StreetViewAddressScope extends StatefulWidget {
+  const StreetViewAddressScope({super.key, required this.child});
+
+  final Widget child;
+
+  /// True while the card shows the address. Null outside a scope.
+  static ValueListenable<bool>? of(BuildContext context) => _notifierOf(context);
+
+  static ValueNotifier<bool>? _notifierOf(BuildContext context) => context
+      .getInheritedWidgetOfExactType<_StreetViewAddressInherited>()
+      ?.showsAddress;
+
+  @override
+  State<StreetViewAddressScope> createState() => _StreetViewAddressScopeState();
+}
+
+class _StreetViewAddressScopeState extends State<StreetViewAddressScope> {
+  final _showsAddress = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _showsAddress.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _StreetViewAddressInherited(
+        showsAddress: _showsAddress,
+        child: widget.child,
+      );
+}
+
+class _StreetViewAddressInherited extends InheritedWidget {
+  const _StreetViewAddressInherited({required this.showsAddress, required super.child});
+
+  final ValueNotifier<bool> showsAddress;
+
+  @override
+  bool updateShouldNotify(_StreetViewAddressInherited oldWidget) =>
+      showsAddress != oldWidget.showsAddress;
+}
 
 class StreetView extends StatefulWidget {
   final Position? position;
@@ -23,11 +68,23 @@ class _StreetViewState extends State<StreetView> {
   bool _googleChecked = false;
   MapillaryImage? _mapillaryImage;
   bool _mapillaryFetched = false;
+  /// Whether this frame shows the address; published after the frame,
+  /// since an image's error builder decides it during layout.
+  bool _showsAddress = false;
 
   @override
   void initState() {
     super.initState();
     _checkGoogleAvailability();
+  }
+
+  ValueNotifier<bool>? _scope;
+
+  void _publishShowsAddress() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scope?.value = _showsAddress;
+    });
   }
 
   Future<void> _checkGoogleAvailability() async {
@@ -125,17 +182,23 @@ class _StreetViewState extends State<StreetView> {
     return '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
   }
 
+  /// The panel overlays the vehicle name on the top of this card, so the
+  /// text sits at the bottom, clear of it.
   Widget _buildPlaceholder({String? message}) {
+    if (message == null && !_showsAddress) {
+      _showsAddress = true;
+      _publishShowsAddress();
+    }
+    final theme = Theme.of(context);
     return Container(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Center(
-        child: Text(
-          message ?? _locationText(),
-          textAlign: TextAlign.center,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-        ),
+      color: theme.colorScheme.surfaceContainer,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      alignment: Alignment.bottomLeft,
+      child: Text(
+        message ?? _locationText(),
+        style: theme.textTheme.bodyMedium,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -144,6 +207,9 @@ class _StreetViewState extends State<StreetView> {
   Widget build(BuildContext context) {
     final pos = widget.position;
     if (pos == null) return const SizedBox.shrink();
+    _scope = StreetViewAddressScope._notifierOf(context);
+    _showsAddress = false;
+    _publishShowsAddress();
 
     return SizedBox(
       height: 200,

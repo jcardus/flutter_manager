@@ -233,5 +233,7 @@
   "yesterday": "Hier",
   "view": "Voir",
   "markAllRead": "Tout marquer comme lu",
-  "currentPosition": "Position actuelle"
+  "currentPosition": "Position actuelle",
+  "routeViewTrips": "Trajets",
+  "routeViewFullDay": "Journée complète"
 }
