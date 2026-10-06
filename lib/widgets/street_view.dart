@@ -115,16 +115,7 @@ class _StreetViewState extends State<StreetView> {
   Widget _buildPlaceholder({String? message}) {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainer,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.streetview, size: 48),
-            const SizedBox(height: 8),
-            Text(message ?? 'Street View unavailable'),
-          ],
-        ),
-      ),
+      child: Center(child: Text(message ?? 'Street View unavailable')),
     );
   }
 
