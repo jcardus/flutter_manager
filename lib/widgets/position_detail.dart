@@ -5,6 +5,7 @@ import '../icons/icons.dart';
 import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import 'street_view.dart';
 
 class PositionDetail extends StatefulWidget {
   const PositionDetail({super.key, required this.pos, required this.device, this.compact = false, this.showStatus = false});
@@ -158,15 +159,27 @@ class _PositionDetailState extends State<PositionDetail> {
       );
     }
 
+    final addressShownAbove = StreetViewAddressScope.of(context);
+    final addressRow = Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _InfoRow(
+        icon: PlatformIcons.location,
+        label: '',
+        value: _formatAddress(widget.pos.address),
+      ),
+    );
+
     return Column(
       children: [
-        // Address row spanning full width
-        _InfoRow(
-          icon: PlatformIcons.location,
-          label: '',
-          value: _formatAddress(widget.pos.address),
-        ),
-        const SizedBox(height: 12),
+        // Address row spanning full width, unless the Street View card
+        // above already shows it.
+        if (addressShownAbove == null)
+          addressRow
+        else
+          ValueListenableBuilder<bool>(
+            valueListenable: addressShownAbove,
+            builder: (context, shown, _) => shown ? const SizedBox.shrink() : addressRow,
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
