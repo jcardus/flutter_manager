@@ -13,7 +13,7 @@ import '../models/position.dart';
 import '../models/event.dart';
 import '../utils/device_colors.dart';
 import '../utils/device_icons.dart';
-import '../utils/svg_cache.dart';
+import '../utils/vehicle_icon_cache.dart';
 import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
 import 'map/style_selector.dart';
@@ -240,10 +240,28 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// Vehicle icon shapes already queued for prefetching.
+  final Set<String> _prefetchedIconShapes = {};
+
+  /// Once the fleet's first icons have had a chance to load, fetch every
+  /// angle of its vehicle types so turning vehicles don't wait.
+  void _prefetchVehicleIcons() {
+    final shapes = widget.devices.values
+        .map((d) => VehicleIcon.shapeFor(d.category))
+        .where(_prefetchedIconShapes.add)
+        .toList();
+    if (shapes.isEmpty) return;
+    Future.delayed(
+      const Duration(seconds: 3),
+      () => VehicleIconCache.prefetch(shapes),
+    );
+  }
+
   @override
   void didUpdateWidget(MapView oldWidget) {
     super.didUpdateWidget(oldWidget);
     _onPositionsChanged();
+    _prefetchVehicleIcons();
 
     // Initial fit on first data
     if (!_initialFitDone &&
@@ -415,81 +433,6 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
     }
   }
 
-  static const _category3dIcon = {
-    'default': 'sedan_50',
-    'car': 'sedan_50',
-    'van': 'furgoneta_60',
-    'camper': 'furgoneta_ventana',
-    'truck': 'cam_caja_60',
-    'bus': 'bus_85',
-    'tractor': 'tractor_v2',
-    'crane': 'grua_v2',
-    'trailer': 'remolque_caja_70',
-    'trailer2': 'remolque_jaula',
-    'motorcycle': 'moto_50',
-    'scooter': 'motoneta_45',
-    'construction': 'retroex',
-    'freightelevator': 'montacarga',
-    'boat': 'barco',
-    'ship': 'barco',
-    'plane': 'helicoptero',
-    'helicopter': 'helicoptero',
-    'bicycle': 'bici_40',
-    'person': 'sedan_50',
-    'animal': 'sedan_50',
-    'pickup': 'pickup_60',
-    'taxi': 'taxi',
-    'planer': 'aplanadora_75',
-    'excavator': 'excavadora',
-    'excavatorcrane': 'grua_excavadora_85',
-  };
-
-  static const _iconBaseUrl =
-      'https://library.service24gps.com/img/iconUber/iconsDinamicos_new_medidas/';
-
-  static const _colorNameToHex = {
-    'green': '22c55e', // moving
-    'yellow': 'eab308', // idle (ignition on, stopped)
-    'orange': 'f97316', // parked (ignition off)
-    'red': 'ef4444', // offline
-  };
-
-  static const _rotationStep = 22.5; // 16 frames per 360°
-
-  /// Icons whose `b` (body) colour is a cargo box, tinted with the status
-  /// colour so the whole vehicle reads at a glance.
-  static const _statusTintedBodyIcons = {'cam_caja_60'};
-
-  /// Default body colour for the other icons.
-  static const _defaultBodyHex = 'F0F0F0';
-
-  String _iconUrl(String? category, String colorName, double course) {
-    final icon =
-        _category3dIcon[category?.toLowerCase()] ?? _category3dIcon['default']!;
-    final hex = _colorNameToHex[colorName] ?? _colorNameToHex['grey']!;
-    final body = _statusTintedBodyIcons.contains(icon)
-        ? _lightenHex(hex, 0.7)
-        : _defaultBodyHex;
-    final snapped = (course % 360 ~/ _rotationStep) * _rotationStep;
-    return '$_iconBaseUrl$icon.php?grados=${snapped.toStringAsFixed(1)}&c=$hex&b=$body';
-  }
-
-  /// Mixes an RRGGBB colour toward white by [amount] (0 = unchanged, 1 = white).
-  static String _lightenHex(String hex, double amount) {
-    final value = int.parse(hex, radix: 16);
-    String channel(int shift) {
-      final c = (value >> shift) & 0xFF;
-      final mixed = (c + (255 - c) * amount).round();
-      return mixed.toRadixString(16).padLeft(2, '0');
-    }
-    return '${channel(16)}${channel(8)}${channel(0)}'.toUpperCase();
-  }
-
-  /// Remainder degrees after quantizing to 22.5° frames
-  double _rotationRemainder(double course) {
-    return (course % 360) - (course % 360 ~/ _rotationStep) * _rotationStep;
-  }
-
   IconData _getEventIcon(String type) => EventDisplay.icon(type);
 
   Color _getEventColor(String type) => EventDisplay.color(context, type);
@@ -497,8 +440,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
   Marker _buildMarkerFor(int deviceId, Position position, Device device) {
     final statusColor = DeviceColors.getDeviceColor(device, position, context);
     final colorName = DeviceColors.getDeviceColorName(device, position);
-    final url = _iconUrl(device.category, colorName, position.course);
-    final remainder = _rotationRemainder(position.course) * pi / 180;
+    final icon = VehicleIcon.forDevice(device.category, colorName, position.course);
+    final remainder = VehicleIcon.rotationRemainder(position.course) * pi / 180;
 
     return Marker(
       key: ValueKey(deviceId),
@@ -508,7 +451,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
       alignment: Alignment.center,
       child: _AnimatedDeviceMarker(
         deviceId: deviceId,
-        url: url,
+        icon: icon,
         statusColor: statusColor,
         rotationRemainder: remainder,
         deviceName: device.name,
@@ -770,8 +713,8 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
         if (device != null) {
           final statusColor = DeviceColors.getDeviceColor(device, pos, context);
           final colorName = DeviceColors.getDeviceColorName(device, pos);
-          final url = _iconUrl(device.category, colorName, pos.course);
-          final remainder = _rotationRemainder(pos.course) * pi / 180;
+          final icon = VehicleIcon.forDevice(device.category, colorName, pos.course);
+          final remainder = VehicleIcon.rotationRemainder(pos.course) * pi / 180;
           markers.add(
             Marker(
               point: point,
@@ -781,7 +724,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               child: Transform.rotate(
                 angle: remainder,
                 child: _SvgIcon(
-                  url: url,
+                  icon: icon,
                   statusColor: statusColor,
                   fallbackIcon: DeviceIcons.getCategoryIcon(device),
                 ),
@@ -1020,7 +963,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
 class _AnimatedDeviceMarker extends StatelessWidget {
   final int deviceId;
-  final String url;
+  final VehicleIcon icon;
   final Color statusColor;
   final double rotationRemainder;
   final String deviceName;
@@ -1029,7 +972,7 @@ class _AnimatedDeviceMarker extends StatelessWidget {
 
   const _AnimatedDeviceMarker({
     required this.deviceId,
-    required this.url,
+    required this.icon,
     required this.statusColor,
     required this.rotationRemainder,
     required this.deviceName,
@@ -1052,7 +995,7 @@ class _AnimatedDeviceMarker extends StatelessWidget {
             builder: (context, angle, child) =>
                 Transform.rotate(angle: angle, child: child),
             child: _SvgIcon(
-              url: url,
+              icon: icon,
               statusColor: statusColor,
               fallbackIcon: fallbackIcon,
             ),
@@ -1081,12 +1024,12 @@ class _AnimatedDeviceMarker extends StatelessWidget {
 }
 
 class _SvgIcon extends StatefulWidget {
-  final String url;
+  final VehicleIcon icon;
   final Color statusColor;
   final IconData fallbackIcon;
 
   const _SvgIcon({
-    required this.url,
+    required this.icon,
     required this.statusColor,
     this.fallbackIcon = Icons.navigation,
   });
@@ -1102,26 +1045,32 @@ class _SvgIconState extends State<_SvgIcon> {
   @override
   void initState() {
     super.initState();
-    _svgData = SvgCache.getSync(widget.url);
+    _svgData = VehicleIconCache.svgSync(widget.icon);
     if (_svgData == null) _load();
   }
 
   @override
   void didUpdateWidget(_SvgIcon old) {
     super.didUpdateWidget(old);
-    if (old.url != widget.url) {
-      _svgData = SvgCache.getSync(widget.url);
-      _failed = false;
-      if (_svgData == null) _load();
+    if (old.icon != widget.icon) {
+      // Keep showing the previous icon until the new one is ready, so the
+      // marker doesn't vanish when the vehicle turns or changes status.
+      final ready = VehicleIconCache.svgSync(widget.icon);
+      if (ready != null) {
+        _svgData = ready;
+      } else {
+        _load();
+      }
     }
   }
 
   Future<void> _load() async {
-    final svg = await SvgCache.get(widget.url);
-    if (!mounted) return;
+    final requested = widget.icon;
+    final svg = await VehicleIconCache.load(requested);
+    if (!mounted || widget.icon != requested) return;
     setState(() {
-      _svgData = svg;
-      _failed = svg == null;
+      if (svg != null) _svgData = svg;
+      _failed = svg == null && _svgData == null;
     });
   }
 
