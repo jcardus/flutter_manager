@@ -456,12 +456,33 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
 
   static const _rotationStep = 22.5; // 16 frames per 360°
 
+  /// Icons whose `b` (body) colour is a cargo box, tinted with the status
+  /// colour so the whole vehicle reads at a glance.
+  static const _statusTintedBodyIcons = {'cam_caja_60'};
+
+  /// Default body colour for the other icons.
+  static const _defaultBodyHex = 'F0F0F0';
+
   String _iconUrl(String? category, String colorName, double course) {
     final icon =
         _category3dIcon[category?.toLowerCase()] ?? _category3dIcon['default']!;
     final hex = _colorNameToHex[colorName] ?? _colorNameToHex['grey']!;
+    final body = _statusTintedBodyIcons.contains(icon)
+        ? _lightenHex(hex, 0.7)
+        : _defaultBodyHex;
     final snapped = (course % 360 ~/ _rotationStep) * _rotationStep;
-    return '$_iconBaseUrl$icon.php?grados=${snapped.toStringAsFixed(1)}&c=$hex&b=F0F0F0';
+    return '$_iconBaseUrl$icon.php?grados=${snapped.toStringAsFixed(1)}&c=$hex&b=$body';
+  }
+
+  /// Mixes an RRGGBB colour toward white by [amount] (0 = unchanged, 1 = white).
+  static String _lightenHex(String hex, double amount) {
+    final value = int.parse(hex, radix: 16);
+    String channel(int shift) {
+      final c = (value >> shift) & 0xFF;
+      final mixed = (c + (255 - c) * amount).round();
+      return mixed.toRadixString(16).padLeft(2, '0');
+    }
+    return '${channel(16)}${channel(8)}${channel(0)}'.toUpperCase();
   }
 
   /// Remainder degrees after quantizing to 22.5° frames
