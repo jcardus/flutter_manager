@@ -26,6 +26,9 @@ Future<void> _pump(WidgetTester tester, Widget child) async {
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(body: SingleChildScrollView(child: child)),
   ));
+  // Test HTTP returns 400, so the Street View card falls back to the address.
+  await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+  await tester.pump();
   await tester.pump();
 }
 
@@ -44,7 +47,7 @@ void main() {
   testWidgets('live panel shows all actions and live status', (tester) async {
     await _pump(tester, DeviceDetail(device: device, position: live, onClose: () {}));
     expect(find.text('ONLINE'), findsOneWidget);
-    expect(find.textContaining('Live street'), findsWidgets);
+    expect(find.textContaining('Live street'), findsOneWidget, reason: 'card only');
     for (final label in ['Directions', 'Route', 'Share', 'Block']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
@@ -66,7 +69,7 @@ void main() {
     );
     expect(find.textContaining('Ignition On · Today'), findsOneWidget);
     expect(find.text('ONLINE'), findsNothing);
-    expect(find.textContaining('Alert street'), findsWidgets);
+    expect(find.textContaining('Alert street'), findsOneWidget, reason: 'card only');
     expect(find.textContaining('Live street'), findsNothing);
     expect(find.text('Directions'), findsOneWidget);
     for (final label in ['Route', 'Share', 'Block', 'Unblock']) {
