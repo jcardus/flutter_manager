@@ -41,20 +41,24 @@ class _StreetViewState extends State<StreetView> {
         clientId: googleMapsClientId,
       );
       final resp = await http.get(Uri.parse(metadataUrl));
+      var available = false;
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        final available = data['status'] == 'OK';
-        if (mounted) {
-          setState(() {
-            _googleAvailable = available;
-            _googleChecked = true;
-          });
-          if (!available) _fetchMapillary();
-        }
+        available = data['status'] == 'OK';
+      }
+      if (mounted) {
+        setState(() {
+          _googleAvailable = available;
+          _googleChecked = true;
+        });
+        if (!available) _fetchMapillary();
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _googleChecked = true);
+        setState(() {
+          _googleAvailable = false;
+          _googleChecked = true;
+        });
         _fetchMapillary();
       }
     }
@@ -112,17 +116,25 @@ class _StreetViewState extends State<StreetView> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  /// Shown when there's no street-level photo: the address, or the
+  /// coordinates when the server has no address for the position.
+  String _locationText() {
+    final pos = widget.position!;
+    final address = pos.address?.trim();
+    if (address != null && address.isNotEmpty) return address;
+    return '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
+  }
+
   Widget _buildPlaceholder({String? message}) {
     return Container(
       color: Theme.of(context).colorScheme.surfaceContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.streetview, size: 48),
-            const SizedBox(height: 8),
-            Text(message ?? 'Street View unavailable'),
-          ],
+        child: Text(
+          message ?? _locationText(),
+          textAlign: TextAlign.center,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
