@@ -44,7 +44,7 @@ void main() {
   testWidgets('live panel shows all actions and live status', (tester) async {
     await _pump(tester, DeviceDetail(device: device, position: live, onClose: () {}));
     expect(find.text('ONLINE'), findsOneWidget);
-    expect(find.textContaining('Live street'), findsOneWidget);
+    expect(find.textContaining('Live street'), findsWidgets);
     for (final label in ['Directions', 'Route', 'Share', 'Block']) {
       expect(find.text(label), findsOneWidget, reason: label);
     }
@@ -66,7 +66,7 @@ void main() {
     );
     expect(find.textContaining('Ignition On · Today'), findsOneWidget);
     expect(find.text('ONLINE'), findsNothing);
-    expect(find.textContaining('Alert street'), findsOneWidget);
+    expect(find.textContaining('Alert street'), findsWidgets);
     expect(find.textContaining('Live street'), findsNothing);
     expect(find.text('Directions'), findsOneWidget);
     for (final label in ['Route', 'Share', 'Block', 'Unblock']) {

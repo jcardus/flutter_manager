@@ -16,6 +16,7 @@ import '../utils/device_icons.dart';
 import '../utils/vehicle_icon_cache.dart';
 import '../utils/turbo_colormap.dart';
 import '../map/styles.dart';
+import '../map/tile_loading.dart';
 import 'map/style_selector.dart';
 import '../utils/event_display.dart';
 
@@ -62,6 +63,7 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> with TickerProviderStateMixin {
+  final _tileProvider = TileLoading.provider();
   final _mapController = MapController();
   int _styleIndex = 0;
   bool _geofencesSelected = true;
@@ -834,6 +836,10 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
               urlTemplate: style.urlTemplateFor(context),
               subdomains: style.subdomains,
               userAgentPackageName: 'com.frotaweb.manager',
+              tileProvider: _tileProvider,
+              errorTileCallback: TileLoading.onTileError,
+              // Failed tiles that scroll away are reloaded when they return.
+              evictErrorTileStrategy: EvictErrorTileStrategy.notVisibleRespectMargin,
             ),
             if (_geofencesSelected) ...[
               PolygonLayer(polygons: _buildGeofencePolygons()),
