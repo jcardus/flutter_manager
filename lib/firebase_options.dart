@@ -62,13 +62,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBgJjh0hPL1hUpGd2wlKiKTt2MKM5UO23k',
-    appId: '1:218052201497:ios:0d02e81f62b32d28766e88',
-    messagingSenderId: '218052201497',
-    projectId: 'fleetmap-fe45f',
-    storageBucket: 'fleetmap-fe45f.firebasestorage.app',
-    androidClientId: '218052201497-nrml7ledfljhbpa05flmofap6laetkga.apps.googleusercontent.com',
-    iosBundleId: 'com.fleetmap.fleetmanager',
+    apiKey: 'AIzaSyDg0q3vffr5D0baAN0M5yyxZw0xWpdD8JE',
+    appId: '1:133223115866:ios:b95e69d47feb5bc2827c63',
+    messagingSenderId: '133223115866',
+    projectId: 'rastreosat-gps',
+    storageBucket: 'rastreosat-gps.firebasestorage.app',
+    iosBundleId: 'com.fleetmap.jsrastreamento',
   );
 
   // Reuses iOS config until a dedicated macOS Firebase app is configured.
