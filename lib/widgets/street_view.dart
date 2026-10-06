@@ -125,17 +125,19 @@ class _StreetViewState extends State<StreetView> {
     return '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}';
   }
 
+  /// The panel overlays the vehicle name on the top of this card, so the
+  /// text sits at the bottom, clear of it.
   Widget _buildPlaceholder({String? message}) {
+    final theme = Theme.of(context);
     return Container(
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Center(
-        child: Text(
-          message ?? _locationText(),
-          textAlign: TextAlign.center,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-        ),
+      color: theme.colorScheme.surfaceContainer,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      alignment: Alignment.bottomLeft,
+      child: Text(
+        message ?? _locationText(),
+        style: theme.textTheme.bodyMedium,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
