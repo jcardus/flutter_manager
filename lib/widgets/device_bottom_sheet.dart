@@ -57,6 +57,9 @@ class DeviceBottomSheet extends StatefulWidget {
   final Function(Position position, bool isFirst, String? label)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
+  final Event? alert;
+  final Position? alertPosition;
+  final VoidCallback? onShowCurrent;
 
   const DeviceBottomSheet({
     super.key,
@@ -72,6 +75,9 @@ class DeviceBottomSheet extends StatefulWidget {
     this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
+    this.alert,
+    this.alertPosition,
+    this.onShowCurrent,
   });
 
   @override
@@ -183,6 +189,9 @@ class _DeviceBottomSheetState extends State<DeviceBottomSheet> {
                           device: widget.device,
                           onClose: widget.onClose,
                           onShowRoute: _toggleRoute,
+                          alert: widget.alert,
+                          alertPosition: widget.alertPosition,
+                          onShowCurrent: widget.onShowCurrent,
                         ),
                 ),
               ),

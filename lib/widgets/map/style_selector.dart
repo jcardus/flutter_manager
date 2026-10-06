@@ -10,6 +10,9 @@ class MapStyleSelector extends StatefulWidget {
   final Function() onLayerSelected;
   final Function() onZoomIn;
   final Function() onZoomOut;
+  final bool currentLocationLayer;
+  final bool locatingCurrentLocation;
+  final VoidCallback onCurrentLocationSelected;
 
   const MapStyleSelector({
     super.key,
@@ -20,6 +23,9 @@ class MapStyleSelector extends StatefulWidget {
     required this.onLayerSelected,
     required this.onZoomIn,
     required this.onZoomOut,
+    required this.currentLocationLayer,
+    required this.locatingCurrentLocation,
+    required this.onCurrentLocationSelected,
   });
 
   @override
@@ -61,7 +67,9 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                       child: Padding(
                         padding: const EdgeInsets.all(8),
                         child: Icon(
-                          _menuExpanded ? Icons.chevron_right : Icons.chevron_left,
+                          _menuExpanded
+                              ? Icons.chevron_right
+                              : Icons.chevron_left,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
@@ -86,13 +94,17 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Theme.of(context).colorScheme.outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
                                   ),
                                 ),
                                 child: Icon(
                                   Icons.add,
                                   size: 20,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ),
@@ -106,17 +118,76 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Theme.of(context).colorScheme.outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
                                   ),
                                 ),
                                 child: Icon(
                                   Icons.remove,
                                   size: 20,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ),
                           ],
+                        ),
+                      ),
+
+                      const Divider(height: 1),
+
+                      InkWell(
+                        onTap: widget.locatingCurrentLocation
+                            ? null
+                            : widget.onCurrentLocationSelected,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              if (widget.locatingCurrentLocation)
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              else
+                                Icon(
+                                  widget.currentLocationLayer
+                                      ? Icons.my_location
+                                      : Icons.location_searching,
+                                  size: 20,
+                                  color: widget.currentLocationLayer
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  l10n.myLocation,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: widget.currentLocationLayer
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
+                                            : null,
+                                        fontWeight: widget.currentLocationLayer
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
 
@@ -135,22 +206,35 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                             child: Row(
                               children: [
                                 Icon(
-                                  isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                  isSelected
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_unchecked,
                                   size: 20,
                                   color: isSelected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    widget.mapReady || !isSelected ? config.getLocalizedName(context) : l10n.loading,
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: isSelected
-                                        ? Theme.of(context).colorScheme.primary
-                                        : null,
-                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                    ),
+                                    widget.mapReady || !isSelected
+                                        ? config.getLocalizedName(context)
+                                        : l10n.loading,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: isSelected
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : null,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w600
+                                              : FontWeight.normal,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -171,22 +255,31 @@ class _MapStyleSelectorState extends State<MapStyleSelector> {
                           child: Row(
                             children: [
                               Icon(
-                                widget.geofencesLayer ? Icons.check_box_outlined : Icons.check_box_outline_blank,
+                                widget.geofencesLayer
+                                    ? Icons.check_box_outlined
+                                    : Icons.check_box_outline_blank,
                                 size: 20,
                                 color: widget.geofencesLayer
                                     ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                                    : Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   "Geofences",
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: widget.geofencesLayer
-                                        ? Theme.of(context).colorScheme.primary
-                                        : null,
-                                    fontWeight: widget.geofencesLayer ? FontWeight.w600 : FontWeight.normal,
-                                  ),
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: widget.geofencesLayer
+                                            ? Theme.of(
+                                                context,
+                                              ).colorScheme.primary
+                                            : null,
+                                        fontWeight: widget.geofencesLayer
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
                                 ),
                               ),
                             ],

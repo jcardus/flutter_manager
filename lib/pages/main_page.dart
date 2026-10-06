@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
+import 'package:firebase_messaging/firebase_messaging.dart' show RemoteMessage;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -16,10 +17,13 @@ import '../models/device_merge.dart';
 import '../services/socket_service.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
+import '../services/notifications_controller.dart';
 import '../models/device.dart';
 import '../models/position.dart';
 import '../models/event.dart';
 import '../widgets/devices_list_view.dart';
+import '../widgets/notifications_view.dart';
 import '../widgets/map_view.dart';
 import '../widgets/profile_view.dart';
 import '../widgets/reports_webview.dart';
@@ -32,13 +36,20 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  /// Tab indexes. Notifications was added last, so it keeps its own index
+  /// while sitting between Devices and Reports in the menu.
+  static const _notificationsTab = 4;
+
   int _selectedIndex = 0;
+  bool _initDone = false;
   bool _reportsMounted = false;
   final SocketService _socketService = SocketService();
   final ApiService _apiService = ApiService();
   StreamSubscription? _wsSub;
   bool _wsConnected = false;
   Timer? _updatePollTimer;
+  StreamSubscription? _pushSub;
+  final _notifications = NotificationsController.instance;
 
   final Map<int, Device> _devices = {};
   final Map<int, Position> _positions = {};
@@ -54,6 +65,9 @@ class _MainPageState extends State<MainPage> {
   double _bottomSheetSize = 0.0;
   Position? _eventPositionToCenter;
   Event? _selectedEvent;
+  /// An alert opened from Notifications or a push: the device panel shows
+  /// it instead of the live device until cleared.
+  Event? _openedAlert;
   bool? _isFirstPosition;
   String? _positionLabel;
 
@@ -61,6 +75,117 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     _init();
+    // Token may already be available from startup; register it now that
+    // the user is logged in.
+    if (!kIsWeb) NotificationService().registerTokenWithBackend();
+    _pushSub = NotificationService().foregroundMessages.listen(_onForegroundPush);
+    NotificationService().pushTapped.addListener(_onPushTapped);
+  }
+
+  void _onForegroundPush(RemoteMessage message) {
+    _notifications.refreshSoon();
+    final notification = message.notification;
+    if (!mounted || notification == null) return;
+    final l10n = AppLocalizations.of(context)!;
+    final text = [notification.title, notification.body]
+        .whereType<String>()
+        .where((t) => t.isNotEmpty)
+        .join('\n');
+    if (text.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: l10n.view,
+          onPressed: () => _openAlert(PushTap.fromMessage(message).eventId),
+        ),
+      ),
+    );
+  }
+
+  /// Handles a tapped push. If the app was launched by the tap, this runs
+  /// again once devices are loaded, since the alert's device must be known.
+  void _onPushTapped() {
+    final tapped = NotificationService().pushTapped;
+    final tap = tapped.value;
+    if (tap == null || !mounted || !_initDone) return;
+    tapped.value = null;
+    _openAlert(tap.eventId);
+  }
+
+  /// Shows the alert on the map, falling back to the notifications list
+  /// when it can't be loaded or its device isn't visible to this user.
+  Future<void> _openAlert(int? eventId) async {
+    final event = eventId != null ? await _apiService.fetchEvent(eventId) : null;
+    if (!mounted) return;
+    if (event == null || !await _showEventOnMap(event)) {
+      _openNotifications();
+    } else {
+      _notifications.markRead(event);
+    }
+  }
+
+  void _openNotifications() => _selectTab(_notificationsTab);
+
+  void _selectTab(int index) {
+    setState(() {
+      _selectedIndex = index;
+      if (index == 2) _reportsMounted = true;
+    });
+  }
+
+  /// Selects the event's device and centers the map on where it happened.
+  /// Returns false if the device isn't one this user can see.
+  Future<bool> _showEventOnMap(Event event) async {
+    // Events of a merged secondary device are shown on its primary.
+    final merge = _deviceMerges
+        .where((m) => m.secondaryDeviceId == event.deviceId)
+        .firstOrNull;
+    final deviceId = merge?.primaryDeviceId ?? event.deviceId;
+    if (!_visibleDevices.containsKey(deviceId)) return false;
+    // Load the alert's position first so the panel opens straight on the
+    // alert rather than flashing the live device.
+    final positionId = event.positionId;
+    final position = positionId != null && positionId != 0
+        ? await _apiService.fetchPosition(positionId)
+        : null;
+    if (!mounted) return true;
+    _onDeviceTap(deviceId);
+    if (position != null) {
+      _focusEvent(position, event);
+    } else {
+      setState(_clearEventFocus);
+    }
+    return true;
+  }
+
+  /// Leaves an opened alert and shows the device live again.
+  void _showCurrentPosition() => setState(_clearEventFocus);
+
+  /// Keeps the map on where an alert happened, with its marker, until the
+  /// device is closed or another one is selected. Unlike [_onEventTap], the
+  /// position isn't cleared after centering: the map draws the marker from
+  /// it and stops following the vehicle while it is set.
+  void _focusEvent(Position position, Event event) {
+    setState(() {
+      _eventPositionToCenter = position;
+      _selectedEvent = event;
+      _openedAlert = event;
+      _isFirstPosition = null;
+      _positionLabel = null;
+      _movingSegmentPositions = [];
+      _segmentStartEvent = null;
+      _segmentEndEvent = null;
+    });
+  }
+
+  void _clearEventFocus() {
+    _eventPositionToCenter = null;
+    _selectedEvent = null;
+    _openedAlert = null;
+    _isFirstPosition = null;
+    _positionLabel = null;
   }
 
   Map<int, Device> get _visibleDevices {
@@ -140,13 +265,18 @@ class _MainPageState extends State<MainPage> {
       _geofences.addAll(geofenceMap);
       _deviceMerges = merges;
       _mergeSecondaryIds = secondaryIds;
+      _initDone = true;
     });
+    _notifications.setDevices(_devices.keys);
+    // A push tapped to launch the app waits until devices are known.
+    _onPushTapped();
     await _connectSocket();
     _checkForUpdate();
   }
 
   void _onDeviceTap(int deviceId) {
     setState(() {
+      if (deviceId != _selectedDeviceId) _clearEventFocus();
       _selectedDeviceId = deviceId;
       _selectedIndex = 0; // Switch to map view
     });
@@ -154,6 +284,7 @@ class _MainPageState extends State<MainPage> {
 
   void _closeBottomSheet() {
     setState(() {
+      _clearEventFocus();
       _selectedDeviceId = null;
       _showingRoute = false;
       _routePositions = [];
@@ -172,6 +303,7 @@ class _MainPageState extends State<MainPage> {
         _movingSegmentPositions = [];
         _segmentStartEvent = null;
         _segmentEndEvent = null;
+        _clearEventFocus();
       }
     });
   }
@@ -304,6 +436,12 @@ class _MainPageState extends State<MainPage> {
             child: ReportsWebView(
               onBack: () => setState(() => _selectedIndex = 0),
             ),
+          ),
+        if (_selectedIndex == _notificationsTab)
+          NotificationsView(
+            devices: _devices,
+            geofences: _geofences,
+            onEventTap: _showEventOnMap,
           ),
         if (_selectedIndex == 3)
           ProfileView(
@@ -457,7 +595,13 @@ class _MainPageState extends State<MainPage> {
       }
     }
 
+    if (data['events'] != null) {
+      _notifications.addLiveEvents((data['events'] as List)
+          .map((json) => Event.fromJson(json as Map<String, dynamic>)));
+    }
+
     if (newDevices.isNotEmpty || newPositions.isNotEmpty) {
+      final addedDevice = newDevices.keys.any((id) => !_devices.containsKey(id));
       setState(() {
         if (newDevices.isNotEmpty) {
           _devices.addAll(newDevices);
@@ -466,6 +610,7 @@ class _MainPageState extends State<MainPage> {
           _positions.addAll(newPositions);
         }
       });
+      if (addedDevice) _notifications.setDevices(_devices.keys);
     }
   }
 
@@ -473,6 +618,8 @@ class _MainPageState extends State<MainPage> {
   void dispose() {
     _updatePollTimer?.cancel();
     _wsSub?.cancel();
+    _pushSub?.cancel();
+    NotificationService().pushTapped.removeListener(_onPushTapped);
     _socketService.close();
     super.dispose();
   }
@@ -491,7 +638,7 @@ class _MainPageState extends State<MainPage> {
         } else if (_selectedDeviceId != null) {
           _closeBottomSheet();
         } else if (_selectedIndex != 0) {
-          setState(() => _selectedIndex = 0);
+          _selectTab(0);
         }
       },
       child: Scaffold(
@@ -538,6 +685,17 @@ class _MainPageState extends State<MainPage> {
                             const SizedBox(width: 4),
                             _buildNavItem(1, Icons.list_outlined, Icons.list, l10n.devices),
                             const SizedBox(width: 4),
+                            ListenableBuilder(
+                              listenable: _notifications,
+                              builder: (context, _) => _buildNavItem(
+                                _notificationsTab,
+                                Icons.notifications_outlined,
+                                Icons.notifications,
+                                l10n.notifications,
+                                badgeCount: _notifications.unreadCount,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                             _buildNavItem(2, Icons.assessment_outlined, Icons.assessment, l10n.reports),
                             const SizedBox(width: 4),
                             _buildNavItem(3, Icons.person_outline, Icons.person, l10n.profile),
@@ -565,6 +723,9 @@ class _MainPageState extends State<MainPage> {
             onPositionTap: _onPositionTap,
             onStateSegmentTap: _onStateSegmentTap,
             highlightedSegmentPositions: _movingSegmentPositions,
+            alert: _openedAlert,
+            alertPosition: _openedAlert != null ? _eventPositionToCenter : null,
+            onShowCurrent: _showCurrentPosition,
           ),
           // Back button when showing route
           if (_showingRoute)
@@ -594,22 +755,23 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData outlinedIcon, IconData filledIcon, String label) {
+  Widget _buildNavItem(
+    int index,
+    IconData outlinedIcon,
+    IconData filledIcon,
+    String label, {
+    int badgeCount = 0,
+  }) {
     final isSelected = _selectedIndex == index;
     final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedIndex = index;
-          if (index == 2) _reportsMounted = true;
-        });
-      },
+      onTap: () => _selectTab(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: isSelected ? 16 : 14,
+          horizontal: isSelected ? 14 : 10,
           vertical: 8,
         ),
         decoration: BoxDecoration(
@@ -622,13 +784,17 @@ class _MainPageState extends State<MainPage> {
           children: [
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isSelected ? filledIcon : outlinedIcon,
+              child: Badge(
                 key: ValueKey(isSelected),
-                size: 22,
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+                isLabelVisible: badgeCount > 0,
+                label: Text(badgeCount > 99 ? '99+' : '$badgeCount'),
+                child: Icon(
+                  isSelected ? filledIcon : outlinedIcon,
+                  size: 22,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
             AnimatedSize(
@@ -671,6 +837,9 @@ class _BottomSheetBuilder extends StatefulWidget {
   final Function(Position position, bool isFirst, String? label)? onPositionTap;
   final Function(List<Position> positions, Event startEvent, Event endEvent)? onStateSegmentTap;
   final List<Position>? highlightedSegmentPositions;
+  final Event? alert;
+  final Position? alertPosition;
+  final VoidCallback? onShowCurrent;
 
   const _BottomSheetBuilder({
     required this.selectedDeviceId,
@@ -686,6 +855,9 @@ class _BottomSheetBuilder extends StatefulWidget {
     this.onPositionTap,
     this.onStateSegmentTap,
     this.highlightedSegmentPositions,
+    this.alert,
+    this.alertPosition,
+    this.onShowCurrent,
   });
 
   @override
@@ -698,6 +870,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
   String? _lastDeviceStatus;
   bool? _lastShowingRoute;
   int? _lastHighlightedSegmentFirstId;
+  int? _lastAlertId;
   Widget? _cachedSheet;
 
   @override
@@ -718,14 +891,16 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       final statusChanged = device?.status != _lastDeviceStatus;
       final routeViewChanged = widget.showingRoute != _lastShowingRoute;
       final highlightedSegmentChanged = currentHighlightedFirstId != _lastHighlightedSegmentFirstId;
+      final alertChanged = widget.alert?.id != _lastAlertId;
 
       // Only rebuild if selected device's data or view actually changed
-      if (deviceChanged || positionChanged || statusChanged || routeViewChanged || highlightedSegmentChanged || _cachedSheet == null) {
+      if (deviceChanged || positionChanged || statusChanged || routeViewChanged || highlightedSegmentChanged || alertChanged || _cachedSheet == null) {
         _lastDeviceId = selectedDeviceId;
         _lastPositionId = currentPositionId;
         _lastDeviceStatus = device?.status;
         _lastShowingRoute = widget.showingRoute;
         _lastHighlightedSegmentFirstId = currentHighlightedFirstId;
+        _lastAlertId = widget.alert?.id;
 
         _cachedSheet = AnimatedSwitcher(
           duration: const Duration(milliseconds: 100),
@@ -758,6 +933,9 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
             onPositionTap: widget.onPositionTap,
             onStateSegmentTap: widget.onStateSegmentTap,
             highlightedSegmentPositions: widget.highlightedSegmentPositions,
+            alert: widget.alert,
+            alertPosition: widget.alertPosition,
+            onShowCurrent: widget.onShowCurrent,
           ),
         );
       }
@@ -769,6 +947,7 @@ class _BottomSheetBuilderState extends State<_BottomSheetBuilder> {
       _lastDeviceStatus = null;
       _lastShowingRoute = null;
       _lastHighlightedSegmentFirstId = null;
+      _lastAlertId = null;
       _cachedSheet = null;
       return const SizedBox.shrink();
     }

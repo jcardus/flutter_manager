@@ -10,6 +10,7 @@ import '../models/device.dart';
 import '../models/device_merge.dart';
 import '../models/position.dart';
 import '../models/event.dart';
+import '../models/notification_rule.dart';
 import '../models/trip.dart';
 import '../models/stop.dart';
 import '../models/summary.dart';
@@ -116,6 +117,83 @@ class ApiService {
               event.type != 'deviceOnline' &&
               event.type != 'deviceOffline')
         .toList();
+  }
+
+  /// Notifications configured for the current user. Throws on failure so
+  /// callers can tell an error apart from "nothing configured".
+  Future<List<NotificationRule>> fetchNotificationRules() async {
+    final data = await _getJsonList('/api/notifications');
+    return data
+        .map((json) => NotificationRule.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Events of the given types for many devices, newest first. Device ids are
+  /// sent in batches to keep URLs short. Throws on failure.
+  Future<List<Event>> fetchEventsForDevices({
+    required List<int> deviceIds,
+    required Set<String> types,
+    required Set<String> alarms,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    if (deviceIds.isEmpty || types.isEmpty) return [];
+    const batchSize = 100;
+    final filter = [
+      ...types.map((t) => 'type=${Uri.encodeQueryComponent(t)}'),
+      ...alarms.map((a) => 'alarm=${Uri.encodeQueryComponent(a)}'),
+      'from=${from.toUtc().toIso8601String()}',
+      'to=${to.toUtc().toIso8601String()}',
+    ].join('&');
+    final batches = <Future<List<dynamic>>>[];
+    for (var i = 0; i < deviceIds.length; i += batchSize) {
+      final ids = deviceIds
+          .skip(i)
+          .take(batchSize)
+          .map((id) => 'deviceId=$id')
+          .join('&');
+      batches.add(_getJsonList('/api/reports/events?$ids&$filter'));
+    }
+    final events = (await Future.wait(batches))
+        .expand((list) => list)
+        .map((json) => Event.fromJson(json as Map<String, dynamic>))
+        .toList();
+    events.sort((a, b) => b.eventTime.compareTo(a.eventTime));
+    return events;
+  }
+
+  Future<Event?> fetchEvent(int eventId) async {
+    try {
+      final uri = Uri.parse('${AuthService.baseUrl}/api/events/$eventId');
+      final headers = await _getAuthHeaders({'accept': 'application/json'});
+      final resp = await http.get(uri, headers: headers);
+      if (resp.statusCode != 200) {
+        dev.log('Failed to fetch event $eventId: ${resp.statusCode}', name: 'API');
+        return null;
+      }
+      return Event.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    } catch (e) {
+      dev.log('Error fetching event $eventId', name: 'API', error: e);
+      return null;
+    }
+  }
+
+  Future<Position?> fetchPosition(int positionId) async {
+    final positions = await _fetchList(
+      endpoint: '/api/positions?id=$positionId',
+      fromJson: Position.fromJson,
+    );
+    return positions.isEmpty ? null : positions.first;
+  }
+
+  Future<List<dynamic>> _getJsonList(String endpoint) async {
+    final uri = Uri.parse('${AuthService.baseUrl}$endpoint');
+    final headers = await _getAuthHeaders({'accept': 'application/json'});
+    final resp = await http.get(uri, headers: headers);
+    if (resp.statusCode != 200) {
+      throw ApiException(endpoint, resp.statusCode);
+    }
+    return jsonDecode(resp.body) as List<dynamic>;
   }
 
   Future<List<Position>> fetchDevicePositions({
@@ -332,4 +410,14 @@ class ApiService {
       return false;
     }
   }
+}
+
+class ApiException implements Exception {
+  final String endpoint;
+  final int statusCode;
+
+  ApiException(this.endpoint, this.statusCode);
+
+  @override
+  String toString() => 'ApiException($endpoint: HTTP $statusCode)';
 }

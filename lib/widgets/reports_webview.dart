@@ -48,7 +48,7 @@ class _ReportsWebViewState extends State<ReportsWebView> {
       final cookieManager = CookieManager.instance();
       for (final c in cookies) {
         await cookieManager.setCookie(
-          url: WebUri(traccarBaseUrl),
+          url: WebUri(reportsBaseUrl),
           name: c.name,
           value: c.value,
           path: c.path ?? '/',
@@ -68,7 +68,7 @@ class _ReportsWebViewState extends State<ReportsWebView> {
     if (!mounted) return;
     setState(() {
       _userAgent = '$defaultUa ${packageInfo.packageName}';
-      _initialUri = WebUri('$traccarBaseUrl/reports');
+      _initialUri = WebUri('$reportsBaseUrl/reports');
     });
   }
 
@@ -76,7 +76,7 @@ class _ReportsWebViewState extends State<ReportsWebView> {
     final client = io.HttpClient();
     try {
       final uri = Uri.parse(
-        '$traccarBaseUrl/api/session?token=${Uri.encodeComponent(token)}',
+        '$reportsBaseUrl/api/session?token=${Uri.encodeComponent(token)}',
       );
       final request = await client.getUrl(uri);
       final response = await request.close();

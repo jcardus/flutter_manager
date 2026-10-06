@@ -6,6 +6,7 @@ import 'package:manager/l10n/app_localizations.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/notifications_controller.dart';
 
 class ProfileView extends StatelessWidget {
   final int deviceCount;
@@ -251,8 +252,9 @@ class ProfileView extends StatelessWidget {
         : DateFormat('dd/MM HH:mm:ss').format(dt);
   }
 
-  void _showFcmToken(BuildContext context) {
-    final token = NotificationService().fcmToken;
+  Future<void> _showFcmToken(BuildContext context) async {
+    final token = await NotificationService().ensureToken();
+    if (!context.mounted) return;
 
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -330,6 +332,9 @@ class ProfileView extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      // Must run while the session is still valid.
+      await NotificationService().unregisterTokenFromBackend();
+      NotificationsController.instance.reset();
       await authService.logout();
       if (context.mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
