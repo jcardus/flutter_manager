@@ -53,6 +53,8 @@ class App extends StatelessWidget {
         Locale('en'),
         Locale('pt'),
         Locale('fr'),
+        Locale('es'),
+        Locale('es', 'MX'),
       ],
       home: const AuthGate(),
     );
