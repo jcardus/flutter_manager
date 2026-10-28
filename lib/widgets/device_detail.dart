@@ -16,6 +16,7 @@ import '../l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/event.dart';
 import '../models/position.dart';
+import '../utils/device_status.dart';
 import '../utils/device_colors.dart';
 import '../utils/event_display.dart';
 import '../services/api_service.dart';
@@ -398,8 +399,7 @@ class DeviceDetail extends StatelessWidget {
                                           Icon(Icons.circle, size: 10, color: statusColor),
                                           const SizedBox(width: 6),
                                           Text(
-                                            device.status?.toUpperCase() ??
-                                                l10n.statusUnknown,
+                                            deviceStatusLabel(l10n, device.status),
                                             style: textTheme.bodyMedium?.copyWith(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w600,

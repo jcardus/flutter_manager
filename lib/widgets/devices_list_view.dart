@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import '../models/device.dart';
 import '../models/position.dart';
+import '../utils/device_status.dart';
 import '../utils/device_colors.dart';
 import '../utils/device_icons.dart';
 import 'position_detail.dart';
@@ -367,7 +368,7 @@ class _DeviceListItem extends StatelessWidget {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              device.status?.toUpperCase() ?? 'UNKNOWN',
+                              deviceStatusLabel(AppLocalizations.of(context)!, device.status),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: DeviceColors.getStatusColor(device, context),
