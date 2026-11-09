@@ -17,6 +17,10 @@ String get traccarBaseUrl {
 String get reportsBaseUrl {
   const envValue = String.fromEnvironment('REPORTS_BASE_URL');
   if (envValue.isNotEmpty) { return envValue; }
+  // Session tokens are only valid on the issuing Traccar instance. When a brand
+  // overrides TRACCAR_BASE_URL, reuse that host for reports unless explicitly set.
+  const traccarEnv = String.fromEnvironment('TRACCAR_BASE_URL');
+  if (traccarEnv.isNotEmpty) { return traccarEnv; }
   return 'https://clientes.frotaweb.com';
 }
 
