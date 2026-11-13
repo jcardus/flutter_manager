@@ -1,5 +1,6 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+# Match IPHONEOS_DEPLOYMENT_TARGET in the Xcode project so Flutter does not
+# rewrite the Podfile during CI (which forces a full CocoaPods CDN resolve).
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
