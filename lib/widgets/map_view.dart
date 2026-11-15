@@ -210,9 +210,11 @@ class _MapViewState extends State<MapView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _fitMapToDevices());
     }
 
-    // Center on newly selected device
+    // Center on newly selected device or when returning to map
     if (widget.selectedDevice != null &&
-        widget.selectedDevice != oldWidget.selectedDevice) {
+        (widget.selectedDevice != oldWidget.selectedDevice ||
+         (widget.selectedIndex == 0 && oldWidget.selectedIndex != 0) ||
+         (widget.eventPositionToCenter == null && oldWidget.eventPositionToCenter != null))) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _centerOnDevice(widget.selectedDevice!),
       );
@@ -345,7 +347,8 @@ class _MapViewState extends State<MapView> {
       final colorName = DeviceColors.getDeviceColorName(device, position);
       final icon = VehicleIcon.forDevice(device.category, colorName, position.course);
       final key = '${icon.shape}_${(icon.angle * 10).round()}_${icon.cabHex}_${icon.bodyHex}';
-      final bitmap = _vehicleBitmaps[key] ?? BitmapDescriptor.defaultMarker;
+      final bitmap = _vehicleBitmaps[key];
+      if (bitmap == null) continue;
 
       markers.add(
         Marker(
@@ -358,7 +361,10 @@ class _MapViewState extends State<MapView> {
                 ? '${position.speed.toStringAsFixed(0)} km/h'
                 : 'Parado',
           ),
-          onTap: () => widget.onDeviceSelected?.call(deviceId),
+          onTap: () {
+            _centerOnDevice(deviceId);
+            widget.onDeviceSelected?.call(deviceId);
+          },
         ),
       );
     }
@@ -624,7 +630,13 @@ class _MapViewState extends State<MapView> {
           polygons: allPolygons,
           onMapCreated: (controller) {
             _mapController = controller;
-            if (widget.positions.isNotEmpty && !_initialFitDone) {
+            if (widget.selectedDevice != null) {
+              _initialFitDone = true;
+              Future.delayed(
+                const Duration(milliseconds: 300),
+                () => _centerOnDevice(widget.selectedDevice!),
+              );
+            } else if (widget.positions.isNotEmpty && !_initialFitDone) {
               _initialFitDone = true;
               Future.delayed(const Duration(milliseconds: 300), _fitMapToDevices);
             }
