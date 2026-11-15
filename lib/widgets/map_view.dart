@@ -75,6 +75,11 @@ class _MapViewState extends State<MapView> {
   void initState() {
     super.initState();
     _loadBitmaps();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _updateEventMarkers();
   }
 
