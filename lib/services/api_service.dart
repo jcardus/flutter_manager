@@ -59,7 +59,7 @@ class ApiService {
   }
 
   Future<List<DeviceMerge>> fetchDeviceMerges() async {
-    final uri = Uri.parse('${resellerApiUrl}/device-merges');
+    final uri = Uri.parse('$resellerApiUrl/device-merges');
     try {
       final headers = await _getAuthHeaders({'accept': 'application/json'});
       final resp = await http.get(uri, headers: headers);

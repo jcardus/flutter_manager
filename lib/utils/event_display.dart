@@ -55,10 +55,17 @@ class EventDisplay {
   }
 
   static String label(AppLocalizations l10n, Event event) {
-    switch (event.type) {
+    if (event.type == 'alarm') {
+      final alarm = event.attributes?['alarm'] as String?;
+      return alarm != null ? alarmLabel(l10n, alarm) : l10n.eventAlarm;
+    }
+    return typeLabel(l10n, event.type);
+  }
+
+  static String typeLabel(AppLocalizations l10n, String type) {
+    switch (type) {
       case 'alarm':
-        final alarm = event.attributes?['alarm'] as String?;
-        return alarm != null ? alarmLabel(l10n, alarm) : l10n.eventAlarm;
+        return l10n.eventAlarm;
       case 'ignitionOn':
         return l10n.eventIgnitionOn;
       case 'ignitionOff':
@@ -98,7 +105,7 @@ class EventDisplay {
       case 'queuedCommandSent':
         return l10n.eventQueuedCommandSent;
       default:
-        return _humanize(event.type);
+        return _humanize(type);
     }
   }
 
