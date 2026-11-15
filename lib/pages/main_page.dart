@@ -453,6 +453,7 @@ class _MainPageState extends State<MainPage> {
             activeCount: _positions.length,
             wsConnected: _wsConnected,
             wsLastMessage: _socketService.lastMessageTime,
+            onOpenNotifications: () => _selectTab(_notificationsTab),
           ),
       ],
     );

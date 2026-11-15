@@ -235,5 +235,9 @@
   "markAllRead": "Tout marquer comme lu",
   "currentPosition": "Position actuelle",
   "routeViewTrips": "Trajets",
-  "routeViewFullDay": "Journée complète"
+  "routeViewFullDay": "Journée complète",
+  "activeNotifications": "Notifications Actives",
+  "allAlarms": "Toutes les alarmes",
+  "showMore": "Voir plus",
+  "showLess": "Voir moins"
 }
