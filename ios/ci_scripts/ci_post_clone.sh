@@ -13,5 +13,18 @@ export PATH="$PATH:$HOME/flutter/bin"
 # Install Flutter artifacts for iOS (--ios), or macOS (--macos) platforms.
 flutter precache --ios
 flutter config --no-enable-swift-package-manager
-./build.sh "ios --config-only --no-codesign"
+
+# CocoaPods trunk CDN occasionally times out on Xcode Cloud while resolving
+# Firebase. Retry the config-only build so a single blip doesn't fail CI.
+attempt=1
+max_attempts=5
+until ./build.sh "ios --config-only --no-codesign"; do
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "ios config build failed after $max_attempts attempts" >&2
+    exit 1
+  fi
+  echo "ios config build failed (attempt $attempt/$max_attempts); retrying..."
+  attempt=$((attempt + 1))
+  sleep $((attempt * 10))
+done
 exit 0

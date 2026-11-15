@@ -539,5 +539,13 @@
   "routeViewTrips": "Trips",
   "@routeViewTrips": { "description": "Route view mode: list of trips and stops" },
   "routeViewFullDay": "Full day",
-  "@routeViewFullDay": { "description": "Route view mode: the whole day's route with one slider" }
+  "@routeViewFullDay": { "description": "Route view mode: the whole day's route with one slider" },
+  "activeNotifications": "Active Notifications",
+  "@activeNotifications": { "description": "Title of the active notifications section in profile" },
+  "allAlarms": "All alarms",
+  "@allAlarms": { "description": "Label shown when an alarm rule applies to all alarms" },
+  "showMore": "Show more",
+  "@showMore": { "description": "Button to show more items" },
+  "showLess": "Show less",
+  "@showLess": { "description": "Button to show fewer items" }
 }

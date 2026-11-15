@@ -4,15 +4,18 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:manager/l10n/app_localizations.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../models/notification_rule.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/notifications_controller.dart';
+import '../utils/event_display.dart';
 
-class ProfileView extends StatelessWidget {
+class ProfileView extends StatefulWidget {
   final int deviceCount;
   final int activeCount;
   final bool wsConnected;
   final DateTime? wsLastMessage;
+  final VoidCallback? onOpenNotifications;
 
   const ProfileView({
     super.key,
@@ -20,7 +23,24 @@ class ProfileView extends StatelessWidget {
     required this.activeCount,
     required this.wsConnected,
     this.wsLastMessage,
+    this.onOpenNotifications,
   });
+
+  @override
+  State<ProfileView> createState() => _ProfileViewState();
+}
+
+class _ProfileViewState extends State<ProfileView> {
+  final _controller = NotificationsController.instance;
+  bool _showAllNotifications = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_controller.rulesLoaded) {
+      _controller.loadRules().ignore();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,13 +116,13 @@ class ProfileView extends StatelessWidget {
                             context: context,
                             icon: Icons.devices,
                             label: l10n.devices,
-                            value: '$deviceCount',
+                            value: '${widget.deviceCount}',
                           ),
                           _buildStatItem(
                             context: context,
                             icon: Icons.location_on,
                             label: l10n.active,
-                            value: '$activeCount',
+                            value: '${widget.activeCount}',
                           ),
                         ],
                       ),
@@ -110,6 +130,9 @@ class ProfileView extends StatelessWidget {
                   ),
                 ),
               ),
+
+              // Active Notifications Card
+              _buildActiveNotificationsCard(context, l10n),
 
               // WebSocket Status Card
               if (!kIsWeb)
@@ -131,17 +154,17 @@ class ProfileView extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              wsConnected ? Icons.wifi : Icons.wifi_off,
+                              widget.wsConnected ? Icons.wifi : Icons.wifi_off,
                               size: 20,
-                              color: wsConnected
+                              color: widget.wsConnected
                                   ? Theme.of(context).colorScheme.tertiary
                                   : Theme.of(context).colorScheme.error,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              wsConnected ? 'Connected' : 'Disconnected',
+                              widget.wsConnected ? 'Connected' : 'Disconnected',
                               style: TextStyle(
-                                color: wsConnected
+                                color: widget.wsConnected
                                     ? Theme.of(context).colorScheme.tertiary
                                     : Theme.of(context).colorScheme.error,
                                 fontWeight: FontWeight.w500,
@@ -149,10 +172,10 @@ class ProfileView extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (wsLastMessage != null) ...[
+                        if (widget.wsLastMessage != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Last message: ${_formatTime(wsLastMessage!)}',
+                            'Last message: ${_formatTime(widget.wsLastMessage!)}',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -367,5 +390,290 @@ class ProfileView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Widget _buildActiveNotificationsCard(BuildContext context, AppLocalizations l10n) {
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final rules = _controller.rules;
+        final rulesLoaded = _controller.rulesLoaded;
+        final loading = _controller.loading && !rulesLoaded;
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_active,
+                      size: 20,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.activeNotifications,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (rulesLoaded && rules.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${rules.length}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (widget.onOpenNotifications != null) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: l10n.notifications,
+                        onPressed: widget.onOpenNotifications,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (loading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  )
+                else if (rulesLoaded && rules.isEmpty)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.notifications_off_outlined,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.notificationsNotConfigured,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  ..._buildNotificationRuleItems(context, l10n, rules),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildNotificationRuleItems(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<NotificationRule> rules,
+  ) {
+    const limit = 4;
+    final hasOverflow = rules.length > limit;
+    final displayedRules = (_showAllNotifications || !hasOverflow)
+        ? rules
+        : rules.take(limit).toList();
+
+    final items = <Widget>[];
+    for (var i = 0; i < displayedRules.length; i++) {
+      final rule = displayedRules[i];
+      if (i > 0) {
+        items.add(const Divider(height: 16));
+      }
+      items.add(_buildRuleTile(context, l10n, rule));
+    }
+
+    if (hasOverflow) {
+      items.add(
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _showAllNotifications = !_showAllNotifications;
+                });
+              },
+              icon: Icon(
+                _showAllNotifications ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+              ),
+              label: Text(
+                _showAllNotifications
+                    ? l10n.showLess
+                    : '${l10n.showMore} (${rules.length - limit})',
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  Widget _buildRuleTile(
+    BuildContext context,
+    AppLocalizations l10n,
+    NotificationRule rule,
+  ) {
+    final title = (rule.description != null && rule.description!.trim().isNotEmpty)
+        ? rule.description!
+        : EventDisplay.typeLabel(l10n, rule.type);
+    final iconColor = EventDisplay.color(context, rule.type);
+    final icon = EventDisplay.icon(rule.type);
+    final channels = _parseChannels(rule.notificators);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 20, color: iconColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              if (rule.type == 'alarm') ...[
+                const SizedBox(height: 4),
+                if (rule.alarms.isNotEmpty)
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: rule.alarms.map((alarm) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          EventDisplay.alarmLabel(l10n, alarm),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            fontSize: 11,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  )
+                else
+                  Text(
+                    l10n.allAlarms,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
+              if (channels.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: channels.map((channel) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                          width: 0.8,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        channel,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontSize: 10,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<String> _parseChannels(String? notificators) {
+    if (notificators == null || notificators.trim().isEmpty) return const [];
+    return notificators
+        .split(',')
+        .map((n) => n.trim())
+        .where((n) => n.isNotEmpty)
+        .map((n) {
+          switch (n.toLowerCase()) {
+            case 'firebase':
+              return 'Push';
+            case 'web':
+              return 'Web';
+            case 'mail':
+              return 'Email';
+            case 'sms':
+              return 'SMS';
+            case 'telegram':
+              return 'Telegram';
+            case 'traccar':
+              return 'Traccar';
+            default:
+              return n.length > 1
+                  ? n[0].toUpperCase() + n.substring(1)
+                  : n.toUpperCase();
+          }
+        })
+        .toList();
   }
 }

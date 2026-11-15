@@ -92,10 +92,14 @@ class _MainPageState extends State<MainPage> {
         .where((t) => t.isNotEmpty)
         .join('\n');
     if (text.isEmpty) return;
+    // Clear the floating nav (SafeArea + 16 padding + 56 bar) so the
+    // snackbar doesn't cover device panel actions underneath it.
+    final navClearance = MediaQuery.paddingOf(context).bottom + 16 + 56 + 8;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(text),
         behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.fromLTRB(15, 5, 15, navClearance),
         action: SnackBarAction(
           label: l10n.view,
           onPressed: () => _openAlert(PushTap.fromMessage(message).eventId),
@@ -449,6 +453,7 @@ class _MainPageState extends State<MainPage> {
             activeCount: _positions.length,
             wsConnected: _wsConnected,
             wsLastMessage: _socketService.lastMessageTime,
+            onOpenNotifications: () => _selectTab(_notificationsTab),
           ),
       ],
     );

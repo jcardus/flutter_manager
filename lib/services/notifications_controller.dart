@@ -44,11 +44,13 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
   Timer? _refreshDebounce;
 
   List<Event> get events => _events;
+  List<NotificationRule> get rules => List.unmodifiable(_rules);
   DateTime? get loadedFrom => _loadedFrom;
   /// Events up to this id are read. Null until the first load.
   int? get lastSeenId => _lastSeenId;
   bool get loading => _loading;
   bool get loadingOlder => _loadingOlder;
+  bool get rulesLoaded => _rulesLoaded;
   Object? get error => _error;
 
   /// True once rules are known and the user has none that can fire.
@@ -175,15 +177,48 @@ class NotificationsController extends ChangeNotifier with WidgetsBindingObserver
     await saving;
   }
 
+  Future<List<NotificationRule>>? _pendingRulesLoad;
+
+  /// Loads notification rules configured for the user if not already loaded.
+  Future<List<NotificationRule>> loadRules({bool force = false}) async {
+    if (_rulesLoaded && !force) return _rules;
+    if (_pendingRulesLoad != null) return _pendingRulesLoad!;
+    final future = _loadRulesInternal();
+    _pendingRulesLoad = future;
+    try {
+      return await future;
+    } finally {
+      _pendingRulesLoad = null;
+    }
+  }
+
+  Future<List<NotificationRule>> _loadRulesInternal() async {
+    try {
+      final rules = await _api.fetchNotificationRules();
+      _rules = rules;
+      _rulesLoaded = true;
+      notifyListeners();
+      return _rules;
+    } catch (e) {
+      dev.log('Failed to load notification rules', name: 'Notifications', error: e);
+      rethrow;
+    }
+  }
+
   @visibleForTesting
   void debugSetState({
-    required List<Event> events,
+    List<Event>? events,
     int? lastSeenId,
     Set<int>? readIds,
+    List<NotificationRule>? rules,
   }) {
-    _events = events;
+    if (events != null) _events = events;
     _lastSeenId = lastSeenId;
     if (readIds != null) _readIds = readIds;
+    if (rules != null) {
+      _rules = rules;
+      _rulesLoaded = true;
+    }
     notifyListeners();
   }
 

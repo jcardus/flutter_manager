@@ -34,6 +34,36 @@ void main() {
       final rule = NotificationRule.fromJson({'type': 'ignitionOn'});
       expect(rule.alarms, isEmpty);
     });
+
+    test('parses optional description, notificators, calendarId, and always', () {
+      final rule = NotificationRule.fromJson({
+        'id': 10,
+        'type': 'deviceOverspeed',
+        'description': 'Speed Warning',
+        'notificators': 'firebase,web',
+        'calendarId': 2,
+        'always': true,
+      });
+      expect(rule.id, 10);
+      expect(rule.type, 'deviceOverspeed');
+      expect(rule.description, 'Speed Warning');
+      expect(rule.notificators, 'firebase,web');
+      expect(rule.calendarId, 2);
+      expect(rule.always, isTrue);
+    });
+  });
+
+  group('EventDisplay.typeLabel', () {
+    final en = AppLocalizationsEn();
+    final pt = AppLocalizationsPt();
+
+    test('translates event types directly', () {
+      expect(EventDisplay.typeLabel(en, 'ignitionOn'), 'Ignition On');
+      expect(EventDisplay.typeLabel(pt, 'ignitionOn'), 'Ignição Ligada');
+      expect(EventDisplay.typeLabel(en, 'alarm'), 'Alarm');
+      expect(EventDisplay.typeLabel(pt, 'alarm'), 'Alarme');
+      expect(EventDisplay.typeLabel(en, 'customEvent'), 'Custom event');
+    });
   });
 
   group('EventDisplay.label', () {
