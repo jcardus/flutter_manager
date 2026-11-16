@@ -2,7 +2,7 @@ name: manager
 description: "Track Fleet"
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 3.19.22+1
+version: 3.19.23+1
 
 environment:
   sdk: ^3.9.2
@@ -39,6 +39,10 @@ dependencies:
   csv: ^8.0.0
   pdf: ^3.12.0
   path_provider: ^2.1.5
+  flutter_map_cache: ^2.1.2
+  http_cache_file_store: ^2.0.2
+  dio: ^5.11.1
+  dio_cache_interceptor: ^4.0.7
 
 dev_dependencies:
   flutter_test:
