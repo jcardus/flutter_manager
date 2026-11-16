@@ -10,6 +10,7 @@ import 'pages/login_page.dart';
 import 'pages/main_page.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'map/tile_loading.dart';
 import 'theme.dart';
 
 Future<void> main() async {
@@ -26,7 +27,8 @@ Future<void> main() async {
     return true;
   };
 
-  // Initialize notifications in the background — don't block app startup
+  // Initialize notifications and tile disk cache
+  await TileLoading.init();
   if (!kIsWeb) {
     NotificationService().initialize();
   }

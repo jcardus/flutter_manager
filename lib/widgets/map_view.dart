@@ -835,7 +835,7 @@ class _MapViewState extends State<MapView> with TickerProviderStateMixin {
             TileLayer(
               urlTemplate: style.urlTemplateFor(context),
               subdomains: style.subdomains,
-              userAgentPackageName: 'com.frotaweb.manager',
+              userAgentPackageName: 'com.fleetmap.fleetmanager',
               tileProvider: _tileProvider,
               errorTileCallback: TileLoading.onTileError,
               // Failed tiles that scroll away are reloaded when they return.
