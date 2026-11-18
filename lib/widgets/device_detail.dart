@@ -335,10 +335,7 @@ class DeviceDetail extends StatelessWidget {
                             child: CameraFeed(url: cameraUrls[0], label: device.name),
                           )
                         else
-                          StreetView(
-                            position: pos!,
-                            width: constraints.maxWidth,
-                          ),
+                          StreetView(position: pos!),
                         // Title overlay with gradient background
                         Positioned(
                           top: 0,
