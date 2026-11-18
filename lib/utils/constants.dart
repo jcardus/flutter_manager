@@ -30,18 +30,6 @@ String get resellerApiUrl {
   return 'https://ncaqkjpxwmufscronbpk.supabase.co/functions/v1/reseller-api';
 }
 
-String get googleMapsSigningSecret {
-  const envValue = String.fromEnvironment('GOOGLE_MAPS_SIGNING_SECRET');
-  if (envValue.isNotEmpty) { return envValue; }
-  return '';
-}
-
-String get googleMapsClientId {
-  const envValue = String.fromEnvironment('GOOGLE_MAPS_CLIENT_ID');
-  if (envValue.isNotEmpty) { return envValue; }
-  return '';
-}
-
 const double selectedZoomLevel=14;
 const int maxGeofences=100;
 
@@ -51,8 +39,8 @@ String get appStoreCountry {
   return 'br';
 }
 
-String get mapillaryToken {
-  const envValue = String.fromEnvironment('MAPILLARY_TOKEN');
+String get mapillaryBaseUrl {
+  const envValue = String.fromEnvironment('MAPILLARY_BASE_URL');
   if (envValue.isNotEmpty) { return envValue; }
-  return '';
+  return 'https://rntba7aqifqx3iywrenb7pq6km0liwsr.lambda-url.us-east-1.on.aws/pinmeapi';
 }

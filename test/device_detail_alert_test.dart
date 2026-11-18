@@ -26,7 +26,7 @@ Future<void> _pump(WidgetTester tester, Widget child) async {
     supportedLocales: AppLocalizations.supportedLocales,
     home: Scaffold(body: SingleChildScrollView(child: child)),
   ));
-  // Test HTTP returns 400, so the Street View card falls back to the address.
+  // Image.network fails in tests, so the Street View card falls back to the address.
   await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
   await tester.pump();
   await tester.pump();

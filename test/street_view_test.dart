@@ -18,12 +18,12 @@ Position _position({String? address}) => Position(
     );
 
 Future<void> _pumpStreetView(WidgetTester tester, Position position) async {
-  // Test HTTP requests return 400, so there's no street-level photo.
+  // Image.network fails in tests, so the card falls back to address/coords.
   await tester.pumpWidget(MaterialApp(
-    home: Scaffold(body: StreetView(position: position, width: 400)),
+    home: Scaffold(body: StreetView(position: position)),
   ));
-  await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
   await tester.pump();
+  await tester.pump(const Duration(seconds: 1));
 }
 
 void main() {
